@@ -1,0 +1,76 @@
+\documentclass{article}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<include=FALSE>>=
+library(knitr)
+opts_chunk$set(
+concordance=TRUE
+)
+@
+
+
+<<echo=T>>=
+
+library(RERconverge)
+
+@
+
+Read in some the tree data. This function puts trees with different number of present sepcies into a unified format and therefor takes some time.
+<<echo=TRUE, fig=T>>=
+treefile=system.file("extdata", "mammal_62_aa_sub.tre", package = "RERconverge")
+show(treefile)
+mamTrees=readTrees(treefile,max.read = 200)
+
+@
+This generates the mean variance plot for log transformed measurements and the corresponding weights fit. The plot can also be used to define a reasonable cutoff for the residual calculation based on the region of low values where the variance starts to decrease. Here around exp(-8). We set the cutoff to be exp(-7) (approximately 0.001) to be slightly more conservative.
+
+Next we calculate the relative evolutionary rate (RER).
+
+This is the basic method that performs a simple regression on the original CODEML output values. This takes some time as seperate the expected rates are calculated for every subset of species that is represented by a single tree.
+<<echo=T>>=
+mamRER=getAllResiduals(mamTrees,transform = "none", cutoff=0.001)
+@
+
+
+We have found that scaling each branch generally improves results so we can generate a scaled version of the same RER data.
+<<echo=T>>=
+mamRERs=scale(mamRER)
+@
+
+This method performs a weighted regression in log space and has been found to perform better in benchmarks
+<<echo=T>>=
+mamRERlogW=getAllResiduals(mamTrees, transform = "log",weighted = T, cutoff=0.001)
+@
+
+These results  can also be scaled, almost always improves results in our exprience
+
+<<echo=T>>=
+mamRERlogWs=scale(mamRERlogW)
+@
+
+%#read the binary tree
+%marineb=read.tree("../data/MarineTreeBin.txt")
+%plot(marineb)
+
+%#we can also do this from the foreground set but only the extant branches will be set to 1
+%foreground=c("triMan1", "turTru2", "odoRosiDi", "lepWed1")
+%phenvMarine2=foreground2Paths(foreground, mamTrees)
+
+
+%#convert it to a paths vector
+%  phenvMarine=tree2Paths(marineb, mamTrees)
+
+
+
+%corMarine=getAllCor(mamRER, phenvMarine)
+%hist(corMarine$P)
+
+%corMarineLogW=getAllCor(mamRERlogW, phenvMarine)
+%hist(corMarineLogW$P)
+
+%corMarineLogWs=getAllCor(mamRERlogWs, phenvMarine)
+%hist(corMarineLogWs$P)
+
+\end{document}
