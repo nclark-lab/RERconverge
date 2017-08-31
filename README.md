@@ -52,7 +52,7 @@ For more information on running RERConverge, please see the full documentation *
 
 * **Maria Chikina** - [mchikina](https://github.com/mchikina)
 * **Nathan Clark** - [nclark-lab](https://github.com/nclark-lab)
-* **Amanda Kowalczyk**
+* **Amanda Kowalczyk** - [Amylith](https://github.com/Amylith)
 * **Weiguang (Wayne) Mao** - [wgmao](https://github.com/wgmao)
 * **Wynn Meyer** - [sorrywm](https://github.com/sorrywm)
 * **Raghavendran Partha** - [raghavendranpartha](https://github.com/raghavendranpartha)
