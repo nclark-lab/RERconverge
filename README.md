@@ -16,7 +16,7 @@ To install the required package dependencies, run the following:
 install.packages(c("ape","phytools","compiler","plotrix"))
 ```
 
-To install the RERconverge package run the following:
+Then install the RERconverge package with the following:
 ```
 library(devtools)
 install_github("nclark-lab/RERconverge")
@@ -51,9 +51,9 @@ For more information on running RERConverge, please see the full documentation *
 ## Authors
 
 * **Maria Chikina** - [mchikina](https://github.com/mchikina)
-* **Nathan Clark**
+* **Nathan Clark** - [nclark-lab](https://github.com/nclark-lab)
 * **Amanda Kowalczyk**
-* **Weiguang (Wayne) Mao**
+* **Weiguang (Wayne) Mao** - [wgmao](https://github.com/wgmao)
 * **Wynn Meyer** - [sorrywm](https://github.com/sorrywm)
 * **Raghavendran Partha** - [raghavendranpartha](https://github.com/raghavendranpartha)
 
