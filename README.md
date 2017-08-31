@@ -74,7 +74,7 @@ Partha R, Chauhan B, Ferreira Z, Robinson J, Lathrop K, Nischal K, et al. Subter
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details
 
 ## Acknowledgments
 
