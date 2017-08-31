@@ -16,7 +16,13 @@ To install the required package dependencies, run the following:
 install.packages(c("ape","phytools","compiler","plotrix"))
 ```
 
-You will also need:
+To install the RERconverge package run the following:
+```
+library(devtools)
+install_github("nclark-lab/RERconverge")
+```
+
+To run an analysis you will need:
 1) a trees file: a tab-delimited files with gene names and Newick format trees for each gene.
 Tree topologies must be the same for all genes, and at least one tree must contain all species in the dataset.
 We provide trees files for several clades here. ***(link to example datasets)***
