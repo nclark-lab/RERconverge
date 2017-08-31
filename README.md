@@ -8,7 +8,15 @@ Here are some basic instructions for how to run RERConverge on your own data.
 
 ### Prerequisites
 
-To run RERConverge, you will first need to have [R](https://cran.r-project.org/) installed. Package dependencies include *ape*, *phytools*, *compiler*, and *plotrix*. You will also need:
+To run RERConverge, you will first need to have [R](https://cran.r-project.org/) installed. Package dependencies include *ape*, *phytools*, *compiler*, and *plotrix*.
+
+To install the required package dependencies, run the following:
+
+```
+install.packages(c("ape","phytools","compiler","plotrix"))
+```
+
+You will also need:
 1) a trees file: a tab-delimited files with gene names and Newick format trees for each gene.
 Tree topologies must be the same for all genes, and at least one tree must contain all species in the dataset.
 We provide trees files for several clades here. ***(link to example datasets)***
@@ -22,11 +30,6 @@ For a *binary trait analysis*, this can either be in the form of:
 For a *continuous trait analysis*, this should be:
 -a named vector (in R) of quantitative phenotype values, where the names represent the species to which the phenotypes correspond.
 
-To install the required package dependencies, run the following:
-
-```
-install.packages(c("ape","phytools","compiler","plotrix"))
-```
 
 ### Output
 
