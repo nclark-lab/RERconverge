@@ -1,7 +1,7 @@
 \documentclass{article}
 
 \begin{document}
-\SweaveOpts{concordance=TRUE}
+
 
 <<include=FALSE>>=
 library(knitr)
@@ -17,8 +17,10 @@ library(RERconverge)
 
 @
 
+\section{Marine Convergence}
+
 Read in some the tree data. This function puts trees with different number of present sepcies into a unified format and therefor takes some time.
-<<echo=TRUE, fig=T>>=
+<<echo=TRUE>>=
 treefile=system.file("extdata", "mammal_62_aa_sub.tre", package = "RERconverge")
 show(treefile)
 mamTrees=readTrees(treefile,max.read = 200)

@@ -1,0 +1,7 @@
+# local history
+###############
+.local_bash_history.txt
+*.tex
+*log
+*synctex.gz
+.Rproj.user

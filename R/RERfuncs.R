@@ -286,6 +286,7 @@ getChildren=function(tree, nodeN){
 #' @weights perform weighted correlation, experimental. You can use the weights computed by \code{treesObj<-\link{readTrees}} by setting \code{weights=treeObj$weights}
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
+#' @export
 getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=NULL,weights=NULL){
 if (method=="auto"){
   lu=length(unique(charP))
@@ -613,6 +614,7 @@ makeBinaryPaths=function(input, treesObj){
 #' @param se.filter Will remove branch values that are not at least \code{se.filter*edge.se} away from 0 (where edge.se is the standard error in the estimate for the edge value). Only implemented for \code{metric="diff"}. Set \code{se.filter} to a positive value to filter. By default no filtering is done.
 #' @param return.var Returns the variance instead of the mean. Useful for seeing which estimates have high confidence.
 #' @return A phylo tree with branch values computed from the input tip.values
+#' @export
 edgeVars=function(mastertree,tip.vals, metric="diff", se.filter=-1, return.var=F){
  message(paste0("using metric ", metric, ", with filtering constant ", se.filter))
   metric=match.arg(metric, c("diff", "mean", "last"))
@@ -664,6 +666,7 @@ return(newtree)
 #' @param  tree a "phylo" tree
 #' @param  tip.names The tip names to keep in the tree
 #' @return  A new pruned tree
+#' @export
 pruneTree=function(tree, tip.names){
   keep=intersect(tree$tip.label, tip.names)
   torm=setdiff(tree$tip.label, keep)
