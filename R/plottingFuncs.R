@@ -1,4 +1,8 @@
 #comment everything out
+
+require(dplyr)
+require(ggplot2)
+
 if(F){
 multiplot = function(..., plotlist=NULL, file, cols=1, layout=NULL, widths=NULL, heights=NULL, flip=F) {
   require(grid)
@@ -261,4 +265,45 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=8, type="c", col=NULL){
   axis(1, at = xv, labels = lv)
 }
 
+}
+
+plotRers <- function(rermat, index, phenv, method = 's'){
+     e1 = rermat[index,][!is.na(rermat[index,])]     
+     colids = !is.na(rermat[index,])
+     phenvid = phenv[colids]          
+     e1plot <- e1
+     if(exists('speciesNames')){
+          names(e1plot) <- speciesNames[names(e1),]
+     }
+     fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)
+     if(is.numeric(index)){
+         gen = rownames(rermat)[index]  
+     }else{
+         gen = index
+     }
+     plottitle = paste0(gen, ': rho = ',round(fgdcor$Rho,4),', p = ',round(fgdcor$P,4))
+     print(plottitle)
+     names(e1plot)[is.na(names(e1plot))]=""
+     fgd = setdiff(names(e1plot)[phenvid == 1],"")
+     df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
+          mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))
+     ll=c(min(df$rer)*1.1, max(df$rer)+0.2)     
+     g  <- ggplot(df, aes(x = rer, y=factor(species), col=mole, label=species)) + scale_size_manual(values=c(3,3))+ geom_point(aes(size=mole))+
+          scale_color_manual(values = c("deepskyblue3", "brown1"))+
+          scale_x_continuous(limits=ll)+
+          #scale_x_continuous(expand = c(.1,.1))+
+          geom_text(hjust=1, size=5)+
+          ylab("Branches")+
+          xlab("relative rate")+
+          ggtitle(plottitle)+
+          geom_vline(xintercept=0, linetype="dotted")+
+          theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
+                panel.background = element_blank(),
+                axis.text=element_text(size=18,face='bold',colour = 'black'),
+                axis.title=element_text(size=24,face="bold"),
+                plot.title= element_text(size = 24, face = "bold"))+
+          theme(axis.line = element_line(colour = 'black',size = 1))+
+                theme(axis.line.y = element_blank())
+          
+     print(g)
 }
