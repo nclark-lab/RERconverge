@@ -367,6 +367,25 @@ if (method=="auto"){
   as.data.frame(corout)
 }
 
+simpleAUCmat=function(lab, value){
+  value=t(apply(rbind(value),1,rank))
+  posn=sum(lab>0)
+  negn=sum(lab<=0)
+  if(posn<2||negn<2){
+    auc=rep(NA, nrow(value))
+    pp=rep(NA, nrow(value))
+  }
+  else{
+    stat=apply(value[,lab>0, drop=F],1,sum)-posn*(posn+1)/2
+    
+    auc=stat/(posn*negn)
+    mu=posn*negn/2
+    sd=sqrt((posn*negn*(posn+negn+1))/12)
+    stattest=apply(cbind(stat, posn*negn-stat),1,max)
+    pp=(2*pnorm(stattest, mu, sd, lower.tail = F))
+  }
+  return(list(auc=auc, pp=pp))
+}
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
@@ -1572,27 +1591,6 @@ getAncestor=function(tree, nodeN){
   }
   im=which(tree$edge[,2]==nodeN)
   return(tree$edge[im,1])
-}
-
-
-simpleAUCmat=function(lab, value){
-  value=t(apply(rbind(value),1,rank))
-  posn=sum(lab>0)
-  negn=sum(lab<=0)
-  if(posn<2||negn<2){
-    auc=rep(NA, nrow(value))
-    pp=rep(NA, nrow(value))
-  }
-  else{
-    stat=apply(value[,lab>0, drop=F],1,sum)-posn*(posn+1)/2
-    
-    auc=stat/(posn*negn)
-    mu=posn*negn/2
-    sd=sqrt((posn*negn*(posn+negn+1))/12)
-    stattest=apply(cbind(stat, posn*negn-stat),1,max)
-    pp=(2*pnorm(stattest, mu, sd, lower.tail = F))
-  }
-  return(list(auc=auc, pp=pp))
 }
 
 

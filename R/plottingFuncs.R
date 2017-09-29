@@ -267,6 +267,13 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=8, type="c", col=NULL){
 
 }
 
+#' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
+#'  
+#' @param rermat. A residual matrix, output of the getAllResiduals() function
+#' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
+#' @param phenv. A numeric vector, with foreground species output of the getAllResiduals() function
+#' @return A plot of the RERs with foreground species labelled in red, and the rest in blue
+
 plotRers <- function(rermat, index, phenv, method = 's'){
      e1 = rermat[index,][!is.na(rermat[index,])]     
      colids = !is.na(rermat[index,])
@@ -285,8 +292,10 @@ plotRers <- function(rermat, index, phenv, method = 's'){
      print(plottitle)
      names(e1plot)[is.na(names(e1plot))]=""
      fgd = setdiff(names(e1plot)[phenvid == 1],"")
+     #df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
+     #     mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))
      df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
-          mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))
+          mutate(mole = as.factor(ifelse(phenvid > 0,2,1)))
      ll=c(min(df$rer)*1.1, max(df$rer)+0.2)     
      g  <- ggplot(df, aes(x = rer, y=factor(species), col=mole, label=species)) + scale_size_manual(values=c(3,3))+ geom_point(aes(size=mole))+
           scale_color_manual(values = c("deepskyblue3", "brown1"))+
