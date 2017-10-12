@@ -499,7 +499,6 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
 
 
 
-
 #' turns a named vector of characters into a paths vector to be used with \code{\link{getAllCor}}
 #' @param tip.vals the trait/phenotype/character value at the tip, \code{names(tip.vals)} should match some of the \code{mastertree$tip.label}, though a perfect match is not required
 #' @param  treesObj A treesObj created by \code{\link{readTrees}}
