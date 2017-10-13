@@ -230,7 +230,7 @@ plotContinuousChar=function(gene, treeObj, tip.vals, tip.vals.ref=NULL, rank=F, 
 
 }
 
-treePlot=function(tree, vals=NULL,rank=F, nlevels=8, type="c", col=NULL){
+treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
   op <- par(no.readonly = TRUE)
   on.exit(par(op))
   if(is.null(vals)){
