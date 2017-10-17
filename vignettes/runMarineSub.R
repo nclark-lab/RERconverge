@@ -21,7 +21,7 @@ marineb=read.tree("../data/MarineTreeBin.txt")
 plot(marineb)
 
 #we can also do this from the foreground set but only the extant branches will be set to 1
-foreground=c("triMan1", "turTru2", "odoRosiDi", "lepWed1")
+foreground=c("triMan1", "orcOrc1", "turTru2", "odoRosiDi", "lepWed1")
 phenvMarine2=foreground2Paths(foreground, mamTrees)
 
 
