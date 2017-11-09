@@ -1,5 +1,5 @@
 #comment everything out for now
-if(F){
+if(T){
 wilcoxGMTall=function(vals, annotList){
   reslist=list()
   for ( n in names(annotList)){
@@ -10,6 +10,12 @@ wilcoxGMTall=function(vals, annotList){
 }
 
 wilcoxGMT=function(vals, gmt, simple=F, use.all=F, num.g=10,genes=NULL){
+     #vals = resstat
+     #gmt = annotlist
+     #simple = F
+     #use.all = F
+     #num.g = 10
+     #genes = NULL
   vals=vals[!is.na(vals)]
   if(is.null(genes)){
     genes=unique(unlist(gmt$genesets))
@@ -19,6 +25,7 @@ wilcoxGMT=function(vals, gmt, simple=F, use.all=F, num.g=10,genes=NULL){
   colnames(out)=c("stat", "pval", "genes")
   out=as.data.frame(out)
   genes=intersect(genes, names(vals))
+  show(length(intersect(genes, names(vals))))
   show(length(genes))
   #vals=rank(vals[genes])
   for( i in 1:nrow(out)){
@@ -60,8 +67,9 @@ wilcoxGMT=function(vals, gmt, simple=F, use.all=F, num.g=10,genes=NULL){
   }
   # hist(out[,2])
   out[,1]=out[,1]-0.5
-  out=cbind(out,BH(out[,2]))
-  colnames(out)[ncol(out)]="p.adj"
+  #out=cbind(out,BH(out[,2]))
+  #out=cbind(out,p.adjust(out[,2], method = 'BH'))
+  #colnames(out)[ncol(out)]="p.adj"
 
   # out=out[, c(1,2,3,5,4)]
   out=out[!is.na(out[,2]),]

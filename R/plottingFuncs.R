@@ -267,7 +267,7 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 
 }
 
-treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=8, type="c", col=NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
+treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="c", col=NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
  colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,edgetype=NULL,textsize=0.6,
  colbarlab="",splist2sym="psi"){
  #bold speclist1, star speclist2
