@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## RERConverge
 
-This walk-through provides instructions for implementing the RERConverge package to identify genes whose evolutionary rates shift in association with change in a binary trait. For information on how to download and install RERConverge, see the README on [github](https://github.com/nclark-lab/RERconverge).
+This walk-through provides instructions for implementing the RERConverge package to identify genes whose evolutionary rates shift in association with change in a binary trait. For information on how to download and install RERConverge, see the README on <a href="https://github.com/nclark-lab/RERconverge" target="_blank">github</a>.
 
 As an example, we will run the code in the `runMarineSub` script in the vignettes folder. 
 
@@ -20,7 +20,7 @@ As an example, we will run the code in the `runMarineSub` script in the vignette
 
 To run RERconverge, you will first need to supply a file containing **gene trees** for all genes to be included in your analysis. This is a tab delimited file with the following information on each line:
 
-Gene_name Newick_tree
+Gene_name    Newick_tree
 
 An example file is provided in *data/mammal_62_aa_sub.tre*, which you can view in any text editor.
 
@@ -46,16 +46,25 @@ The figure here is a log-scale plot of the variance versus the mean for all poss
 
 The next step is to estimate **relative evolutionary rates**, or RER, for all branches in the tree for each gene. Intuitively, a gene's RER for a given branch represents how quickly or slowly the gene is evolving on that branch, relative to its overall rate of evolution throughout the tree. For more details about how RER are computed, see [@Chikina2016] and [@Partha2017].
 
-We will first use the default method to calculate RER. The input variable `useSpecies` is a vector that can be used to specify a subset of species to use in the analysis; here we will use the full set of tip labels in the master tree. We will also filter any branches shorter than 0.001 using `cutoff` (see above for estimating a reasonable cutoff from the mean-variance plot). Here is the basic method:
+We will use the recommended settings to calculate RER. The input variable `useSpecies` is a vector that can be used to specify a subset of species to use in the analysis; here we will use the full set of tip labels in the master tree. We will also filter any branches shorter than 0.001 using `cutoff` (see above for estimating a reasonable cutoff from the mean-variance plot). Here is the basic method, with the recommended settings:
 ```{r, message = FALSE, cache = TRUE}
-mamRER=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "none", weighted = F, cutoff=0.001)
+mamRERlogW=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "log", weighted = T, cutoff=0.001)
 ```
 
-When you run this locally, it will print out *i=N* for a series of numbers. This shows how many genes have had RER estimated.
+When you run this locally, it will print out *i=N* for a series of numbers. This shows for how many genes the function has estimated RER.
 
-In many cases, it is helpful to scale the raw RER to account for the variance across genes within the genome. This is helpful in estimating the empirical significance of particular genes in downstream analyses. Here is the function to scale RER:
+When you are running analyses for many genes, it is helpful to scale the raw RER to account for the variance across genes. This is helpful in estimating the empirical significance of particular genes in downstream analyses. Here is the function to scale RER:
 ```{r, message = FALSE, cache = TRUE}
-mamRERs=scale(mamRER)
+mamRERlogWs=scale(mamRERlogW)
 ```
+
+*Optional add-in: Add a plot showing RERs. What is the best way to illustrate this? Where are the visualization scripts?
+-gene tree
+-average tree
+-plot of RERs by species 
+
+## Reading in or generating trait trees
+
+Now we will associate variation in these RERs with variation in traits. To do so, we first need to provide information about the trait distribution across the tree.
 
 # References
