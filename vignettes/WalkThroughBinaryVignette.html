@@ -150,10 +150,12 @@ mamTrees=readTrees(&quot;../data/mammal_62_aa_sub.tre&quot;, max.read = 100)</co
 <p>When you run this locally, it will print out <em>i=N</em> for a series of numbers. This shows how many genes have had RER estimated.</p>
 <p>In many cases, it is helpful to scale the raw RER to account for the variance across genes within the genome. This is helpful in estimating the empirical significance of particular genes in downstream analyses. Here is the function to scale RER:</p>
 <pre class="r"><code>mamRERs=scale(mamRER)</code></pre>
+<p>We can visualize the RERs for any given gene using the X function. Here is an example.</p>
 </div>
 </div>
-<div id="references" class="section level1 unnumbered">
-<h1>References</h1>
+<div id="insert-r-code-here" class="section level1">
+<h1>insert R code here</h1>
+<p>The left plot is a tree with branch lengths representing the average rates across all genes. The middle plot is the same tree, but with branch lengths representing rates specifically for the X gene. On the right are the estimated RERs for terminal branches. Notice how the RER for X is negative; this is because the branch leading to X in the X tree is shorter than average. On the other hand, the RER for X is positive because the branch leading to X in the X tree is longer than average. # References</p>
 <div id="refs" class="references">
 <div id="ref-Chikina2016">
 <p>Chikina, Maria, Joseph D Robinson, and Nathan L Clark. 2016. “Hundreds of Genes Experienced Convergent Shifts in Selective Pressure in Marine Mammals.” <em>Molecular Biology and Evolution</em> 33 (9): 2182–92. doi:<a href="https://doi.org/10.1093/molbev/msw112">10.1093/molbev/msw112</a>.</p>
