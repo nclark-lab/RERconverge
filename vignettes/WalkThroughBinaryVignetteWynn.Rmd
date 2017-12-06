@@ -66,45 +66,48 @@ mamRERlogWs=scale(mamRERlogW)
 We can visualize the RERs for any given gene using the `plotRers` function. Here is an example.
 
 ```{r fig1, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE}
+#re-rooting tree and coloring branches
 masterrooted <- root(mamTrees$masterTree,
                      outgroup=c("Platypus","Wallaby","Tasmanian_devil","Opossum"))
 wspmr <- masterrooted$tip.label[masterrooted$edge[,2]]
-wmvole <- which(wspmr=="Vole")
-wmsquirrel <- which(wspmr=="Squirrel")
 colMaster <- c(rep("black",length(masterrooted$edge)))
-colMaster[wmvole] <- "blue"
-colMaster[wmsquirrel] <- "red"
+colMasterTip <- c(rep("black",length(masterrooted$tip.label)))
+colMaster[which(wspmr=="Vole")] <- colMasterTip[which(masterrooted$tip.label == "Vole")] <- "blue"
+colMaster[which(wspmr=="Squirrel")] <- colMasterTip[which(masterrooted$tip.label == "Squirrel")] <- "red"
 tb3 <- root(mamTrees$trees$BEND3,outgroup=c("Wallaby","Tasmanian_devil","Opossum"))
 wspbr <- tb3$tip.label[tb3$edge[,2]]
-wbvole <- which(wspbr=="Vole")
-wbsquirrel <- which(wspbr=="Squirrel")
 coltb3 <- c(rep("black",length(tb3$edge)))
-coltb3[wbvole] <- "blue"
-coltb3[wbsquirrel] <- "red"
+coltb3tip <- c(rep("black",length(tb3$tip.label)))
+coltb3[which(wspbr=="Vole")] <- coltb3tip[which(tb3$tip.label == "Vole")] <- "blue"
+coltb3[which(wspbr=="Squirrel")] <- coltb3tip[which(tb3$tip.label == "Squirrel")] <- "red"
+#plotting trees
 par(mfrow=c(1,2))
-plot(masterrooted, main = "Average tree", edge.col=colMaster, cex=0.8) #plot average tree
-plot(tb3, main = "BEND3 tree",edge.col=coltb3, cex=0.8) #plot individual gene tree
+plot(masterrooted, main = "Average tree", edge.color=colMaster, 
+     tip.color = colMasterTip, edge.width = 2, cex=0.8) #plot average tree
+plot(tb3, main = "BEND3 tree", edge.color=coltb3, tip.color = coltb3tip,
+     edge.width = 2, cex=0.8) #plot individual gene tree
+#plot RERs
 par(mfrow=c(1,1))
 phenvExample <- foreground2Paths(c("Vole","Squirrel"),mamTrees)
 plotRers(mamRERlogWs,"BEND3",phenv=phenvExample) #plot RERs
 ```
 
-The upper left plot is a tree with branch lengths representing the average rates across all genes. The upper right plot is the same tree, but with branch lengths representing rates specifically for the BEND3 gene. The plot below these represents the estimated RERs for terminal branches. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
+The upper left plot is a tree with branch lengths representing the average rates across all genes. The upper right plot is the same tree, but with branch lengths representing rates specifically for the BEND3 gene. The plot below these represents the estimated RERs for terminal branches. The foreground branches (set here using `foreground2Paths`) are highlighted in red. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
 
 ## Reading in or generating trait trees
 
 Now we will associate variation in these RERs with variation in traits across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are three possible ways to do this:
 
-1) Provide a binary tree file. This should be a file in Newick format with branch lengths zero for background branches and one for foreground branches. An example is provided in *data/MarineTreeBin.txt*.
+1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one for foreground branches. An example is provided in *data/MarineTreeBin.txt*.
 
 ```{r, cache = TRUE}
 marineb=read.tree("../data/MarineTreeBinCommonNames.txt")
 marinebrooted = root(marineb,outgroup=c("Platypus", "Wallaby","Tasmanian_devil","Opossum"))
 ```
 
-This tree file has all extant marine species, plus the dolphin-killer whale ancestor, as foreground.
+This tree file has all extant marine species, plus the ancestor of the killer whale and the dolphin, as foreground.
 
-2) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.' 
+2) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
 ```{r, eval = FALSE}
 marineb2=selectforegroundbranches(mamTrees$masterTree)
 ```
@@ -117,11 +120,21 @@ marineb3rooted <- masterrooted
 marineb3rooted$edge.length <- c(rep(0,length(marineb3rooted$edge.length)))
 marineb3rooted$edge.length[wmarine] <- 1
 par(mfrow=c(1,2))
-plot(marinebrooted, main="Trait tree from file (1) or manual selection (2)")
+plot(marinebrooted, main="Trait tree from file (1)")
 plot(marineb3rooted, main="Trait tree from foreground list (3)")
 ```
 
-Some of the genes (like BEND3 above) may not have data for all species, meaning that their phylogeny will be a subset of the full phylogeny. To compare RERs for these genes with trait evolution, we run one of two functions that determine how the trait would evolve along all/many possible subsets of the full phylogeny, generating a set of **paths**. The function `tree2paths` takes a binary tree as input, and the function `foreground2paths` takes a set of foreground species as input.
+Note that the branch representing the ancestor of the killer whale and the dolphin has a branch length of 1 in the tree on the left and a branch length of 0 in the tree on the right. As mentioned, providing a binary trait tree file (1) or manually specifying foreground branches (2) allows you to include internal branches in the foreground, whereas specifying a list of foreground species (3) does not. 
+
+You can double check that the tree you created by manual selection (2) matches the tree above on the left (it should) using the following code:
+```{r, eval = FALSE}
+marineb2=selectforegroundbranches(mamTrees$masterTree)
+marineb2rooted=root(marineb2,outgroup=c("Platypus", "Wallaby","Tasmanian_devil","Opossum"))
+plot(marineb2rooted, main = "Trait tree from manual selection (2)")
+```
+
+## Generating **paths** for all genes using `tree2Paths` or `foreground2Paths`
+Some of the genes (like BEND3 above) may not have data for all species, meaning that their phylogeny will be a subset of the full phylogeny. To plot RERs for these genes and to correlate them with trait evolution, we run one of two functions that determine how the trait would evolve along all/many possible subsets of the full phylogeny, generating a set of **paths**. The function `tree2paths` takes a binary tree as input, and the function `foreground2paths` takes a set of foreground species as input.
 
 ```{r, cache = TRUE}
 phenvMarine=tree2Paths(marineb, mamTrees)
@@ -135,9 +148,9 @@ Now that we have estimates for the RERs for all genes of interest, as well as a 
 corMarineLogWs=getAllCor(mamRERlogWs, phenvMarine)
 ```
 
-The text displayed shows which correlation method is used to test for association. Here we have used the default, the Kendall rank correlation coefficient, or Tau.
+The text displayed shows which correlation method is used to test for association. If there is no `method` specified, the `getAllCor` function determines the appropriate method automatically. Here it uses the default for binary traits: the Kendall rank correlation coefficient, or Tau. For more details on correlation methods for binary and continuous traits, see ???.
 
-This generates a table with the following output for each gene:
+The `getAllCor` function generates a table with the following output for each gene:
 
 1) Rho: the correlation between relative evolutionary rate and trait across all branches
 
@@ -156,7 +169,9 @@ plotRers(mamRERlogWs,"ANO2",phenv=phenvMarine)
 plotRers(mamRERlogWs,"BMP10",phenv=phenvMarine) 
 ```
 
-In the ANO2 tree, the marine branches are long, leading to a positive Rho and a low p-value. In contrast, in the BMP10 tree, the marine branches are short. This also yields a low p-value, but with a negative Rho.
+In these RER plots, the marine lineages specified in the foreground are highlighted in red. The terminal branches are listed in alphabetical order, and internal branches are displayed at the bottom; note the red point at the bottom of each plot indicating the RER for killer whale-dolphin ancestral branch.
+
+In the ANO2 tree, marine lineages have high RER, leading to a positive Rho and a low p-value. In contrast, in the BMP10 tree, marine lineages have low RER. This also yields a low p-value, but with a negative Rho.
 
 To see what the overall pattern of association is across all genes in the set, we can plot a p-value histogram.
 ```{r fig4, fig.height=5, fig.width=10}
