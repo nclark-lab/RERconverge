@@ -1,4 +1,8 @@
 #comment everything out
+
+require(dplyr)
+require(ggplot2)
+
 if(F){
 multiplot = function(..., plotlist=NULL, file, cols=1, layout=NULL, widths=NULL, heights=NULL, flip=F) {
   require(grid)
@@ -226,7 +230,7 @@ plotContinuousChar=function(gene, treeObj, tip.vals, tip.vals.ref=NULL, rank=F, 
 
 }
 
-treePlot=function(tree, vals=NULL,rank=F, nlevels=8, type="c", col=NULL){
+treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
   op <- par(no.readonly = TRUE)
   on.exit(par(op))
   if(is.null(vals)){
@@ -262,3 +266,240 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=8, type="c", col=NULL){
 }
 
 }
+
+treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="c", col=NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
+ colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,edgetype=NULL,textsize=0.6,
+ colbarlab="",splist2sym="psi"){
+ #bold speclist1, star speclist2
+ #reroot before plotting to match up vals
+  library(gplots)
+  if(is.null(vals)){
+    vals=tree$edge.length
+  }
+  vals=as.numeric(vals)
+  faketree=tree
+  faketree$edge.length=vals
+  layout(matrix(c(1,2), ncol=1),heights=c(10,2))
+  if(is.null(col)){
+    if (is.null(colpanmid)) {
+      col=colorpanel(nlevels, colpan1, colpan2)
+    } else {
+      col=colorpanel(nlevels, colpan1, colpanmid, colpan2)
+    }
+  }
+  if (doreroot) {
+    rerootby=intersect(rerootby,tree$tip.label)
+    if (length(rerootby) > 0) {
+      #mrcanode=getMRCA(tree,rerootby)
+      #tree=root(tree,node=mrcanode,resolve.root=T)
+      #faketree=root(faketree,node=mrcanode,resolve.root=T)
+      #vals=faketree$edge.length
+        tree=root(tree,rerootby,resolve.root=T)
+        faketree=root(faketree,rerootby,resolve.root=T)
+        vals=faketree$edge.length
+    } else {
+      print("No species in rerootby in tree! Leaving tree unrooted.")
+    }
+  }
+  if (!is.null(species.list)) {
+    tree=pruneTree(tree,species.list)
+    faketree=pruneTree(tree,species.list)
+    vals=faketree$edge.length
+  }
+  if (!is.null(species.names)) {
+    for(s in 1:length(tree$tip.label)) {
+      if (tree$tip.label[s] %in% row.names(species.names)) {
+        tree$tip.label[s] <- species.names[,1][which(row.names(species.names)==tree$tip.label[s])]
+        }
+    }
+  }
+  pfonts <- c(rep(1,length(tree$tip.label)))
+  tipcol <- c(rep("black",length(tree$tip.label)))
+  if (!is.null(speclist1)) {
+    pfonts[which(tree$tip.label %in% speclist1)] <- 2
+    tipcol[which(tree$tip.label %in% speclist1)] <- "blue"
+  }  
+  if (! is.null(plotspecies)) { #only plot certain species names by making others white
+    tipcol[which(tree$tip.label %in% plotspecies == FALSE)] <- "white"
+  }
+  if (!is.null(speclist2)) {
+    toadd <- which(tree$tip.label %in% speclist2)
+    
+    #tree$tip.label[toadd] <- paste(tree$tip.label[toadd],"*",sep="_")
+    #tree$tip.label[toadd] <- paste(tree$tip.label[toadd],expression(psi),sep="_")
+    #tree$tip.label[toadd] <- expression(paste(tree$tip.label[toadd], psi, sep="_"))
+    tree$tip.label[toadd] <- str_replace_all(tree$tip.label[toadd]," ","~")
+    tree$tip.label[toadd] <- as.expression(parse(text=paste(tree$tip.label[toadd],"~",splist2sym,sep="")))
+    #for (i in 1:length(toadd)) {
+      #tree$tip.label[toadd[i]] <- bquote(.(tree$tip.label[toadd[i]]) ~ psi)
+      #tree$tip.label[toadd[i]] <- str_replace_all(tree$tip.label[toadd[i]]," ","_")
+      #tree$tip.label[toadd[i]] <- parse(text = paste(tree$tip.label[toadd[i]], "psi"))
+      #tree$tip.label[toadd[i]] <- expression(paste(eval(tree$tip.label[toadd[i]]), psi, sep="_"))
+      #tree$tip.label[toadd[i]] <- paste(tree$tip.label[toadd[i]],expression(psi),sep="_")
+      #tree$tip.label[toadd[i]] <- substitute(paste(tt, psi), list(tt=tree$tip.label[toadd[i]]))
+    #}
+  }
+  if (is.null(edgetype)) {
+    edgetype = c(rep(1,length(vals))) #does not play well with rerootby
+  }
+  calcoff <- quantile(tree$edge.length[tree$edge.length>0],0.25)
+  par(mar=c(2,1,0,0.2)+0.1)
+  oldpar = par()
+  #par(mar=c(0,0,0,0))
+  par(omi=c(0,0,0,0.0001))
+  #plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, nlevels)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
+  #tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
+  plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1)), include.lowest = T, right = T)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
+  tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
+  #par(mar=oldpar)
+  
+  min.raw <- min(vals, na.rm = TRUE)
+  max.raw <- max(vals, na.rm = TRUE)
+  z <- seq(min.raw, max.raw, length = length(col))
+  #z <- quantile(vals, probs = seq(0,1,length = length(col)))
+  
+  par(mai=c(1,0.5,0,0.5))
+  #par(mai=c(0.5,0.5,0,0.5))
+  #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1), 
+  #      xaxt = "n", yaxt = "n")
+  image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1), 
+        xaxt = "n", yaxt = "n")
+  #image(z = matrix(z, ncol = 1), col = col, breaks = quantile(vals, probs = seq(0, 1, length.out=nlevels+1)), 
+  #      xaxt = "n", yaxt = "n")
+  #par(usr = c(0, 1, 0, 1))
+  lv <- pretty(seq(min.raw, max.raw, length.out=nlevels+1))
+  lv1 <- seq(min.raw, max.raw, length.out=nlevels+1)
+  print(lv)
+  lv2 <- quantile(vals, probs = seq(0,1, length.out = nlevels+1))
+  print(lv2)
+  scale01 <- function(x, low = min(x), high = max(x)) {
+    x <- (x - low)/(high - low)
+    x
+  }
+  xv <- scale01(as.numeric(lv), min.raw, max.raw)
+  xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)  
+  axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
+  #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
+  mtext(colbarlab,at=0.5)
+  return(plotobj)
+}
+
+
+#' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
+#'  
+#' @param rermat. A residual matrix, output of the getAllResiduals() function
+#' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
+#' @param phenv. A numeric vector, with foreground species output of the getAllResiduals() function
+#' @return A plot of the RERs with foreground species labelled in red, and the rest in blue
+
+plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 's', plot = 1, xextend = 0.2, sortrers = F){
+     if(is.null(rers)){
+      e1 = rermat[index,][!is.na(rermat[index,])]     
+      colids = !is.na(rermat[index,])
+      e1plot <- e1
+      #print(e1plot)
+      if(exists('speciesNames')){
+          names(e1plot) <- speciesNames[names(e1),]
+      }
+      if(is.numeric(index)){
+         gen = rownames(rermat)[index]  
+      }else{
+         gen = index
+      }
+     }else{
+      e1plot = rers
+      gen = 'rates'
+     }
+     names(e1plot)[is.na(names(e1plot))]=""     
+     if(!is.null(phenv)){
+      phenvid = phenv[colids]               
+      fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)     
+      plottitle = paste0(gen, ': rho = ',round(fgdcor$Rho,4),', p = ',round(fgdcor$P,4))
+      fgd = setdiff(names(e1plot)[phenvid == 1],"")            
+      df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
+          mutate(mole = as.factor(ifelse(phenvid > 0,2,1)))
+     }else{
+      plottitle = gen
+      fgd = NULL      
+      df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
+          mutate(mole = as.factor(ifelse(0,2,1)))
+     }          
+     #print(plottitle)     
+     if(sortrers){
+      df = filter(df, species!="") %>%
+          arrange(desc(rer))
+     }
+     #print(df)
+     #df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
+     #     mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))     
+     ll=c(min(df$rer)*1.1, max(df$rer)+xextend)     
+     g  <- ggplot(df, aes(x = rer, y=factor(species, levels = ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species))) ), col=mole, label=species)) + scale_size_manual(values=c(3,3))+ geom_point(aes(size=mole))+
+          scale_color_manual(values = c("deepskyblue3", "brown1"))+
+          scale_x_continuous(limits=ll)+
+          #scale_x_continuous(expand = c(.1,.1))+
+          geom_text(hjust=1, size=5)+
+          ylab("Branches")+
+          xlab("relative rate")+
+          ggtitle(plottitle)+
+          geom_vline(xintercept=0, linetype="dotted")+
+          theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
+                panel.background = element_blank(),
+                axis.text=element_text(size=18,face='bold',colour = 'black'),
+                axis.title=element_text(size=24,face="bold"),
+                plot.title= element_text(size = 24, face = "bold"))+
+          theme(axis.line = element_line(colour = 'black',size = 1))+
+                theme(axis.line.y = element_blank())
+     if(plot){
+      print(g)
+     }
+     else{
+      g
+     }     
+}
+
+
+nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
+     #treesObj = simtrees
+     #useSpecies = NULL
+     #fgd = paste0('species',fgdbranchnums1)
+     #fgd = matrix(paste0('species',fgdcomb),4)
+     control = NULL
+     if (is.null(useSpecies)){
+          useSpecies=treesObj$masterTree$tip.label
+     }
+     both=intersect(treesObj$master$tip.label, useSpecies)
+     allreport=treesObj$report[,both]
+     ss=rowSums(allreport)
+     iiboth=which(ss==length(both))
+     ee=edgeIndexRelativeMaster(treesObj$masterTree, treesObj$masterTree)
+     ii= treesObj$matIndex[ee[, c(2,1)]]
+     allbranch=treesObj$paths[iiboth,ii]
+     nv=t(projection(t(allbranch), method="AVE", returnNV = T))
+     nv=as.vector(nv)
+     mastertree=treesObj$master
+     mastertree$edge.length=nv 
+     nn=character(length(nv))
+     iim=match(1:length(treesObj$masterTree$tip.label), treesObj$masterTree$edge[,2])    
+     nn[iim]=treesObj$masterTree$tip.label
+     names(mastertree$edge.length) = nn
+     nvplot2 = sort(mastertree$edge.length)
+     nvplot=nvplot2[names(nvplot2)!=""]
+     if(plot){
+          barcols = rep('black',length(nv))
+          avlcols <- c('red','green','blue','yellow','orange','purple')
+          nfgd = ifelse(!is.null(dim(fgd)),dim(fgd)[1],1)
+          if(nfgd > 1){
+               for(ii in 1:nfgd){
+                    barcols[names(nvplot) %in% fgd[ii,]] = avlcols[ii]
+               }
+          }else{
+               barcols[names(nvplot) %in% fgd] = avlcols[1]
+          }
+          bpl <- barplot(nvplot, horiz = T, col = barcols, names.arg = F, cex.axis = 1,
+                         cex.lab = 2, xlab = 'average rate', space = 2, width = 0.5,
+                         xlim = c(0,1.07*max(nvplot)))
+          text( nvplot+rep(0.00,length(nvplot)) , bpl, labels = names(nvplot), srt = 0, pos = 4, cex = 0.75)
+     }
+     return(mastertree)
+}
+

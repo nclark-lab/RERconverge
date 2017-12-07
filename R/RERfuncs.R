@@ -137,14 +137,18 @@ namePathsWSpecies=function(masterTree){
 }
 #' @keywords  internal
 scaleMat=function(mat){t(apply(mat,1,scaleDist))}
+
 #' @keywords internal
 scaleMat_c=cmpfun(scaleMat)
+
 #' @keywords  internal
 scaleDist=function(x){
   x/sqrt(sum(x^2))
 }
+
 #' @keywords  internal
 scaleDist_c=compiler::cmpfun(scaleDist)
+
 #' @keywords  internal
 allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
   if(! is.list(masterTreePaths)){
@@ -202,6 +206,7 @@ matchNodesInject=function (tr1, tr2){
   Nodes=rbind(cbind(1:length(tr1$tip.label),iim),Nodes)
   Nodes
 }
+
 #' @keywords  internal
 matchNodesInject_c=cmpfun(matchNodesInject)
 
@@ -337,7 +342,7 @@ if (method=="auto"){
           x=RERmat[i,]
         }
         cres=cor.test(x, charP, method=method)
-        corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
+        corout[i,1:3]=c(cres$estimate, nb, cres$p.value)        
       }
       else{
 
@@ -354,7 +359,6 @@ if (method=="auto"){
   }
   as.data.frame(corout)
 }
-
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
@@ -488,9 +492,9 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
 
     }}
   rownames(rr)=names(treesObj$trees)
+  colnames(rr)=namePathsWSpecies(treesObj$masterTree)
   rr
 }
-
 
 
 
@@ -1157,7 +1161,6 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
 }
 
 
-
 plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
   maxT=treesObj$numTrees
 
@@ -1560,10 +1563,7 @@ getAncestor=function(tree, nodeN){
   }
   im=which(tree$edge[,2]==nodeN)
   return(tree$edge[im,1])
-
-
-}
-
 }
 
 
+}
