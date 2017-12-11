@@ -266,7 +266,40 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 }
 
 }
+treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
+  op <- par(no.readonly = TRUE)
+  on.exit(par(op))
+  if(is.null(vals)){
+    vals=tree$edge.length
+  }
+  vals=as.numeric(vals)
+  if(rank){
+    vals=rank(vals)
+  }
+  layout(matrix(c(1,2), ncol=1),heights=c(10,2))
+  if(is.null(col)){
+    col=colorpanel(nlevels, "blue", "red")
+  }
+  #tree$tip.label=speciesNames[tree$tip,1]
+  plot.phylo(tree, use.edge.length = F,type=type,edge.color=col[cut(vals, nlevels)], edge.width=3.5, lab4ut="axial", cex=0.6)
 
+
+  min.raw <- min(vals, na.rm = TRUE)
+  max.raw <- max(vals, na.rm = TRUE)
+  z <- seq(min.raw, max.raw, length = length(col))
+
+  par(mai=c(1,0.5,0,0.5))
+  image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
+        xaxt = "n", yaxt = "n")
+  #par(usr = c(0, 1, 0, 1))
+  lv <- pretty(seq(min.raw, max.raw, length.out=nlevels+1))
+  scale01 <- function(x, low = min(x), high = max(x)) {
+    x <- (x - low)/(high - low)
+    x
+  }
+  xv <- scale01(as.numeric(lv), min.raw, max.raw)
+  axis(1, at = xv, labels = lv)
+}
 treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="c", col=NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
  colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,edgetype=NULL,textsize=0.6,
  colbarlab="",splist2sym="psi"){
@@ -389,7 +422,7 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
 #'  
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
 #' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
-#' @param phenv. A numeric vector, with foreground species output of the getAllResiduals() function
+#' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}
 #' @return A plot of the RERs with foreground species labelled in red, and the rest in blue
 
 plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 's', plot = 1, xextend = 0.2, sortrers = F){
