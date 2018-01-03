@@ -117,13 +117,20 @@ computeWeights=function(treesObj, plot=T){
   mml=apply(log(treesObj$paths),2,mean, na.rm=T)
   varl=apply(log(treesObj$paths),2,var, na.rm=T)
   l=lowess(mml, varl, 0.4)
+  #use spline fitting
+  l=smooth.spline(x = mml, y = varl, w = (exp(mml)), nknots = 6, all.knots = F, spar=0.25)
   f=approxfun(l, rule=2)
   if(plot){
     plot(mml, varl, xlab="mean log", ylab="var log")
     lines(l, lwd=2, col=2)
   }
-  matrix(1/(f(log(treesObj$paths))), nrow=nrow(treesObj$paths))
+  W=matrix(1/(f(log(treesObj$paths))), nrow=nrow(treesObj$paths))
+if(any(W)<0){
+  W[W<0]=0
+  warning("Some weights are negative: please report this problem")
 }
+  W
+  }
 #' @keywords  internal
 namePathsWSpecies=function(masterTree){
   mat=transformMat(masterTree)
@@ -288,7 +295,7 @@ getChildren=function(tree, nodeN){
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
-#' @weights perform weighted correlation, experimental. You can use the weights computed by \code{treesObj<-\link{readTrees}} by setting \code{weights=treeObj$weights}
+#' @param weights perform weighted correlation, experimental. You can use the weights computed by \code{treesObj<-\link{readTrees}} by setting \code{weights=treeObj$weights}
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
@@ -342,7 +349,7 @@ if (method=="auto"){
           x=RERmat[i,]
         }
         cres=cor.test(x, charP, method=method)
-        corout[i,1:3]=c(cres$estimate, nb, cres$p.value)        
+        corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
       }
       else{
 

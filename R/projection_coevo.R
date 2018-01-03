@@ -105,8 +105,16 @@ naresid=function(data, X, useZero=F, weights=NULL, covar=NULL){
       n=dim(dat)[2]
       Id=diag(n)
       if(!is.null(W)){
-        resid[i,ii]=dat %*% (Id - modtmp %*% solve(t(modtmp) %*%W%*% modtmp) %*%
-                               t(modtmp)%*%W)
+
+        coeff=dat%*%W%*%modtmp %*% solve(t(modtmp) %*% W %*% modtmp)
+        #check there is no error with lm
+        # lmres=lm(t(dat)~0+modtmp, weights = diag(W))
+        #  show(coeff)
+        #  show(coefficients(lmres))
+        resid[i, ii] = dat -(coeff %*% t(modtmp))
+        resid[i, ii]=resid[i,ii]*sqrt(diag(W))
+
+
       }
       else{
         resid[i,ii]=dat %*% (Id - modtmp %*% solve(t(modtmp) %*% modtmp) %*%
@@ -117,7 +125,7 @@ naresid=function(data, X, useZero=F, weights=NULL, covar=NULL){
 
     }
     else{
-     # message("Cannot compute residuals")
+      # message("Cannot compute residuals")
 
     }
 
