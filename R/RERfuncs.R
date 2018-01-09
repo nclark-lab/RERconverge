@@ -395,6 +395,8 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
     transform=get(transform)
   }
   else{
+    message("Weighted regression only implemented for log transform")
+    weighted=F
     transform=NULL
   }
 
