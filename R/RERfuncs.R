@@ -514,7 +514,7 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
 #' @inheritParams  edgeVars
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-char2Paths=function(tip.vals, treesObj, altMasterTree=NULL,  metric="diff", se.filter=-1){
+char2Paths=function(tip.vals, treesObj, altMasterTree=NULL,  metric="diff", se.filter=-1, ...){
 
 
 if(!is.null(altMasterTree)){
@@ -531,8 +531,8 @@ else{
 
     cm=intersect(treesObj$masterTree$tip,intersect(names(masterTree), masterTree$tip))
   master.tree=pruneTree(masterTree, cm)
-  char=char[cm]
-  charTree=edgeVars(master.tree, char, ...)
+  char=tip.vals[cm]
+  charTree=edgeVars(master.tree, char, metric = metric, se.filter = se.filter , ...)
   sp.miss=setdiff(charTree$tip, treesObj$masterTree$tip)
   if(length(sp.miss)>0){
   message(paste0("Species not present: ", paste(sp.miss, collapse=",")))
