@@ -531,7 +531,7 @@ else{
 
     cm=intersect(treesObj$masterTree$tip,intersect(names(masterTree), masterTree$tip))
   master.tree=pruneTree(masterTree, cm)
-  char=char[cm]
+  char=tip.vals[cm]
   charTree=edgeVars(master.tree, char, ...)
   sp.miss=setdiff(charTree$tip, treesObj$masterTree$tip)
   if(length(sp.miss)>0){
