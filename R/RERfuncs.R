@@ -532,13 +532,14 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
   }
   cm=intersect(treesObj$masterTree$tip,intersect(names(tip.vals), masterTree$tip))
 
-
+#reduce to the same species set
     master.tree = pruneTree(masterTree, cm)
-
     tip.vals=tip.vals[cm]
-  charTree = edgeVars(masterTree, tip.vals, metric=metric, se.filter=se.filter)
+#make the tree with ancestral states
+  charTree = edgeVars(master.tree, tip.vals, metric=metric, se.filter=se.filter, ...)
 
-  sp.miss = setdiff(charTree$tip, treesObj$masterTree$tip)
+
+  sp.miss = setdiff(treesObj$masterTree$tip, names(tip.vals))
   if (length(sp.miss) > 0) {
     message(paste0("Species not present: ", paste(sp.miss,
                                                   collapse = ",")))
