@@ -325,7 +325,10 @@ if (method=="auto"){
 
   for( i in 1:nrow(corout)){
 
-    if(((nb<-sum(ii<-(!is.na(charP)&!is.na(RERmat[i,]))))>=min.sp)&sum(charP[ii]!=0)>=min.pos){
+    if(((nb<-sum(ii<-(!is.na(charP)&!is.na(RERmat[i,]))))>=min.sp)){
+      if (method!="p"&&sum(charP[ii]!=0)<min.pos){
+        next
+      }
 
       if(is.null(weights)){
 
@@ -504,25 +507,26 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
 char2Paths=function(tip.vals, treesObj, altMasterTree=NULL,  metric="diff", se.filter=-1){
 
 
-if(!is.null(altMasterTree)){
-  masterTree=altMasterTree
-}
+  if(!is.null(altMasterTree)){
+    masterTree=altMasterTree
+  }
   else if (!all(treesObj$masterTree$edge.length==1)){
 
     masterTree=treesObj$masterTree
   }
-else{
-  message("The treesObj master tree has no edge lengths, please provide an alternative master tree")
-  return()
-}
+  else{
+    message("The treesObj master tree has no edge lengths, please provide an alternative master tree")
+    return()
+  }
 
-    cm=intersect(treesObj$masterTree$tip,intersect(names(masterTree), masterTree$tip))
+  cm=intersect(treesObj$masterTree$tip,intersect(names(tip.vals), masterTree$tip.label))
+
   master.tree=pruneTree(masterTree, cm)
-  char=char[cm]
-  charTree=edgeVars(master.tree, char, ...)
+  tip.vals=tip.vals[cm]
+  charTree=edgeVars(master.tree, tip.vals, metric = metric, se.filter = se.filter)
   sp.miss=setdiff(charTree$tip, treesObj$masterTree$tip)
   if(length(sp.miss)>0){
-  message(paste0("Species not present: ", paste(sp.miss, collapse=",")))
+    message(paste0("Species not present: ", paste(sp.miss, collapse=",")))
   }
   ap=allPaths(treesObj$masterTree)
 
