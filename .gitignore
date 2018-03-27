@@ -5,3 +5,9 @@
 *log
 *synctex.gz
 .Rproj.user
+.R*
+RERconverge.Rproj
+.Rbuildignore
+.Rhistory
+
+
