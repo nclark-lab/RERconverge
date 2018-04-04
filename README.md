@@ -13,7 +13,7 @@ To run RERConverge, you will first need to have [R](https://cran.r-project.org/)
 To install the required package dependencies, run the following:
 
 ```
-install.packages(c("ape","phytools","compiler","plotrix"))
+install.packages(c("ape","phytools","compiler","devtools","plotrix"))
 ```
 
 Then install the RERconverge package with the following:
