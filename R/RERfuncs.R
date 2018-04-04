@@ -372,10 +372,10 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch
-#' @param transform The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, log is recommended.
-#' @param weighted Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data. Only implemented for log transform.
-#' @param useSpecies Give only a subset of the species to use for RER calculation. Some times excluding unusually long branches can provide more stable results
+#' @param cutoff A cutoff value for branch lengths below which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch
+#' @param transform The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, sqrt is recommended.
+#' @param weighted Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data. Only implemented for log or sqrt transform.
+#' @param useSpecies Give only a subset of the species to use for RER calculation. Sometimes excluding unusually long branches can provide more stable results.
 #' @param min.sp The minimum number of species needed to compute RER
 #' @param scale Scale relative rates internally for each species subset. Increases computation time with little apparent benefit. Better to scale the final matrix.
 #' @param doOnly The index of a specific tree in the treesObj to calculate RER for. Useful if a single result is needed quickly.
@@ -390,16 +390,19 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
     maxT=treesObj$numTrees
   }
   if(transform!="none"){
-    transform=match.arg(transform,c("sqrt", "log"))
-    if(!transform=="log"){
-      message("Weighted regression only implemented for log transform")
-      weighted=F
-    }
+    transform=match.arg(transform,c("sqrt", "log")) #provide customized error if no match?
+    #if(!transform=="log"){
+          #message("Weighted regression only implemented for log transform")
+      #weighted=F
+    #}
     transform=get(transform)
   }
   else{
-    message("Weighted regression only implemented for log transform")
-    weighted=F
+    if (weighted == T) {
+      #message("Weighted regression only implemented for log transform")
+      message("Weighted regression only implemented for log or sqrt transform")
+      weighted=F
+    }
     transform=NULL
   }
 
