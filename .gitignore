@@ -9,5 +9,5 @@
 RERconverge.Rproj
 .Rbuildignore
 .Rhistory
-
+vignettes/*/*/*chunk*
 
