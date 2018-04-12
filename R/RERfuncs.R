@@ -5,7 +5,8 @@ require(ape)
 require(phytools)
 require(compiler)
 require(plotrix)
-
+require(Rcpp)
+require(RcppArmadillo)
 
 #' reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
@@ -113,24 +114,88 @@ readTrees=function(file, max.read=NA){
   treesObj
 }
 
-computeWeights=function(treesObj, plot=T){
-  mml=apply(log(treesObj$paths),2,mean, na.rm=T)
-  varl=apply(log(treesObj$paths),2,var, na.rm=T)
-  l=lowess(mml, varl, 0.4)
-  #use spline fitting
-  l=smooth.spline(x = mml, y = varl, w = (exp(mml)), nknots = 6, all.knots = F, spar=0.25)
-  f=approxfun(l, rule=2)
-  if(plot){
-    plot(mml, varl, xlab="mean log", ylab="var log")
-    lines(l, lwd=2, col=2)
+computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicted=T){
+
+  if(is.null(nv)){
+    nv=apply(mat, 2, mean,na.rm=T, trim=0.05)
+
   }
-  W=matrix(1/(f(log(treesObj$paths))), nrow=nrow(treesObj$paths))
-  if(any(W)<0){
-    W[W<0]=0
-    warning("Some weights are negative: please report this problem")
+  transform=match.arg(transform, choices = c("none", "sqrt", "log"))
+  if(transform=="log"){
+    offset=0;
+    if(min(mat, na.rm=T)<1e-8){
+      offset=min(mat[mat>1e-8])
+    }
+    mat=log(mat+offset)
+    nv=log(nv+offset)
   }
-  W
+  if (transform=="sqrt"){
+    mat=sqrt(mat)
+    nv=sqrt(nv)
+  }
+
+  matsub=mat
+
+
+  matr=naresidCPP(matsub, model.matrix(~1+nv))
+  matpred=fastLmPredictedMat(matsub, model.matrix(~1+nv))
+
+
+
+  mml=as.vector(matsub)
+  varl=as.vector(log(matr^2))
+  ii=which(!is.na(mml))
+  mml=mml[ii]
+  varl=varl[ii]
+  set.seed(123)
+  iis=sample(length(mml), min(500000, length(mml)))
+  mml=mml[iis]
+  varl=varl[iis]
+
+  l = lowess(mml,varl, f=0.4, iter = 2)
+
+  f = approxfun(l, rule = 2)
+  if (plot) {
+    par(mfrow=c(1,2))
+    rr=quantile(mml, c(0.0001, 0.99))
+    breaks=seq(rr[1], rr[2], length.out = 12)
+    boxplot((varl)~ (cutres<-cut(mml,breaks = breaks)), xlab = "mean log", ylab = "var log", outline=F,  log="")
+    title("Before")
+    show(levels(cutres))
+    xx=lapply(levels(cutres), function(x){x=strsplit(x,c("[\\\\(,\\]]", "]"),perl = T);x=x[[1]];return(mean(as.numeric(x[3]),as.numeric(x[2])))})
+    xx=unlist(xx)
+    show(xx)
+    lines(1:length(xx), (f(xx)), lwd = 2, col = 2)
+  }
+  wr=1/exp(f(mml))
+  show(range(wr))
+  if(!predicted){
+    weights=(matrix(1/exp(f(mat)), nrow = nrow(mat)))
+  }
+  else{
+    weights=(matrix(1/exp(f(matpred)), nrow = nrow(mat)))
+  }
+ if(plot){
+  matr=naresidCPP(matsub, model.matrix(~1+nv), weights)
+  varl=(as.vector(log(matr^2))[ii])[iis]
+  boxplot((varl)~ (cutres<-cut(mml,breaks = breaks)), xlab = "mean log", ylab = "var log", outline=F,  log="")
 }
+  weights
+}
+
+#' @keywords  internal
+naresidCPP=function(data, mod, weights=NULL){
+  if(is.null(weights)){
+    out=fastLmResidMat(data, mod)
+  }
+  else{
+    out=fastLmResidMatWeighted(data,mod, weights)
+  }
+  rownames(out)=rownames(data)
+  colnames(out)=colnames(data)
+  out
+}
+
 #' @keywords  internal
 namePathsWSpecies=function(masterTree){
   mat=transformMat(masterTree)
