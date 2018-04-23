@@ -1,41 +1,46 @@
-if(F){
+if(T){
 library("RERconverge")
 #this will take some time
-mamTrees=readTrees("../data/mammal_62_aa_sub.tre", max.read = 100)
+mamTrees=readTrees("data/mammal_62_aa_sub.tre", max.read = 1000)
 #cutoff = exp(-7) based on the peak of the mean/variance plot
 
 
 #this is the basic method
-mamRER=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "none",weighted = F, cutoff=0.001)
+mamRER=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "none",weighted = F, scale = T)
 #For some datasets scaling improves results
-mamRERs=scale(mamRER)
 
-#this method peforms better on benchmarks
-mamRERlogW=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "log",weighted = T, cutoff=0.001)
+#this method peforms better on benchmarks, weighting works with all transforms but sqrt is recommended
+mamRERw=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "sqrt",weighted = T, scale=T)
 
-#again can be scaled, almost always improves results in our exprience
-mamRERlogWs=scale(mamRERlogW)
+
+
 
 #read the binary tree
-marineb=read.tree("../data/MarineTreeBin.txt")
+marineb=read.tree("data/MarineTreeBin.txt")
+#offset 0 length edges, makes no difference for further computation
+marineb$edge.length[marineb$edge.length<1]=0.05
 plot(marineb)
 
 #we can also do this from the foreground set but only the extant branches will be set to 1
-foreground=c("triMan1", "orcOrc1", "turTru2", "odoRosiDi", "lepWed1")
-phenvMarine2=foreground2Paths(foreground, mamTrees)
+foreground=c("triMan1", "orcOrc1", "turTru2", "odoRosDi", "lepWed1")
+plot(marineb)
+
+marineb2=foreground2Tree(foreground, mamTrees)
+marineb3=foreground2Tree(foreground, mamTrees, collapse2anc = F)
 
 
-#convert it to a paths vector
-  phenvMarine=tree2Paths(marineb, mamTrees)
+#convert a marine tree to a paths vector
+phenvMarine=tree2Paths(marineb, mamTrees)
+phenvMarine
+
 
 
 
 corMarine=getAllCor(mamRER, phenvMarine)
 hist(corMarine$P)
 
-corMarineLogW=getAllCor(mamRERlogW, phenvMarine)
-hist(corMarineLogW$P)
+corMarineW=getAllCor(mamRERw, phenvMarine)
+hist(corMarineW$P)
+qqplot(corMarine$P, corMarineW$P, log="xy");abline(a=0,b=1)
 
-corMarineLogWs=getAllCor(mamRERlogWs, phenvMarine)
-hist(corMarineLogWs$P)
 }

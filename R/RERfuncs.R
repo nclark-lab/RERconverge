@@ -95,7 +95,7 @@ readTrees=function(file, max.read=NA){
   treesObj$matAnc=matAnc
   treesObj$matIndex=ap$matIndex
   treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
-  treesObj$weights=computeWeights(treesObj, plot = T)
+
   ii=which(rowSums(report)==maxsp)
   if(length(ii)>20){
     message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
@@ -152,23 +152,31 @@ computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicte
   mml=mml[iis]
   varl=varl[iis]
 
-  l = lowess(mml,varl, f=0.4, iter = 2)
+  l = lowess(mml,varl, f=0.7, iter = 2)
 
   f = approxfun(l, rule = 2)
   if (plot) {
-    par(mfrow=c(1,2))
+    par(mfrow=c(1,2), omi=c(1,0,0,0))
+    nbreaks=20
+    qq=quantile(mml,seq(0,nbreaks,1)/nbreaks)
+    qqdiff=diff(qq)
+    breaks=qq[1:nbreaks]+qqdiff/2
     rr=quantile(mml, c(0.0001, 0.99))
-    breaks=seq(rr[1], rr[2], length.out = 12)
-    boxplot((varl)~ (cutres<-cut(mml,breaks = breaks)), xlab = "mean log", ylab = "var log", outline=F,  log="")
+breaks=round(breaks,3)
+    cutres<-cut(mml,breaks = breaks)
+
+    cutres_tt=table(cutres)
+
+    boxplot((varl)~ cutres, xlab = "", ylab = "log var", outline=F,  log="", las=2)
     title("Before")
-    show(levels(cutres))
-    xx=lapply(levels(cutres), function(x){x=strsplit(x,c("[\\\\(,\\]]", "]"),perl = T);x=x[[1]];return(mean(as.numeric(x[3]),as.numeric(x[2])))})
-    xx=unlist(xx)
-    show(xx)
-    lines(1:length(xx), (f(xx)), lwd = 2, col = 2)
+
+
+    xx=(qq[1:nbreaks]+breaks)/2
+
+    lines(1:length(xx), (f(qq[1:nbreaks])), lwd = 2, col = 2)
   }
   wr=1/exp(f(mml))
-  show(range(wr))
+
   if(!predicted){
     weights=(matrix(1/exp(f(mat)), nrow = nrow(mat)))
   }
@@ -178,7 +186,9 @@ computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicte
  if(plot){
   matr=naresidCPP(matsub, model.matrix(~1+nv), weights)
   varl=(as.vector(log(matr^2))[ii])[iis]
-  boxplot((varl)~ (cutres<-cut(mml,breaks = breaks)), xlab = "mean log", ylab = "var log", outline=F,  log="")
+  boxplot((varl)~ cutres, ylab = "log var", outline=F,  log="", main="After", las=2)
+  abline(h=0, col="blue3", lwd=2)
+  mtext(side = 1, text="bins", outer = T, line = 2)
 }
   weights
 }
@@ -437,9 +447,9 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch
-#' @param transform The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, log is recommended.
-#' @param weighted Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data. Only implemented for log transform.
+#' @param a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.
+#' @param transform The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, sqrt is recommended.
+#' @param weighted Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data.
 #' @param useSpecies Give only a subset of the species to use for RER calculation. Some times excluding unusually long branches can provide more stable results
 #' @param min.sp The minimum number of species needed to compute RER
 #' @param scale Scale relative rates internally for each species subset. Increases computation time with little apparent benefit. Better to scale the final matrix.
@@ -519,7 +529,7 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
       ii= treesObj$matIndex[ee[, c(2,1)]]
 
       allbranch=treesObj$paths[iiboth,ii]
-      allbranchw=treesObj$weights[iiboth,ii]
+      allbranchw=weights[iiboth,ii]
       nv=t(projection(t(allbranch), method="AVE", returnNV = T))
       nv=as.vector(nv)
       iibad=which(allbranch<cutoff)
@@ -573,6 +583,160 @@ getAllResiduals=function(treesObj, cutoff=0.000004*3, transform="none", weighted
   rr
 }
 
+
+
+getAllResiduals=function(treesObj, cutoff=NULL, transform="none", weighted=F,  useSpecies=NULL,  min.sp=10, scale=F,  doOnly=NULL, maxT=NULL, scaleForPproj=F, mean.trim=0.05){
+
+  if(is.null(cutoff)){
+    cutoff=quantile(treesObj$paths, 0.05, na.rm=T)
+    message(paste("cutoff is set to", cutoff))
+  }
+ if (weighted){
+   weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=T)
+   residfunc=fastLmResidMatWeighted
+ }
+  else{
+    residfunc=fastLmResidMat
+  }
+  # residfunc=naresid
+
+  if (is.null(useSpecies)){
+    useSpecies=treesObj$masterTree$tip.label
+    mappedEdges=trees$mappedEdges
+  }
+  if(is.null(maxT)){
+    maxT=treesObj$numTrees
+  }
+  if(transform!="none"){
+    transform=match.arg(transform,c("sqrt", "log"))
+    transform=get(transform)
+  }
+  else{
+    transform=NULL
+  }
+
+
+
+  #cm is the common names of species that are included in the char vector and ucsctree
+  cm=intersect(treesObj$masterTree$tip.label, useSpecies)
+  #master.tree=pruneTree(ucsctreeUse, cm)
+
+  rr=matrix(nrow=nrow(treesObj$paths), ncol=ncol(treesObj$paths))
+
+  #maximum number of present species
+  maxn=rowSums(treesObj$report[,cm])
+
+  if(is.null(doOnly)){
+    doOnly=1
+  }
+  else{
+    maxT=1
+  }
+  skipped=double(nrow(rr))
+  skipped[]=0
+
+  for (i in doOnly:(doOnly+maxT-1)){
+
+    if(sum(!is.na(rr[i,]))==0&&!skipped[i]==1){
+
+
+      #get the ith tree
+      tree1=treesObj$trees[[i]]
+
+      #get the common species, prune and unroot
+      both=intersect(tree1$tip.label, cm)
+      if(length(both)<min.sp){
+        next
+      }
+      tree1=unroot(pruneTree(tree1,both))
+
+      #do the same for the refTree
+
+
+      #find all the genes that contain all of the species in tree1
+      allreport=treesObj$report[,both]
+      ss=rowSums(allreport)
+      iiboth=which(ss==length(both))
+
+      nb=length(both)
+      ai=which(maxn[iiboth]==nb)
+
+
+      message(paste("i=", i))
+
+
+      if(T){
+
+
+          ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+
+        ii= treesObj$matIndex[ee[, c(2,1)]]
+
+        allbranch=treesObj$paths[iiboth,ii]
+        if(weighted){
+        allbranchw=weights[iiboth,ii]
+        }
+        if(scaleForPproj){
+          nv=apply(scaleMatMean_c(allbranch), 2, mean, na.rm=T, trim=mean.trim)
+        }
+        else{
+          nv=apply(allbranch, 2, mean, na.rm=T, trim=mean.trim)
+        }
+
+        iibad=which(allbranch<cutoff)
+        #don't scale
+        #allbranch=scaleMat_c(allbranch)
+        if(!is.null(transform)){
+          nv=transform(nv)
+          allbranch=transform(allbranch)
+        }
+        allbranch[iibad]=NA
+
+
+
+
+        if(!scale){
+          if(!weighted){
+            proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv))
+
+          }
+          else{
+
+            proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv), allbranchw[ai, ,drop=F])
+
+          }
+        }
+
+        else{
+
+          if(!weighted){
+            proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv))
+          }
+          else{
+
+            proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv),allbranchw)
+          }
+
+          proj=scale(proj, center = F)[ai, , drop=F]
+
+        }
+
+
+        #we have the projection
+
+
+
+        rr[iiboth[ai],ii]=proj
+
+      }
+
+    }}
+  rownames(rr)=names(treesObj$trees)
+  if(scale){
+    rr=scale(rr)
+  }
+  rr
+}
 
 
 
@@ -638,6 +802,39 @@ foreground2Paths = function(foreground,treesObj, plotTree=F){
   tree2Paths(res, treesObj)
 }
 
+
+#' @param foreground. A character vector containing the foreground species
+#' @param  treesObj A treesObj created by \code{\link{readTrees}}
+#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a while clade
+#' @param plotTree Plot a tree representation of the result
+#' @return A tree with edge.lengths representing phenotypic states
+#' @export
+foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T){
+  res = treesObj$masterTree
+  res$edge.length <- rep(0.05,length(res$edge.length))
+if(!collapse2anc){
+  res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
+  names(res$edge.length) = nameEdges(treesObj$masterTree)
+}
+  else{
+  tip.vals=rep(0.05, length(treesObj$masterTree$tip.label))
+  names(tip.vals)=treesObj$masterTree$tip.label
+  tip.vals[foreground]=1
+  fares=fastAnc(treesObj$masterTree, x=tip.vals, CI = T)
+  internalVals=(apply(fares$CI95>0.5,1,all))+1-1
+evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
+eres=c(tip.vals, internalVals)
+evals[,1]=eres[treesObj$masterTree$edge[,1]]
+evals[,2]=eres[treesObj$masterTree$edge[,2]]
+res$edge.length=evals[,2]-evals[,1]
+res$edge.length[res$edge.length<1]=0.05
+}
+  if(plotTree){
+    plot(res)
+  }
+res
+}
+
 #' @keywords internal
 nameEdges=function(tree){
   nn=character(nrow(tree$edge))
@@ -672,8 +869,10 @@ tree2Paths=function(tree, treesObj, binarize=T){
   vals[]=NA
   vals[ii]=treePaths$dist
   if(binarize){
-    vals[vals>0]=1
-  }
+  mm=mean(vals)
+    vals[vals>mm]=1
+  vals[vals<=mm]=0
+    }
   vals
 }
 

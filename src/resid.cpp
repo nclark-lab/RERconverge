@@ -1,11 +1,12 @@
 #include <RcppArmadillo.h>
 #include <math.h>
+
 using namespace Rcpp;
-using namespace arma;
+//using namespace arma;
 
 //[[Rcpp::depends(RcppArmadillo)]]
 // This is a simple example of exporting a C++ function to R. You can
-// source this function into an R session using the Rcpp::sourceCpp 
+// source this function into an R session using the Rcpp::sourceCpp
 // function (or via the Source button on the editor toolbar). Learn
 // more about Rcpp at:
 //
@@ -21,27 +22,17 @@ NumericVector timesTwo(NumericVector x) {
 
 // [[Rcpp::export]]
 List missingSampler() {
-  return(List::create(NumericVector::create(NA_REAL), 
+  return(List::create(NumericVector::create(NA_REAL),
                       IntegerVector::create(NA_INTEGER),
-                      LogicalVector::create(NA_LOGICAL), 
+                      LogicalVector::create(NA_LOGICAL),
                       CharacterVector::create(NA_STRING)));
 }
 
 // [[Rcpp::export]]
-// LogicalVector isNA(NumericVector x) {
-//   int n = x.size();
-//   LogicalVector out(n);
-//   
-//   for (int i = 0; i < n; ++i) {
-//     out[i] = NumericVector::is_na(x[i]);
-//   }
-//   return out;
-// }
-
 LogicalVector isNA(NumericVector x) {
   int n = x.size();
   LogicalVector out(n);
-  
+
   for (int i = 0; i < n; ++i) {
     out[i] = NumericVector::is_na(x[i]);
   }
@@ -50,15 +41,15 @@ LogicalVector isNA(NumericVector x) {
 
 
 // [[Rcpp::export]]
-uvec isNotNArowvec(const rowvec x) {
-  
+arma::uvec isNotNArowvec(const arma::rowvec x) {
+
   int n = x.size();
-  vec out(n);
-  
+  arma::vec out(n);
+
   for (int i = 0; i < n; ++i) {
     out[i] = NumericVector::is_na(x[i]);
   }
-  uvec ids = find(out==0);
+  arma::uvec ids = find(out==0);
   //  return x.elem(ids);
   return(ids);
 }
@@ -66,80 +57,80 @@ uvec isNotNArowvec(const rowvec x) {
 
 
 // [[Rcpp::export]]
-mat fastLmResid(const mat& Y, const mat& X){
-  
+arma::mat fastLmResid(const arma::mat& Y, const arma::mat& X){
+
   int n = X.n_rows, k = X.n_cols;
-  mat res;
-  
-  mat coef = Y*X*inv(trans(X)*X);    // fit model y ~ X
+  arma::mat res;
+
+  arma::mat coef = Y*X*inv(trans(X)*X);    // fit model y ~ X
   res  = Y - coef*trans(X);           // residuals
-  
+
   return res;
 }
 
 // [[Rcpp::export]]
-mat fastLmPredicted(const mat& Y, const mat& X){
-  
+arma::mat fastLmPredicted(const arma::mat& Y, const arma::mat& X){
+
   int n = X.n_rows, k = X.n_cols;
-  mat res;
-  
-  mat coef = Y*X*inv(trans(X)*X);    // fit model y ~ X
+  arma::mat res;
+
+  arma::mat coef = Y*X*inv(trans(X)*X);    // fit model y ~ X
   return coef*trans(X);           // residuals
-  
-  
+
+
 }
 
 
 // [[Rcpp::export]]
-mat fastLmResidWeighted(const mat& Y, const mat& X,  const rowvec& wa){
-  
+arma::mat fastLmResidWeighted(const arma::mat& Y, const arma::mat& X,  const arma::rowvec& wa){
+
   int n = X.n_rows, k = X.n_cols;
-  mat res;
-  
-  rowvec ws=rowvec(wa.n_elem);
+  arma::mat res;
+
+  arma::rowvec ws=arma::rowvec(wa.n_elem);
   for (int j=0; j<ws.n_elem; j++){
     ws[j]=std::sqrt(wa[j]);
   }
-  mat W=diagmat(wa);
-  
+  arma::mat W=diagmat(wa);
+
   // coeff=dat%*%W%*%modtmp %*% solve(t(modtmp) %*% W %*% modtmp)
-  mat coef = Y*W*X*inv(trans(X)*W*X);    // fit model y ~ X
+  arma::mat coef = Y*W*X*inv(trans(X)*W*X);    // fit model y ~ X
   res  = Y - coef*trans(X);           // residuals
   res.each_row()%=ws;
-  
+
   return res;
-}  
+}
 
 
 
 
 // [[Rcpp::export]]
-List fastLm(const mat& Y, const mat& X) {
+List fastLm(const arma::mat& Y, const arma::mat& X) {
   int n = X.n_rows, k = X.n_cols;
-  
+
   //  coeff=data[i,]%*%mod %*% solve(t(mod) %*% mod)
   //    resid[i, ] = data[i,] -(coeff %*% t(mod))\
-  
-  
-  mat coef = Y*X*inv(trans(X)*X);    // fit model y ~ X
-  mat res  = Y - coef*trans(X);           // residuals
-  
+
+
+  arma::mat coef = Y*X*inv(trans(X)*X);    // fit model y ~ X
+  arma::mat res  = Y - coef*trans(X);           // residuals
+
   // std.errors of coefficients
   double s2 = std::inner_product(res.begin(), res.end(), res.begin(), 0.0)/(n - k);
-  
+
   // colvec std_err = sqrt(s2 * diagvec(pinv(trans(X)*X)));
-  
+
   return List::create(Named("coefficients") = coef,
                       //                   Named("stderr")       = std_err,
                       Named("df.residual")  = n - k);
 }
 
 // [[Rcpp::export]]
-mat fastLmResidMat(const mat& Y, const mat& X) {
-  uvec ids;
-  mat rmat=mat(Y.n_rows, Y.n_cols);
-  rmat.fill(datum::nan);
-  uvec vec_i=uvec(1);
+arma::mat fastLmResidMat(const arma::mat& Y, const arma::mat& X) {
+  arma::uvec ids;
+  arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
+  rmat.fill(arma::datum::nan);
+  arma::uvec vec_i=arma::uvec(1);
   int i,j;
   for (int i=0; i<Y.n_rows; i++){
     vec_i[0]=i;
@@ -153,11 +144,11 @@ mat fastLmResidMat(const mat& Y, const mat& X) {
 
 
 // [[Rcpp::export]]
-mat fastLmPredictedMat(const mat& Y, const mat& X) {
-  uvec ids;
-  mat rmat=mat(Y.n_rows, Y.n_cols);
-  rmat.fill(datum::nan);
-  uvec vec_i=uvec(1);
+arma::mat fastLmPredictedMat(const arma::mat& Y, const arma::mat& X) {
+  arma::uvec ids;
+  arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
+  rmat.fill(arma::datum::nan);
+  arma::uvec vec_i=arma::uvec(1);
   int i,j;
   for (int i=0; i<Y.n_rows; i++){
     vec_i[0]=i;
@@ -171,11 +162,11 @@ mat fastLmPredictedMat(const mat& Y, const mat& X) {
 
 
 // [[Rcpp::export]]
-mat fastLmResidMatWeighted(const mat& Y, const mat& X, const mat& W) {
-  uvec ids;
-  mat rmat=mat(Y.n_rows, Y.n_cols);
-  rmat.fill(datum::nan);
-  uvec vec_i=uvec(1);
+arma::mat fastLmResidMatWeighted(const arma::mat& Y, const arma::mat& X, const arma::mat& W) {
+  arma::uvec ids;
+  arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
+  rmat.fill(arma::datum::nan);
+  arma::uvec vec_i=arma::uvec(1);
   int i,j;
   for (int i=0; i<Y.n_rows; i++){
     vec_i[0]=i;
@@ -190,33 +181,17 @@ mat fastLmResidMatWeighted(const mat& Y, const mat& X, const mat& W) {
 
 
 // [[Rcpp::export]]
-mat fastLmResidMatWeightedNoNACheck(const mat& Y, const mat& X, const mat& W) {
-  uvec ids;
-  mat rmat=mat(Y.n_rows, Y.n_cols);
-  
-  uvec vec_i=uvec(1);
+arma::mat fastLmResidMatWeightedNoNACheck(const arma::mat& Y, const arma::mat& X, const arma::mat& W) {
+  arma::uvec ids;
+  arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
+
+  arma::uvec vec_i=arma::uvec(1);
   int i,j;
   int nc=rmat.n_cols-1;
   for (int i=0; i<Y.n_rows; i++){
-    rmat.submat(span(i,i),span(0, nc))=fastLmResidWeighted(Y.submat(span(i,i),span(0, nc)), X, W.submat(span(i,i),span(0, nc)));
+    rmat.submat(arma::span(i,i),arma::span(0, nc))=fastLmResidWeighted(Y.submat(arma::span(i,i),arma::span(0, nc)), X, W.submat(arma::span(i,i),arma::span(0, nc)));
   }
   return(rmat);
 }
 
 
-/*** R
-set.seed(123)
-x=rnorm(10)
-y=rbind(rnorm(10))
-w=rbind(rnorm(10)^2)
-y[1,1]=NA
-mod=model.matrix(~1+x)
-message("Regular residual")
-naresid(y, mod)
-message("Regular residual CPP")
-naresidCPP(y,mod)
-message("Weighted residual")
-naresid(data = y, mod, weights = w)
-message("Weighted residual CPP")
-naresidCPP(data = y, mod = mod, weights = w)
-*/

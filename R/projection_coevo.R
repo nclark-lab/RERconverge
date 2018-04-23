@@ -64,76 +64,92 @@ resid=function(dat, lab){
                    t(mod))
 }
 #' @keywords  internal
-naresid=function(data, X, useZero=F, weights=NULL, covar=NULL){
-  if(is.vector(X)){
-    mod=model.matrix(~1+as.vector(X));
-  }
-  else{
-    mod=X
-  }
-  #show(mod)
-  resid=matrix(nrow=nrow(data), ncol=ncol(data))
-  if(useZero){
-    resid[]=0;
-  }
-  else{
-    resid[]=NA;
-  }
-  for ( i in 1:nrow(data)){
+ naresid=function(data, X,  weights=NULL, covar=NULL, numiter=0, useZero=F){
+if(is.vector(X)){
+  mod=model.matrix(~1+as.vector(X));
+}
+else{
+  mod=X
+}
+#show(mod)
+resid=matrix(nrow=nrow(data), ncol=ncol(data))
+if(useZero){
+  resid[]=0;
+}
+else{
+  resid[]=NA;
+}
+for ( i in 1:nrow(data)){
 
-    ii=which(!is.na(data[i,]))
-    if(length(ii)>2){
-      iiinv=which(is.na(data[i,]))
+  ii=which(!is.na(data[i,]))
+  if(length(ii)>2){
+    iiinv=which(is.na(data[i,]))
 
-      dat=data[i,ii,drop=F]
+    dat=data[i,ii,drop=F]
 
-      modtmp=mod[ii,]
-      if(!is.null(weights)){
-        W=diag(weights[i,ii])
-      }
-      else{
-        W=NULL
-      }
-      if (!is.null(covar)){
-        if(!is.null(W)){
-          W=W%*%covar
-        }
-        else{
-          W=covar
-        }
-      }
-      n=dim(dat)[2]
-      Id=diag(n)
+    modtmp=mod[ii,]
+    if(!is.null(weights)){
+      W=diag(weights[i,ii])
+    }
+    else{
+      W=NULL
+    }
+    if (!is.null(covar)){
       if(!is.null(W)){
-
-        coeff=dat%*%W%*%modtmp %*% solve(t(modtmp) %*% W %*% modtmp)
-        #check there is no error with lm
-        # lmres=lm(t(dat)~0+modtmp, weights = diag(W))
-        #  show(coeff)
-        #  show(coefficients(lmres))
-        resid[i, ii] = dat -(coeff %*% t(modtmp))
-        resid[i, ii]=resid[i,ii]*sqrt(diag(W))
-
-
+        W=W%*%covar
       }
       else{
-        resid[i,ii]=dat %*% (Id - modtmp %*% solve(t(modtmp) %*% modtmp) %*%
-                               t(modtmp))
+        W=covar
       }
+    }
+    n=dim(dat)[2]
+    Id=diag(n)
+    if(!is.null(W)){
 
+      coeff=dat%*%W%*%modtmp %*% solve(t(modtmp) %*% W %*% modtmp)
+      #check there is no error with lm
+      # lmres=lm(t(dat)~0+modtmp, weights = diag(W))
+      #  show(coeff)
+      #  show(coefficients(lmres))
+      resid[i, ii] = dat -(coeff %*% t(modtmp))
+      resid[i, ii]=resid[i,ii]*sqrt(diag(W))
+      if(numiter>0){
+        for(iter in 1:numiter){
+          ii.use=isNotOutlier(resid[i,], quant)
+          Wq=diag(weights[i, ii.use])
+          modq=mod[ii.use,]
+          coeff=dat[i, ii.use]%*%Wq%*%modq %*% solve(t(modq) %*% Wq %*% modq)
 
+          resid[i, ] = dat[i,] -(coeff %*% t(mod))
+          resid[i, ]=resid[i,]*sqrt(diag(W))
+        }
+      }
 
     }
     else{
-      # message("Cannot compute residuals")
+      coeff=dat%*%modtmp %*% solve(t(modtmp)  %*% modtmp)
+      #check there is no error with lm
+      # lmres=lm(t(dat)~0+modtmp)
+      #  show(coeff)
+      #  show(coefficients(lmres))
+      resid[i, ii] = dat -(coeff %*% t(modtmp))
 
     }
 
+
+
   }
-  rownames(resid)=rownames(data)
-  colnames(resid)=colnames(data)
-  resid
+  else{
+    # message("Cannot compute residuals")
+
+  }
+
 }
+rownames(resid)=rownames(data)
+colnames(resid)=colnames(data)
+resid
+}
+
 
 
 
