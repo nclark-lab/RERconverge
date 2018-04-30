@@ -431,7 +431,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
       }
       else{
 
-        cres=wtd.cor(rank(RERmat[i,ii]), rank(charP[ii]), weight = weights[rownames(RERmat)[i],ii], mean1 = T)
+        cres=wtd.cor(rank(RERmat[i,ii]), rank(charP[ii]), weight = weights[rownames(RERmat)[i],ii], mean1 = F)
 
         corout[i, 1:3]=c(cres[1], nb, cres[4])
       }
@@ -732,9 +732,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="none", weighted=F,  u
 
     }}
   rownames(rr)=names(treesObj$trees)
-  if(scale){
-    rr=scale(rr)
-  }
+
   rr
 }
 
@@ -834,6 +832,9 @@ res$edge.length[res$edge.length<1]=0.05
   }
 res
 }
+
+
+
 
 #' @keywords internal
 nameEdges=function(tree){
