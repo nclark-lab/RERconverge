@@ -604,7 +604,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="none", weighted=F,  u
 
     }}
   rownames(rr)=names(treesObj$trees)
-
+  colnames(rr)=namePathsWSpecies(treesObj$masterTree)
   rr
 }
 
