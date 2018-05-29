@@ -717,16 +717,38 @@ nameEdges=function(tree){
 }
 
 
-#' Generates a phenotype paths vector matching thre treesObject from a tree where branches specify phenotypes
+#' Generate a phenotype paths vector from a phenotype tree
+#'
+#' \code{tree2Paths} generates a phenotype paths vector matching the treesObject
+#'     from a tree where branches specify phenotypes.
+#'
+#' The tree topology of the phenotype tree must match that of the master tree within the treesObject.
+#'
 #' @param tree A phenotype tree, with branch length encoding a phenotype.
-#' @param  treesObj A treesObj created by \code{\link{readTrees}}
-#' @param binarize Force binary path representation. Sets all positive path values to 1. Useful if the tree has ancestral nodes with non-zero branches, otherwise values are simply added along branches.
+#' @param treesObj A treesObject created by \code{\link{readTrees}}
+#' @param binarize Force binary path representation. Default action depends upon the type of data within the phenotype tree
+#'     (binary or continuous).
+#'    If binary (all branch lengths == 0 or 1): Sets all positive path values to 1. Useful if the tree has non-zero branch lengths
+#'        for an internal branch or branches; otherwise, values are simply added along branches when calculating paths.
+#'        Default behavior: binarize = TRUE.
+#'    If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
+#'        Converts a continuous phenotype to a binary phenotype, with state determined by comparison to the mean across all paths.
+#'        Default behavior: binarize = FALSE.
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-tree2Paths=function(tree, treesObj, binarize=T){
+tree2Paths=function(tree, treesObj, binarize=NULL){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
+  stopifnot(all.equal(tree, treesObj, use.edge.length=F))
 
+  isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length)
+  if (!is.null(binarize)) {
+    if (isbinarypheno) {
+      binarize = T
+    } else {
+      binarize = F
+    }
+  }
 
   treePaths=allPaths(tree)
   map=matchAllNodes_c(tree,treesObj$masterTree)
@@ -742,10 +764,14 @@ tree2Paths=function(tree, treesObj, binarize=T){
   vals[]=NA
   vals[ii]=treePaths$dist
   if(binarize){
-  mm=mean(vals)
-    vals[vals>mm]=1
-  vals[vals<=mm]=0
+    if(isbinarypheno) {
+      vals[vals>0]=1
+    } else {
+      mm=mean(vals)
+      vals[vals>mm]=1
+      vals[vals<=mm]=0
     }
+  }
   vals
 }
 
