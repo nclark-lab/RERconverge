@@ -10,4 +10,5 @@ RERconverge.Rproj
 .Rbuildignore
 .Rhistory
 vignettes/*/*/*chunk*
+.DS_Store
 

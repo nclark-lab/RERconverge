@@ -1,16 +1,24 @@
 if(T){
-library("RERconverge")
-#this will take some time
-mamTrees=readTrees("data/mammal_62_aa_sub.tre", max.read = 1000)
+  if (!require("RERconverge", character.only=T, quietly=T)) {
+    require(devtools)
+    install_github("nclark-lab/RERconverge")
+  }
+#the following will take some time
+mamTrees=readTrees("../data/mammal62aa_meredplus_wCM.trees", max.read = 200)
 #cutoff = exp(-7) based on the peak of the mean/variance plot
 
 
-#this is the basic method
+#this is the basic method (not demonstrated in the vignette)
 mamRER=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "none",weighted = F, scale = T)
 #For some datasets scaling improves results
 
 #this method peforms better on benchmarks, weighting works with all transforms but sqrt is recommended
+#(scaling no longer recommended and not demonstrated in the vignette)
 mamRERw=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, transform = "sqrt",weighted = T, scale=T)
+
+#this method peforms better on benchmarks, weighting works with all transforms but sqrt is recommended
+mamRERv=getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label,
+                       transform = "sqrt", weighted = T, cutoff=0.001)
 
 
 
@@ -33,14 +41,14 @@ marineb3=foreground2Tree(foreground, mamTrees, collapse2anc = F)
 phenvMarine=tree2Paths(marineb, mamTrees)
 phenvMarine
 
+corMarine = getAllCor(mamRERv, phenvMarine)
 
 
+#corMarine=getAllCor(mamRER, phenvMarine)
+#hist(corMarine$P)
 
-corMarine=getAllCor(mamRER, phenvMarine)
-hist(corMarine$P)
-
-corMarineW=getAllCor(mamRERw, phenvMarine)
-hist(corMarineW$P)
-qqplot(corMarine$P, corMarineW$P, log="xy");abline(a=0,b=1)
+#corMarineW=getAllCor(mamRERw, phenvMarine)
+#hist(corMarineW$P)
+#qqplot(corMarine$P, corMarineW$P, log="xy");abline(a=0,b=1)
 
 }
