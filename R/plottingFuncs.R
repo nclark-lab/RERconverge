@@ -586,6 +586,7 @@ plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NUL
     for (i in 1:length(hlspecies)) {
       colMaster[which(wspmr==hlspecies[i])] <- hlcols[i]
     }
+  }
   termedge <- order(rooted$edge[,2])[1:length(rooted$tip.label)] #which edge corresponds to each terminal branch
   colMasterTip <- colMaster[termedge]
   plotobj = plot.phylo(rooted, main = main, edge.color=colMaster,

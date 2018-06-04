@@ -67,7 +67,8 @@ We can visualize the RERs for any given gene using the `plotRers` function. Here
 #make average and gene tree plots
 noneutherians <- c("Platypus","Wallaby","Tasmanian_devil","Opossum")
 par(mfrow=c(1,2))
-#The following function is not in the compiled R package but is available in 'plottingFuncs.R' on 'wynn' branch....
+#The following function is not in the compiled R package but is available in 'plottingFuncs.R' on 'UpdateVignette' branch....
+source('../R/plottingFuncs.R')
 avgtree=plotTreeHighlightBranches(mamTrees$masterTree, outgroup=noneutherians, hlspecies=c("Vole","Squirrel"), hlcols=c("blue","red"), main="Average tree") #plot average tree
 bend3tree=plotTreeHighlightBranches(mamTrees$trees$BEND3, outgroup=noneutherians, hlspecies=c("Vole","Squirrel"), hlcols=c("blue","red"), main="BEND3 tree") #plot individual gene tree
 #plot RERs
