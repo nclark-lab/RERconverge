@@ -12,9 +12,9 @@ bibliography: RERConverge.bib
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This walk-through provides instructions for implementing the RERconverge package to identify genes whose evolutionary rates shift in association with change in a binary trait. For information on how to download and install RERconverge, see the README on [github](https://github.com/nclark-lab/RERconverge).
+#Replace this with a common intro combined with continuous traits.
 
-As an example, we will run the code in the `runMarineSub.R` script in the vignettes folder. 
+This walk-through provides instructions for implementing the RERconverge package to identify genes whose evolutionary rates shift in association with change in a binary trait. For information on how to download and install RERconverge, see the README on [github](https://github.com/nclark-lab/RERconverge).
 
 ## Reading in gene trees with `readTrees`
 
@@ -79,6 +79,11 @@ plotRers(mamRERv,"BEND3",phenv=phenvExample) #plot RERs
 
 The upper left plot is a tree with branch lengths representing the average rates across all genes. The upper right plot is the same tree, but with branch lengths representing rates specifically for the BEND3 gene. The plot below these represents the estimated RERs for terminal branches. The foreground branches (set here using `foreground2Paths`) are highlighted in red. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
 
+## Associating RERs with binary traits
+
+The `runMarineSub.R` script in the vignettes folder contains the minimal set of steps
+to test for association between relative evolutionary rates and a **binary trait**. 
+
 ## Reading in or generating trait trees
 
 Now we will associate variation in these RERs with variation in traits across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are three possible ways to do this:
@@ -92,12 +97,8 @@ marinebrooted = root(marineb,outgroup=noneutherians)
 
 This tree file has all extant marine species, plus the ancestor of the killer whale and the dolphin, as foreground.
 
-2) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
-```{r, eval = FALSE}
-marineb2=selectforegroundbranches(mamTrees$masterTree)
-```
+2) Provide a list of species to use as foreground species. This only allows inclusion of extant lineages, so in this case, the Killer whale-Dolphin ancestor will no longer be included.
 
-3) Provide a list of species to use as foreground species. This only allows inclusion of extant lineages, so in this case, the Killer whale-Dolphin ancestor will no longer be included.
 ```{r fig2, fig.height=8,fig.width=10, cache = TRUE}
 marineextantforeground = c("Walrus","Seal","Killer_whale","Dolphin","Manatee")
 masterrooted <- root(mamTrees$masterTree,outgroup=noneutherians)
@@ -111,9 +112,21 @@ plot(marinebrooted, main="Trait tree from file (1)")
 plot(marineb3rooted, main="Trait tree from foreground list (3)")
 ```
 
-Note that the branch representing the ancestor of the killer whale and the dolphin has a branch length of 1 in the tree on the left and a branch length of 0 in the tree on the right. As mentioned, providing a binary trait tree file (1) or manually specifying foreground branches (2) allows you to include internal branches in the foreground, whereas specifying a list of foreground species (3) does not. 
+# Determine whether to include the following. It is based on the implementation
+of the interactive tool to select foreground branches using RShiny.
 
-You can double check that the tree you created by manual selection (2) matches the tree above on the left (it should) using the following code:
+3) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
+
+```{r, eval = FALSE}
+marineb2=selectforegroundbranches(mamTrees$masterTree)
+```
+
+Note that the branch representing the ancestor of the killer whale and the dolphin has a branch length of 1 in the tree on the left and a branch length of 0 in the tree on the right. As mentioned, providing a binary trait tree file (1) (or manually specifying foreground branches (3)) allows you to include internal branches in the foreground, whereas specifying a list of foreground species (2) does not. 
+
+#If including the interactive selection tool....
+
+You can double check that the tree you created by manual selection (3) matches the tree above on the left (it should) using the following code:
+
 ```{r, eval = FALSE}
 marineb2=selectforegroundbranches(mamTrees$masterTree)
 marineb2rooted=root(marineb2,outgroup=c("Platypus", "Wallaby","Tasmanian_devil","Opossum"))
@@ -123,12 +136,18 @@ plot(marineb2rooted, main = "Trait tree from manual selection (2)")
 ## Generating **paths** for all genes using `tree2Paths` or `foreground2Paths`
 Some of the genes (like BEND3 above) may not have data for all species, meaning that their phylogeny will be a subset of the full phylogeny. To plot RERs for these genes and to correlate them with trait evolution, we run one of two functions that determine how the trait would evolve along all/many possible subsets of the full phylogeny, generating a set of **paths**. The function `tree2paths` takes a binary tree as input, and the function `foreground2paths` takes a set of foreground species as input.
 
+**Important note**: If you are using a binary tree to create paths, it **must**
+have the same topology and include the same species as the **master tree** (see previous section for how this is generated).
+
 ```{r, cache = TRUE}
 phenvMarine=tree2Paths(marineb, mamTrees)
 phenvMarine2=foreground2Paths(marineextantforeground, mamTrees)
 ```
 
 ## Correlating gene evolution with trait evolution using `getAllCor`
+
+# (modify this once wrapper scripts are available to call `getAllCor` separately for binary and continuous traits)
+
 Now that we have estimates for the RERs for all genes of interest, as well as a representation of how the trait of interest evolves across the tree, we can use RERConverge to test for an association between relative evolutionary rate and trait across all branches of the tree.
 
 ```{r, warning = FALSE, cache = TRUE}
