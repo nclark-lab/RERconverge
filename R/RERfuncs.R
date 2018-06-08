@@ -164,7 +164,7 @@ computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicte
     qqdiff=diff(qq)
     breaks=qq[1:nbreaks]+qqdiff/2
     rr=quantile(mml, c(0.0001, 0.99))
-breaks=round(breaks,3)
+    breaks=round(breaks,3)
     cutres<-cut(mml,breaks = breaks)
 
     cutres_tt=table(cutres)
@@ -185,13 +185,13 @@ breaks=round(breaks,3)
   else{
     weights=(matrix(1/exp(f(matpred)), nrow = nrow(mat)))
   }
- if(plot){
-  matr=naresidCPP(matsub, model.matrix(~1+nv), weights)
-  varl=(as.vector(log(matr^2))[ii])[iis]
-  boxplot((varl)~ cutres, ylab = "log var", outline=F,  log="", main="After", las=2)
-  abline(h=0, col="blue3", lwd=2)
-  mtext(side = 1, text="bins", outer = T, line = 2)
-}
+  if(plot){
+    matr=naresidCPP(matsub, model.matrix(~1+nv), weights)
+    varl=(as.vector(log(matr^2))[ii])[iis]
+    boxplot((varl)~ cutres, ylab = "log var", outline=F,  log="", main="After", las=2)
+    abline(h=0, col="blue3", lwd=2)
+    mtext(side = 1, text="bins", outer = T, line = 2)
+  }
   weights
 }
 
@@ -368,12 +368,37 @@ getChildren=function(tree, nodeN){
 #' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
+#' @param weighted perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.
 correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto"){
-  if (any(charP>0&charP<1)){
-   message("Fractional values detected, will use weighted correlation mode")
+  if(weighted=="auto"){
+    if (any(charP>0&charP<1)){
+      message("Fractional values detected, will use weighted correlation mode")
+      weighted=T
+    }
+    else{
+      weighted=F
+    }
   }
+  getAllCor(RERmat, charP, min.sp, min.pos, method = "k", weighted=weighted)
 
 }
+
+
+#'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a continuous phenotype made with \code{\link{char2Paths}}
+#' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
+#' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override
+#' @param min.sp Minimum number of species that must be present for a gene
+#' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
+
+correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, winsorize=3){
+
+  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorize = winsorize )
+
+}
+
+
+
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
@@ -382,11 +407,11 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
-#' @param weights perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.
+#' @param weighted perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
-getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=NULL,weights=NULL){
+getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=NULL,weighted=F){
   if (method=="auto"){
     lu=length(unique(charP))
     if(lu==2){
@@ -429,7 +454,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
         next
       }
 
-      if(is.null(weights)){
+      if(!weighted){
 
 
         if (!is.null(winsorize)){
@@ -442,9 +467,9 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
         corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
       }
       else{
-charPb=(charP[ii]>0)+1-1
-weights=charP[ii]
-weights[weights==0]=1
+        charPb=(charP[ii]>0)+1-1
+        weights=charP[ii]
+        weights[weights==0]=1
         cres=wtd.cor(rank(RERmat[i,ii]), rank(charPb), weight = weights, mean1 = F)
 
         corout[i, 1:3]=c(cres[1], nb, cres[4])
@@ -477,10 +502,10 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="none", weighted=F,  u
     cutoff=quantile(treesObj$paths, 0.05, na.rm=T)
     message(paste("cutoff is set to", cutoff))
   }
- if (weighted){
-   weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=T)
-   residfunc=fastLmResidMatWeighted
- }
+  if (weighted){
+    weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=T)
+    residfunc=fastLmResidMatWeighted
+  }
   else{
     residfunc=fastLmResidMat
   }
@@ -554,13 +579,13 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="none", weighted=F,  u
       if(T){
 
 
-          ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+        ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
 
         ii= treesObj$matIndex[ee[, c(2,1)]]
 
         allbranch=treesObj$paths[iiboth,ii]
         if(weighted){
-        allbranchw=weights[iiboth,ii]
+          allbranchw=weights[iiboth,ii]
         }
         if(scaleForPproj){
           nv=apply(scaleMatMean_c(allbranch), 2, mean, na.rm=T, trim=mean.trim)
@@ -645,10 +670,10 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
   }
   cm=intersect(treesObj$masterTree$tip,intersect(names(tip.vals), masterTree$tip))
 
-#reduce to the same species set
-    master.tree = pruneTree(masterTree, cm)
-    tip.vals=tip.vals[cm]
-#make the tree with ancestral states
+  #reduce to the same species set
+  master.tree = pruneTree(masterTree, cm)
+  tip.vals=tip.vals[cm]
+  #make the tree with ancestral states
   charTree = edgeVars(master.tree, tip.vals, metric=metric, se.filter=se.filter, ...)
 
 
@@ -695,29 +720,33 @@ foreground2Paths = function(foreground,treesObj, plotTree=F){
 #' @export
 foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F){
   if(wholeClade){
-   collapse2anc=T
+    collapse2anc=T
   }
   res = treesObj$masterTree
   res$edge.length <- rep(0,length(res$edge.length))
-if(!collapse2anc){
-  res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
-  names(res$edge.length) = nameEdges(treesObj$masterTree)
-}
+  if(!collapse2anc){
+    res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
+    names(res$edge.length) = nameEdges(treesObj$masterTree)
+  }
   else{
-  tip.vals=rep(0, length(treesObj$masterTree$tip.label))
-  names(tip.vals)=treesObj$masterTree$tip.label
-  tip.vals[foreground]=1
-  ancres=ancestral.pars(res, df<-as.phyDat(as.factor(tip.vals)),type="ACCTRAN" )
+    tip.vals=rep(0, length(treesObj$masterTree$tip.label))
+    names(tip.vals)=treesObj$masterTree$tip.label
+    tip.vals[foreground]=1
+    tmp=cbind(as.character(tip.vals))
+    rownames(tmp)=names(tip.vals)
+    tip.vals=tmp
 
-  ancres=unlist(lapply(ancres, function(x){x[2]}))
-  internalVals=ancres
-evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
-eres=ancres
-evals[,1]=eres[treesObj$masterTree$edge[,1]]
-evals[,2]=eres[treesObj$masterTree$edge[,2]]
-res$edge.length=evals[,2]-evals[,1]
+    ancres=ancestral.pars(res, df<-as.phyDat(tip.vals, type="USER", levels=unique(as.character(tip.vals))),type="ACCTRAN" )
 
-res$edge.length[res$edge.length<1]=0
+    ancres=unlist(lapply(ancres, function(x){x[2]}))
+    internalVals=ancres
+    evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
+    eres=ancres
+    evals[,1]=eres[treesObj$masterTree$edge[,1]]
+    evals[,2]=eres[treesObj$masterTree$edge[,2]]
+    res$edge.length=evals[,2]-evals[,1]
+
+    res$edge.length[res$edge.length<1]=0
   }
   if(wholeClade){
     edgeIndex=which(res$edge.length>0)
@@ -734,7 +763,7 @@ res$edge.length[res$edge.length<1]=0
     res2$edge.length[res2$edge.length==0]=max(0.02,mm/20)
     plot(res2)
   }
-res
+  res
 }
 
 
@@ -1109,6 +1138,15 @@ checkOrder=function(tree1, tree2, plot=F){
   #  return(cbind(tmpd1, tmpd2))
 }
 
+
+getAllCladeEdges=function(tree, AncEdge){
+  node=tree$edge[AncEdge,2]
+  #get descendants
+  iid=getDescendants(tree, node)
+  #find their edges
+  iim=match(iid, tree$edge[,2])
+  iim
+}
 
 
 

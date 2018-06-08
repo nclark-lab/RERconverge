@@ -24,6 +24,7 @@ plot(marineb)
 #we can also do this from the foreground set
 foreground=c("triMan1", "orcOrc1", "turTru2", "odoRosDi", "lepWed1")
 #there are two options, the default will put all the weight for a clade on the ancestral branch
+par(mfrow=c(1,3))
 marineb1=foreground2Tree(foreground, mamTrees, collapse2anc = T)
 #alternatively the weight will be put on the extant branch but this approach suffers from phylogenetic dependence
 marineb2=foreground2Tree(foreground, mamTrees, collapse2anc = F)
