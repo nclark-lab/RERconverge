@@ -4,7 +4,33 @@ RERConverge is a set of software written in R that estimates the correlation bet
 
 ## Getting Started
 
-Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for instructions to **install** and **run** RERConverge on your own data.
+Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for detailed instructions to **install** RERConverge from scratch. For more information on running RERConverge, please see the full documentation ***(Link to R documentation)*** and R vignettes. ***(Link to R vignettes)***
+
+### Quick Start
+```
+library(devtools)
+install_github("nclark-lab/RERconverge")
+```
+To run an analysis you will need:
+1) a trees file: a tab-delimited files with gene names and Newick format trees for each gene.
+Tree topologies must be the same for all genes, and at least one tree must contain all species in the dataset.
+We provide trees files for several clades here. ***(link to example datasets)***
+
+2) information about phenotypes for species included in the dataset.
+For a *binary trait analysis*, this can either be in the form of:
+-a vector (in R) of species to include in the foreground.*
+-a tree object (made in R from a Newick tree) where branches are non-zero only for foreground lineages.
+*This may yield incorrect inferences for ancestral branches, so the tree object is preferred.
+
+For a *continuous trait analysis*, this should be:
+-a named vector (in R) of quantitative phenotype values, where the names represent the species to which the phenotypes correspond.
+
+
+### Output
+
+Running RERConverge will produce the following outputs:
+1) an object containing, for each gene, the correlation between its relative evolutionary rate and the trait of interest, along with the estimateed p-value
+2) an object containing, for each gene, its relative evolutionary rate for each branch of the phylogeny, which can be used in the included visualization scripts (e.g., to illustrate the difference in relative evolutionary rate between foreground and background branches)
 
 
 ## Authors
