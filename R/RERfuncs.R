@@ -360,8 +360,18 @@ getChildren=function(tree, nodeN){
 
 
 
+#'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}
+#' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
+#' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override
+#' @param min.sp Minimum number of species that must be present for a gene
+#' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
+correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto"){
+  if (any(charP>0&charP<1)){
+   message("Fractional values detected, will use weighted correlation mode")
+  }
 
-
+}
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
