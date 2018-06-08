@@ -24,10 +24,12 @@ RERConverge can be cited as follows:
 
 ```
 For coding sequences:
-Chikina M, Robinson JD, Clark NL. Hundreds of Genes Experienced Convergent Shifts in Selective Pressure in Marine Mammals. Mol Biol Evol. 2016;33: 2182–92. doi:10.1093/molbev/msw112
+Chikina M, Robinson JD, Clark NL. Hundreds of Genes Experienced Convergent Shifts in Selective Pressure in Marine 
+Mammals. Mol Biol Evol. 2016;33: 2182–92. doi:10.1093/molbev/msw112
 
 For conserved non-coding sequences:
-Partha R, Chauhan B, Ferreira Z, Robinson J, Lathrop K, Nischal K, et al. Subterranean mammals show convergent regression in ocular genes and enhancers, along with adaptation to tunneling. In press eLife. 
+Partha R, Chauhan B, Ferreira Z, Robinson J, Lathrop K, Nischal K, et al. Subterranean mammals show convergent 
+regression in ocular genes and enhancers, along with adaptation to tunneling. In press eLife. 
 
 ```
 
@@ -39,12 +41,16 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 * Methods for computing weights rely on ideas from the following paper:
 ```
-Law CW, Chen Y, Shi W, Smyth GK. voom: Precision weights unlock linear model analysis tools for RNA-seq read counts. Genome Biol. 2014;15: R29. doi:10.1186/gb-2014-15-2-r29
+Law CW, Chen Y, Shi W, Smyth GK. voom: Precision weights unlock linear model analysis tools for RNA-seq read
+counts. Genome Biol. 2014;15: R29. doi:10.1186/gb-2014-15-2-r29
 
 ```
 * Projection operations are drawn from the following paper:
 ```
-Sato T, Yamanishi Y, Kanehisa M, Toh H. The inference of protein-protein interactions by co-evolutionary analysis is improved by excluding the information about the phylogenetic relationships. Bioinformatics. Bioinformatics Center, Institute for Chemical Research, Kyoto University, Gokasho, Uji, Kyoto 611-0011, Japan. sato@kuicr.kyoto-u.ac.jp; 2005;21: 3482–3489. doi:10.1093/bioinformatics/bti564
+Sato T, Yamanishi Y, Kanehisa M, Toh H. The inference of protein-protein interactions by co-evolutionary 
+analysis is improved by excluding the information about the phylogenetic relationships. Bioinformatics. 
+Bioinformatics Center, Institute for Chemical Research, Kyoto University, Gokasho, Uji, Kyoto 611-0011, 
+Japan. sato@kuicr.kyoto-u.ac.jp; 2005;21: 3482–3489. doi:10.1093/bioinformatics/bti564
 
 ```
 * Thanks to [PurpleBooth](https://github.com/PurpleBooth) for this template.
