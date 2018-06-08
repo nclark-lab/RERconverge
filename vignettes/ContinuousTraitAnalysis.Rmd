@@ -27,9 +27,8 @@ The analysis requires two sources of data as input:
 When choosing a dataset to work with, consider the availability and accuracy of both genomic and phenotypic data, and be sure to select a valid convergent phenotype that is observed at high and low levels in multiple independent clades in your phylogeny.  In the following lines of code, I load my phenotypic data of mammal adult weight:  
 
 ```{r}
-load("../data/mammalweightlog.RData")
-head(adult.weights.log)
-length(adult.weights.log)
+head(logAdultWeightcm)
+length(logAdultWeightcm)
 ```
 
 Note that my phenotype vector contains numeric values that are assigned species names.  These names, by design, are the same names that are used as terminal node labels in my phylogenetic trees.  A dataset of phylogenetic trees for a real analysis would contain one tree for every genomic element of interest with branch lengths representing element-specific evolutionary rates.  Trees should be in Newick format in a tab-delimited file in which each line contains the tree name and the tree.  Importantly, trees must preseve the same topology or encode the same evolutionary relationships among species.  The "readTrees" function takes the filepath of the trees and reads them into a tree object that is used in later analysis steps.  Reading in trees and performing subsequent analyses can take a long time for large genomic datasets over large phylogenies, so for the sake of brevity, we will read in a subset of 200 trees using the parameter "max.read=200".
