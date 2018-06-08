@@ -4,7 +4,7 @@ RERConverge is a set of software written in R that estimates the correlation bet
 
 ## Getting Started
 
-Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for instructions to **install** and **run** RERConverge on your own data.
+Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started:target="_blank") for instructions to **install** and **run** RERConverge on your own data.
 
 
 ## Authors
