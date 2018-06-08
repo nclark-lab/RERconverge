@@ -369,6 +369,7 @@ getChildren=function(tree, nodeN){
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param weighted perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.
+#' @export
 correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto"){
   if(weighted=="auto"){
     if (any(charP>0&charP<1)){
@@ -390,8 +391,8 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
-
-correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, winsorize=3){
+#' @export
+correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, winsorize=3){
 
   getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorize = winsorize )
 
@@ -711,7 +712,7 @@ foreground2Paths = function(foreground,treesObj, plotTree=F){
   tree2Paths(res, treesObj)
 }
 
-
+#' Creates a tree form a set of foreground species
 #' @param foreground. A character vector containing the foreground species
 #' @param  treesObj A treesObj created by \code{\link{readTrees}}
 #' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a while clade

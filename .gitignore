@@ -10,4 +10,6 @@ RERconverge.Rproj
 .Rbuildignore
 .Rhistory
 vignettes/*/*/*chunk*
-
+*.o
+*.so
+*.pdf
