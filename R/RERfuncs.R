@@ -739,14 +739,14 @@ nameEdges=function(tree){
 tree2Paths=function(tree, treesObj, binarize=NULL){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
-  stopifnot(all.equal(tree, treesObj, use.edge.length=F))
+  stopifnot(all.equal.phylo(tree, treesObj$masterTree, use.edge.length=F)) #check for concordant topologies between phenotype and master trees (ignore branch lengths)
 
-  isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length)
-  if (!is.null(binarize)) {
+  isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
+  if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
     if (isbinarypheno) {
-      binarize = T
+      binarize = T #default for binary phenotype trees: set all positive paths = 1
     } else {
-      binarize = F
+      binarize = F #default for continuous phenotype trees: do not convert to binary
     }
   }
 
