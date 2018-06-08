@@ -461,7 +461,7 @@ weights[weights==0]=1
 #' @param maxT The maximum number of trees to compute results for. Since this function takes some time this is useful for debugging.
 #' @return A numer of trees by number of paths matrix of relative evolutionary rates. Only an independent set of paths has non-NA values for each tree.
 #' @export
-getAllResiduals=function(treesObj, cutoff=NULL, transform="none", weighted=F,  useSpecies=NULL,  min.sp=10, scale=F,  doOnly=NULL, maxT=NULL, scaleForPproj=F, mean.trim=0.05){
+getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  useSpecies=NULL,  min.sp=10, scale=T,  doOnly=NULL, maxT=NULL, scaleForPproj=F, mean.trim=0.05){
 
   if(is.null(cutoff)){
     cutoff=quantile(treesObj$paths, 0.05, na.rm=T)
