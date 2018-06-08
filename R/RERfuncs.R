@@ -7,6 +7,8 @@ require(compiler)
 require(plotrix)
 require(Rcpp)
 require(RcppArmadillo)
+require(phangorn)
+require(weights)
 
 #' reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
@@ -380,7 +382,7 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
-#' @param weights perform weighted correlation, experimental. You can use the weights computed by \code{treesObj<-\link{readTrees}} by setting \code{weights=treeObj$weights}
+#' @param weights perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
@@ -440,8 +442,10 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
         corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
       }
       else{
-
-        cres=wtd.cor(rank(RERmat[i,ii]), rank(charP[ii]), weight = weights[rownames(RERmat)[i],ii], mean1 = F)
+charPb=(charP[ii]>0)+1-1
+weights=charP[ii]
+weights[weights==0]=1
+        cres=wtd.cor(rank(RERmat[i,ii]), rank(charPb), weight = weights, mean1 = F)
 
         corout[i, 1:3]=c(cres[1], nb, cres[4])
       }
@@ -689,28 +693,46 @@ foreground2Paths = function(foreground,treesObj, plotTree=F){
 #' @param plotTree Plot a tree representation of the result
 #' @return A tree with edge.lengths representing phenotypic states
 #' @export
-foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T){
+foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F){
+  if(wholeClade){
+   collapse2anc=T
+  }
   res = treesObj$masterTree
-  res$edge.length <- rep(0.05,length(res$edge.length))
+  res$edge.length <- rep(0,length(res$edge.length))
 if(!collapse2anc){
   res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
   names(res$edge.length) = nameEdges(treesObj$masterTree)
 }
   else{
-  tip.vals=rep(0.05, length(treesObj$masterTree$tip.label))
+  tip.vals=rep(0, length(treesObj$masterTree$tip.label))
   names(tip.vals)=treesObj$masterTree$tip.label
   tip.vals[foreground]=1
-  fares=fastAnc(treesObj$masterTree, x=tip.vals, CI = T)
-  internalVals=(apply(fares$CI95>0.5,1,all))+1-1
+  ancres=ancestral.pars(res, df<-as.phyDat(as.factor(tip.vals)),type="ACCTRAN" )
+
+  ancres=unlist(lapply(ancres, function(x){x[2]}))
+  internalVals=ancres
 evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
-eres=c(tip.vals, internalVals)
+eres=ancres
 evals[,1]=eres[treesObj$masterTree$edge[,1]]
 evals[,2]=eres[treesObj$masterTree$edge[,2]]
 res$edge.length=evals[,2]-evals[,1]
-res$edge.length[res$edge.length<1]=0.05
-}
+
+res$edge.length[res$edge.length<1]=0
+  }
+  if(wholeClade){
+    edgeIndex=which(res$edge.length>0)
+    for(i in edgeIndex){
+      clade.edges=getAllCladeEdges(res, i)
+      clade.edges=unique(c(i, clade.edges))
+      res$edge.length[clade.edges]=1/length(clade.edges)
+
+    }
+  }
   if(plotTree){
-    plot(res)
+    res2=res
+    mm=min(res2$edge.length[res2$edge.length>0])
+    res2$edge.length[res2$edge.length==0]=max(0.02,mm/20)
+    plot(res2)
   }
 res
 }
@@ -749,14 +771,14 @@ nameEdges=function(tree){
 tree2Paths=function(tree, treesObj, binarize=NULL){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
-  stopifnot(all.equal(tree, treesObj, use.edge.length=F))
+  stopifnot(all.equal.phylo(tree, treesObj$masterTree, use.edge.length=F)) #check for concordant topologies between phenotype and master trees (ignore branch lengths)
 
-  isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length)
-  if (!is.null(binarize)) {
+  isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
+  if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
     if (isbinarypheno) {
-      binarize = T
+      binarize = T #default for binary phenotype trees: set all positive paths = 1
     } else {
-      binarize = F
+      binarize = F #default for continuous phenotype trees: do not convert to binary
     }
   }
 
