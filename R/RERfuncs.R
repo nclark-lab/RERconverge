@@ -714,14 +714,29 @@ foreground2Paths = function(foreground,treesObj, plotTree=F){
 
 #' Creates a tree form a set of foreground species
 #' @param foreground. A character vector containing the foreground species
-#' @param  treesObj A treesObj created by \code{\link{readTrees}}
-#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a while clade
+#' @param treesObj A treesObj created by \code{\link{readTrees}}
+#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade
+#' (may now be redundant to clade)
 #' @param plotTree Plot a tree representation of the result
+#' @param wholeClade Whether to implement the weighted edge option across
+#' all members of a foreground clade (may now be redundant to clade)
+#' @param clade A character string indicating which branches within the clade
+#' containing the foreground species should be set to foreground. Must be one
+#' of the strings "ancestral", "terminal", "all", or "weighted".
 #' @return A tree with edge.lengths representing phenotypic states
 #' @export
-foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F){
-  if(wholeClade){
-    collapse2anc=T
+foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted")){
+  clade <- match.arg(clade) #should error if not an allowed option
+  wholeClade = T
+  collapse2anc = T
+  if (clade %in% c("ancestral","terminal")) {
+    wholeClade = F
+  }
+  #if(wholeClade){
+  #  collapse2anc=T
+  #}
+  if (clade == "terminal") {
+    collapse2anc = F
   }
   res = treesObj$masterTree
   res$edge.length <- rep(0,length(res$edge.length))
@@ -749,13 +764,16 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
 
     res$edge.length[res$edge.length<1]=0
   }
-  if(wholeClade){
+  if(wholeClade){ #should implement for "all" and "weighted"
     edgeIndex=which(res$edge.length>0)
     for(i in edgeIndex){
       clade.edges=getAllCladeEdges(res, i)
       clade.edges=unique(c(i, clade.edges))
-      res$edge.length[clade.edges]=1/length(clade.edges)
-
+      if (clade == "weighted") {
+          res$edge.length[clade.edges]=1/length(clade.edges)
+      } else {
+        res$edge.length[clade.edges]=1
+      }
     }
   }
   if(plotTree){
