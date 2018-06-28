@@ -126,9 +126,32 @@ $(document).ready(function () {
 </div>
 
 
-<div id="include-links-throughout-to-allow-skipping-and-returning-to-earlier-sections." class="section level1">
-<h1>Include links throughout to allow skipping and returning to earlier sections.</h1>
 <p>This walkthrough provides instructions for implementing the RERconverge package to identify genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the README on <a href="https://github.com/nclark-lab/RERconverge">github</a>.</p>
+<div id="overview" class="section level1">
+<h1>Overview</h1>
+<p>The following document describes the steps necessary to perform a standard RERconverge analysis to identify genomic elements with convergent <strong>rates of evolution</strong> in phenotypically convergent species using a <strong>binary</strong> trait or a <strong>continuous</strong> trait.</p>
+<p><strong>Output</strong> is a the list of genomic elements with statistics that represent the strength and directon of the relationship between the genomic element’s evolutionary rate and the phenotype. These statistics can be used to make inferences about the genomic elements’ importances to the phenotype. Genomic elements that evolve more <em>slowly</em> for a given phenotype may be under <em>increased evolutionary constraint</em> because their function is important for the development of the convergent phenotype, for example. On the other hand, genomic elements that evolve more <em>quickly</em> for a given phenotype may either be under <em>decreased evolutionary constraint</em> due to loss of function or relatively decreased functional importance or, conversely, undergoing <em>directional selection</em> to increase or alter functionality. The ranked gene list can be further used as input for functional enrichment methodologies to find pathways or other functional groups under convergent evolutionary pressures.</p>
+<div id="data-input-requirements-and-formatting" class="section level2">
+<h2>Data Input Requirements and Formatting</h2>
+<p>The analysis requires two sources of data as input:</p>
+<ol style="list-style-type: decimal">
+<li>Phylogenetic trees for every genomic element with branch lengths that represent element-specific evolutionary rates
+<ul>
+<li>Trees should be in Newick format with tip labels and no node labels</li>
+</ul></li>
+<li>Species-labelled phenotype values
+<ul>
+<li>Species labels must match tree tip labels</li>
+<li>For continuous traits: a named numeric vector</li>
+<li>For binary traits: foreground/background species or a tree with 0 and 1 branch lengths</li>
+</ul></li>
+</ol>
+<p>When choosing a dataset to work with, consider the availability and accuracy of both genomic and phenotypic data, and be sure to select a valid convergent phenotype that is observed at high and low levels in multiple independent clades in your phylogeny.</p>
+<p>For a more detailed description of data formatting requirements and examples, please see the relevant sections of the walkthrough.</p>
+</div>
+</div>
+<div id="detailed-walkthrough" class="section level1">
+<h1>Detailed Walkthrough</h1>
 <div id="installing-and-loading-rerconverge" class="section level2">
 <h2>Installing and loading RERconverge</h2>
 <p>In R, load the RERConverge library.</p>
@@ -156,7 +179,8 @@ mamTrees=readTrees(paste(rerpath,&quot;/extdata/&quot;,toytreefile,sep=&quot;&qu
 </div>
 <div id="estimating-relative-evolutionary-rates-rer-with-getallresiduals" class="section level2">
 <h2>Estimating relative evolutionary rates (RER) with <code>getAllResiduals</code></h2>
-<p>The next step is to estimate <strong>relative evolutionary rates</strong>, or RERs, for all branches in the tree for each gene. Intuitively, a gene’s RER for a given branch represents how quickly or slowly the gene is evolving on that branch relative to its overall rate of evolution throughout the tree. For a detailed description of how RER are computed, see <span class="citation">[@Chikina2016]</span> and <span class="citation">[@Partha2017]</span>. Briefly, RERs are calculated by normalizing branch lengths across all trees by the master branch lengths. Branch lengths are then corrected for the heteroskedastic relationship between average branch length and variance useing weighted regression.</p>
+<p>The next step is to estimate <strong>relative evolutionary rates</strong>, or RERs, for all branches in the tree for each gene. Intuitively, a gene’s RER for a given branch represents how quickly or slowly the gene is evolving on that branch relative to its overall rate of evolution throughout the tree. For a more detailed description of how RER are computed, see <span class="citation">[@Chikina2016]</span> and <span class="citation">[@Partha2017]</span>.</p>
+<p>Briefly, RERs are calculated by normalizing branch lengths across all trees by the master branch lengths. Branch lengths are then corrected for the heteroskedastic relationship between average branch length and variance using weighted regression.</p>
 <p>We will use the <code>getAllResiduals</code> function to calculate RERs. This uses the following input variables (all the options set here are also the defaults):</p>
 <ul>
 <li><code>useSpecies</code>: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the full set of tip labels in the master tree.</li>
