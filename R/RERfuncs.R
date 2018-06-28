@@ -1,4 +1,12 @@
-
+#' RERconverge
+#'
+#'
+#' @docType package
+#' @author
+#' @import Rcpp
+#' @importFrom Rcpp evalCpp
+#' @useDynLib RERconverge
+#' @name RERconverge
 
 
 require(ape)
@@ -392,7 +400,7 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
 #' @export
-correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, winsorize=3){
+correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3){
 
   getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorize = winsorize )
 
@@ -464,15 +472,16 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
         else{
           x=RERmat[i,]
         }
-        cres=cor.test(x, charP, method=method)
+        cres=cor.test(x, charP, method=method, exact=F)
         corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
       }
       else{
         charPb=(charP[ii]>0)+1-1
-        weights=charP[ii]
-        weights[weights==0]=1
-        cres=wtd.cor(rank(RERmat[i,ii]), rank(charPb), weight = weights, mean1 = F)
 
+           weights=charP[ii]
+        weights[weights==0]=1
+
+        cres=wtd.cor(RERmat[i,ii], charPb, weight = weights, mean1 = F)
         corout[i, 1:3]=c(cres[1], nb, cres[4])
       }
     }
@@ -482,8 +491,11 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
     }
 
   }
-  as.data.frame(corout)
-}
+
+  corout=as.data.frame(corout)
+  corout$p.adj=p.adjust(corout$P, method="BH")
+  corout
+  }
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
@@ -715,14 +727,13 @@ foreground2Paths = function(foreground,treesObj, plotTree=F){
 #' Creates a tree form a set of foreground species
 #' @param foreground. A character vector containing the foreground species
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade
-#' (may now be redundant to clade)
-#' @param plotTree Plot a tree representation of the result
-#' @param wholeClade Whether to implement the weighted edge option across
-#' all members of a foreground clade (may now be redundant to clade)
 #' @param clade A character string indicating which branches within the clade
 #' containing the foreground species should be set to foreground. Must be one
 #' of the strings "ancestral", "terminal", "all", or "weighted".
+#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade (redundant to "clade", kept for backwards compatibility)
+#' @param plotTree Plot a tree representation of the result
+#' @param wholeClade Whether to implement the weighted edge option across
+#' all members of a foreground clade (redundant to "clade", kept for backwards compatibility)
 #' @return A tree with edge.lengths representing phenotypic states
 #' @export
 foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted")){
