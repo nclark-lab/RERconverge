@@ -47,7 +47,7 @@ An example file is provided in *extdata/mammal62aa_meredplus_wCM.trees*, which y
 Now in R, read in the gene trees. The `readTrees` function takes quite a while to read in trees for all genes, so we will limit ourselves to the first 200 using `max.read` (this will still take a minute or so, so be patient):
 
 ```{r, cache = TRUE}
-toytreefile = "mammal62aa_meredplus_wCM.trees" #change filename once toy trees available
+toytreefile = "subsetMammalGeneTrees.txt" #change filename once toy trees available
 mamTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
 ```
 
