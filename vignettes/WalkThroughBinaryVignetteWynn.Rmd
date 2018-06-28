@@ -94,10 +94,9 @@ The upper left plot is a tree with branch lengths representing the average rates
 
 ## Associating RERs with binary traits
 
-The `runMarineSub.R` script in the vignettes folder contains the minimal set of steps
-to test for association between relative evolutionary rates and a **binary trait**. 
+Here we describe the minimal set of steps to test for association between relative evolutionary rates and a **binary trait**. 
 
-## Reading in or generating trait trees
+## Reading in or generating binary trait trees
 
 Now we will associate variation in these RERs with variation in traits across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are several possible ways to do this:
 
@@ -118,7 +117,6 @@ The plot on the left shows the tree you provided, with branch lengths 0 for all 
 #Modify the following to demonstrate all possible options for converting foreground to trees.
 
 2) Generate a binary tree from a vector of foreground species using `foreground2Tree`. By modifying the `clade` argument, you can choose one of several options for how to handle the branches ancestral to the foreground species, as follows:
-#foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  #wholeClade=F, clade=c("ancestral","terminal","all","weighted"))
 
 2a) `clade = "ancestral"`: Use maximum parsimony to infer where transitions from background to foreground occurred in the tree, and set those transition lineages to foreground.
 
@@ -191,7 +189,7 @@ plot(marineb3rooted, main = "Trait tree from manual selection (3)")
 ```
 
 ## Generating **paths** for all genes using `tree2Paths` or `foreground2Paths`
-Some of the genes (like BEND3 above) may not have data for all species, meaning that their phylogeny will be a subset of the full phylogeny. To plot RERs for these genes and to correlate them with trait evolution, we run one of two functions that determine how the trait would evolve along all/many possible subsets of the full phylogeny, generating a set of **paths**. The function `tree2Ppaths` takes a binary tree as input, and the function `foreground2Paths` takes a set of foreground species as input. It has the same arguments as `foreground2Tree` described above (see option 2 in *Reading in or generating trait trees*).
+Some of the genes (like BEND3 above) may not have data for all species, meaning that their phylogeny will be a subset of the full phylogeny. To plot RERs for these genes and to correlate them with trait evolution, we run one of two functions that determine how the trait would evolve along all/many possible subsets of the full phylogeny, generating a set of **paths**. The function `tree2Paths` takes a binary tree as input, and the function `foreground2Paths` takes a set of foreground species as input. It has the same arguments as `foreground2Tree` described above (see option 2 in *Reading in or generating trait trees*).
 
 **Important note**: If you are using a binary tree to create paths, it **must**
 have the same topology and include the same species as the **master tree** (see previous section for how this is generated).
@@ -201,19 +199,23 @@ phenvMarine=tree2Paths(marineb, mamTrees)
 phenvMarine2=foreground2Paths(marineextantforeground, mamTrees, clade="all")
 ```
 
-## Correlating gene evolution with trait evolution using `getAllCor`
+## Correlating gene evolution with binary trait evolution using `correlateWithBinaryPhenotype`
 
-# (modify this once wrapper scripts are available to call `getAllCor` separately for binary and continuous traits)
+Now that we have estimates for the RERs for all genes of interest, as well as a representation of how the trait of interest evolves across the tree, we can use `correlateWithBinaryPhenotype` to test for an association between relative evolutionary rate and trait across all branches of the tree.
 
-Now that we have estimates for the RERs for all genes of interest, as well as a representation of how the trait of interest evolves across the tree, we can use RERConverge to test for an association between relative evolutionary rate and trait across all branches of the tree.
+This uses the following input variables (all the options set here are also the defaults):
+
+* `min.sp`: the minimum number of species in the gene tree for that gene to be included in the analysis. The default is 10, but you may wish to modify it depending upon the number of species in your master tree.
+* `min.pos`: the minimum number of independent foreground (non-zero) lineages represented in the gene tree for that gene to be included in the analysis. The default is 2, requiring the trait to have evolved in at least two separate clades with representatives in the gene tree.
+* `weighted`: whether to perform a weighted correlation where branch lengths represent weights. This can be used with the `clade=weighted` option in `foreground2Tree` to distribute phenotype weights across multiple lineages in a clade. The default is "auto", which will use weighted correlation if any branch lengths are between 0 and 1, and will use standard correlation otherwise.
 
 ```{r, warning = FALSE, cache = TRUE}
-corMarine=getAllCor(mamRERv, phenvMarine)
+corMarine=correlateWithBinaryPhenotype(mamRERw, phenvMarine, min.sp=10, min.pos=2, weighted="auto")
 ```
 
-The text displayed shows which correlation method is used to test for association. If there is no `method` specified, the `getAllCor` function determines the appropriate method automatically. Here it uses the default for binary traits: the Kendall rank correlation coefficient, or Tau. For more details on correlation methods for binary and continuous traits, see ???.
+The text displayed shows which correlation method is used to test for association. Here it uses the default for binary traits: the Kendall rank correlation coefficient, or Tau. For more details on correlation methods for binary and continuous traits, see ???.
 
-The `getAllCor` function generates a table with the following output for each gene:
+The `correlateWithBinaryPhenotype` function generates a table with the following output for each gene:
 
 1) Rho: the correlation between relative evolutionary rate and trait across all branches
 
