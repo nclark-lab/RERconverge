@@ -1,6 +1,6 @@
 ---
 title: "RERconverge Analysis Walkthrough"
-author: "Amanda Kowalczyk"
+authors: "Amanda Kowalczyk and Wynn Meyer"
 date: "June 28, 2018"
 output:
   html_document:
