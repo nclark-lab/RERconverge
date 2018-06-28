@@ -99,33 +99,77 @@ to test for association between relative evolutionary rates and a **binary trait
 
 ## Reading in or generating trait trees
 
-Now we will associate variation in these RERs with variation in traits across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are three possible ways to do this:
+Now we will associate variation in these RERs with variation in traits across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are several possible ways to do this:
 
 1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one for foreground branches. An example is provided in *data/MarineTreeBin.txt*.
 
-```{r, cache = TRUE}
+```{r fig2, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE}
 marineb=read.tree("../data/MarineTreeBinCommonNames.txt")
 marinebrooted = root(marineb,outgroup=noneutherians)
+mb1 = marineb
+mb1$edge.length = c(rep(1,length(mb1$edge.length)))
+par(mfrow=c(1,2))
+plot(marinebrooted, main="Trait tree from file (1)")
+binplot1=plotTreeHighlightBranches(mb1, outgroup=noneutherians, hlspecies=which(marineb$edge.length==1), hlcols="blue", main="Foreground branches highlighted (1)") #alternative way of representing the tree
 ```
 
-This tree file has all extant marine species, plus the ancestor of the killer whale and the dolphin, as foreground.
+The plot on the left shows the tree you provided, with branch lengths 0 for all background lineages and branch lengths 1 for foreground lineages. The plot on the right displays the tree with all branch lengths 1 and the foreground lineages highlighted in blue. This binary tree represents the following as foreground lineages: all terminal branches leading to extant marine species, plus the branch leading to the common ancestor of the killer whale and the dolphin.
 
 #Modify the following to demonstrate all possible options for converting foreground to trees.
 
-2) Provide a list of species to use as foreground species. This only allows inclusion of extant lineages, so in this case, the Killer whale-Dolphin ancestor will no longer be included.
+2) Generate a binary tree from a vector of foreground species using `foreground2Tree`. By modifying the `clade` argument, you can choose one of several options for how to handle the branches ancestral to the foreground species, as follows:
+#foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  #wholeClade=F, clade=c("ancestral","terminal","all","weighted"))
 
-```{r fig2, fig.height=8,fig.width=10, cache = TRUE}
+2a) `clade = "ancestral"`: Use maximum parsimony to infer where transitions from background to foreground occurred in the tree, and set those transition lineages to foreground.
+
+```{r fig3, fig.height=8,fig.width=10, cache = TRUE}
 marineextantforeground = c("Walrus","Seal","Killer_whale","Dolphin","Manatee")
-masterrooted <- root(mamTrees$masterTree,outgroup=noneutherians)
-wspmr <- masterrooted$tip.label[masterrooted$edge[,2]]
-wmarine <- which(wspmr %in% marineextantforeground)
-marineb3rooted <- masterrooted
-marineb3rooted$edge.length <- c(rep(0,length(marineb3rooted$edge.length)))
-marineb3rooted$edge.length[wmarine] <- 1
-par(mfrow=c(1,2))
-plot(marinebrooted, main="Trait tree from file (1)")
-plot(marineb3rooted, main="Trait tree from foreground list (3)")
+marineb2a = foreground2Tree(marineextantforeground, mamTrees, clade="ancestral")
 ```
+
+Here the branch leading to the common ancestor of killer whale and dolphin, as well as the branch leading to the common ancestor of walrus and seal, are foreground, along with the terminal branch leading to the manatee.
+
+2b) `clade = "terminal"`: Set only terminal lineages leading to foreground species as foreground.
+
+```{r fig4, fig.height=8,fig.width=10, cache = TRUE}
+marineb2b = foreground2Tree(marineextantforeground, mamTrees, clade="terminal")
+```
+
+Here the each terminal branch leading to a marine species is foreground, but no internal branches are foreground.
+
+2c) `clade = "all"`: Use maximum parsimony to infer where transitions from background to foreground occurred in the tree, and set those transition lineages, along with all daughter lineages, to foreground.
+
+```{r fig5, fig.height=8,fig.width=10, cache = TRUE}
+marineb2c = foreground2Tree(marineextantforeground, mamTrees, clade="all")
+```
+
+Here the foreground branches are all those inferred to be transitional from 2a, as well as the terminal branches. If we had a case in which some branches daughter to the transition branches were not terminal, those would be included in the foreground as well.
+
+2d) `clade = "weighted"`: Infer transition and daughter branches as in 2c, but spread a weight of 1 evenly across all branches within each independent foreground clade.
+
+```{r fig6, fig.height=8,fig.width=10, cache = TRUE}
+marineb2d = foreground2Tree(marineextantforeground, mamTrees, clade="weighted")
+```
+
+Here all branches in the cetacean and pinniped clades have length 1/3, whereas the terminal branch leading to the manatee has length 1. This is a way of distributing the weight given to each independent convergence event evenly across clades, rather than across lineages.
+
+If you plot all the resulting trees, you can see how the different choices for `clade` influence the resulting branch lengths.
+
+```{r fig7, fig.height=8,fig.width=10, cache = TRUE}
+par(mfrow=c(2,2))
+plot(marine2a,main="ancestral")
+plot(marine2b,main="terminal")
+plot(marine2c,main="all")
+plot(marine2d,main="weighted")
+```
+
+None of these are the same as the binary tree that you specified in (1)!
+
+```{r fig8, fig.height=8,fig.width=10, cache = TRUE}
+plot(marineb,main="Manually specified binary tree (1)")
+```
+
+Note that, in this tree, the branch representing the ancestor of the killer whale and the dolphin has a branch length of 1, whereas the branch representing the ancestor of seal and walrus has a branch length of 0. This shows that providing a binary trait tree file (1) (or manually specifying foreground branches (3)) allows you to specify which branches should be foreground with more flexibility than providing a set of foreground species to `foreground2Tree`. 
 
 # Determine whether to include the following. It is based on the implementation
 # of the interactive tool to select foreground branches using RShiny.
@@ -133,30 +177,28 @@ plot(marineb3rooted, main="Trait tree from foreground list (3)")
 3) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
 
 ```{r, eval = FALSE}
-marineb2=selectforegroundbranches(mamTrees$masterTree)
+marineb3=selectforegroundbranches(mamTrees$masterTree)
 ```
-
-Note that the branch representing the ancestor of the killer whale and the dolphin has a branch length of 1 in the tree on the left and a branch length of 0 in the tree on the right. As mentioned, providing a binary trait tree file (1) (or manually specifying foreground branches (3)) allows you to include internal branches in the foreground, whereas specifying a list of foreground species (2) does not. 
 
 #If including the interactive selection tool....
 
-You can double check that the tree you created by manual selection (3) matches the tree above on the left (it should) using the following code:
+You can double check that the tree you created by manual selection (3) matches the binary tree you provided in (1) (it should) using the following code:
 
 ```{r, eval = FALSE}
-marineb2=selectforegroundbranches(mamTrees$masterTree)
-marineb2rooted=root(marineb2,outgroup=c("Platypus", "Wallaby","Tasmanian_devil","Opossum"))
-plot(marineb2rooted, main = "Trait tree from manual selection (2)")
+marineb3=selectforegroundbranches(mamTrees$masterTree)
+marineb3rooted=root(marineb3,outgroup=c("Platypus", "Wallaby","Tasmanian_devil","Opossum"))
+plot(marineb3rooted, main = "Trait tree from manual selection (3)")
 ```
 
 ## Generating **paths** for all genes using `tree2Paths` or `foreground2Paths`
-Some of the genes (like BEND3 above) may not have data for all species, meaning that their phylogeny will be a subset of the full phylogeny. To plot RERs for these genes and to correlate them with trait evolution, we run one of two functions that determine how the trait would evolve along all/many possible subsets of the full phylogeny, generating a set of **paths**. The function `tree2paths` takes a binary tree as input, and the function `foreground2paths` takes a set of foreground species as input.
+Some of the genes (like BEND3 above) may not have data for all species, meaning that their phylogeny will be a subset of the full phylogeny. To plot RERs for these genes and to correlate them with trait evolution, we run one of two functions that determine how the trait would evolve along all/many possible subsets of the full phylogeny, generating a set of **paths**. The function `tree2Ppaths` takes a binary tree as input, and the function `foreground2Paths` takes a set of foreground species as input. It has the same arguments as `foreground2Tree` described above (see option 2 in *Reading in or generating trait trees*).
 
 **Important note**: If you are using a binary tree to create paths, it **must**
 have the same topology and include the same species as the **master tree** (see previous section for how this is generated).
 
 ```{r, cache = TRUE}
 phenvMarine=tree2Paths(marineb, mamTrees)
-phenvMarine2=foreground2Paths(marineextantforeground, mamTrees)
+phenvMarine2=foreground2Paths(marineextantforeground, mamTrees, clade="all")
 ```
 
 ## Correlating gene evolution with trait evolution using `getAllCor`
@@ -185,7 +227,7 @@ head(corMarine[order(corMarine$P),])
 ```
 
 ANO2 and BMP10 are two of the top genes.
-```{r fig3, fig.height=9, fig.width=10, warning = FALSE, cache = TRUE}
+```{r fig4, fig.height=9, fig.width=10, warning = FALSE, cache = TRUE}
 plotRers(mamRERv,"ANO2",phenv=phenvMarine) 
 plotRers(mamRERv,"BMP10",phenv=phenvMarine) 
 ```
@@ -195,7 +237,7 @@ In these RER plots, the marine lineages specified in the foreground are highligh
 In the ANO2 tree, marine lineages have high RER, leading to a positive Rho and a low p-value. In contrast, in the BMP10 tree, marine lineages have low RER. This also yields a low p-value, but with a negative Rho.
 
 To see what the overall pattern of association is across all genes in the set, we can plot a p-value histogram.
-```{r fig4, fig.height=5, fig.width=10}
+```{r fig5, fig.height=5, fig.width=10}
 hist(corMarine$P, breaks=15, xlab="Kendall P-value", 
      main="P-values for correlation between 200 genes and marine environment")
 ```
