@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 #Replace this with a common intro combined with continuous traits.
+#Include links throughout to allow skipping and returning to earlier sections.
 
 This walk-through provides instructions for implementing the RERconverge package to identify genes whose evolutionary rates shift in association with change in a binary trait. For information on how to download and install RERconverge, see the README on [github](https://github.com/nclark-lab/RERconverge).
 
@@ -109,6 +110,8 @@ marinebrooted = root(marineb,outgroup=noneutherians)
 
 This tree file has all extant marine species, plus the ancestor of the killer whale and the dolphin, as foreground.
 
+#Modify the following to demonstrate all possible options for converting foreground to trees.
+
 2) Provide a list of species to use as foreground species. This only allows inclusion of extant lineages, so in this case, the Killer whale-Dolphin ancestor will no longer be included.
 
 ```{r fig2, fig.height=8,fig.width=10, cache = TRUE}
@@ -125,7 +128,7 @@ plot(marineb3rooted, main="Trait tree from foreground list (3)")
 ```
 
 # Determine whether to include the following. It is based on the implementation
-of the interactive tool to select foreground branches using RShiny.
+# of the interactive tool to select foreground branches using RShiny.
 
 3) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
 
