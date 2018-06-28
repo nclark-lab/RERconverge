@@ -81,7 +81,7 @@ Briefly, RERs are calculated by normalizing branch lengths across all trees by t
 
 We will use the `getAllResiduals` function to calculate RERs. This uses the following input variables (all the options set here are also the defaults):
 
-* `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the full set of tip labels in the master tree.
+* `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the species in our AdultWeightLog vector that will be used for continuous trait analysis. Note that these are also the same species used for binary trait analysis.
 * `transform`: the method used to transform the raw data. By transforming the raw data, we reduce the heteroscedasticity (relationship between mean and variance) and the influence of outliers. Here we will use a square-root transform.
 * `weighted`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data. 
 * `scale`: whether to scale the individual branches of the gene trees to account for variance across trees. This scales the variance, though not the mean, of each branch length, using the R function `scale`.
@@ -89,7 +89,7 @@ We will use the `getAllResiduals` function to calculate RERs. This uses the foll
 Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
-mamRERw=RERconverge::getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, 
+mamRERw=RERconverge::getAllResiduals(mamTrees,useSpecies=names(AdultWeightLog), 
                            transform = "sqrt", weighted = T, scale = T)
 ```
 
@@ -269,13 +269,20 @@ There appears to be a slight enrichment of low p-values, but since we have only 
 
 ## Continuous Trait Analysis
   
-We must convert my trait vector to paths comparable to the paths in the RER matrix.  To do that, I can use the function "char2Paths" as shown here:
+In addition to supporting binary trait analyses, RERconverge can also calculate correlations between rates of evolution of genes and the change in a *continuous* trait.  To perform a continuous trait analysis, start with a named vector in R.  Vector names must match the names in the trees read in previously. Here are the first few entries in the vector we will use for continuous trait analysis:
+
+```{r}
+head(AdultWeightLog)
+```
+
+
+We must convert my trait vector to paths comparable to the paths in the RER matrix.  To do that, I can use the function 'char2Paths' as shown here:
 
 ```{r}
 charpaths=char2Paths(AdultWeightLog, toyTrees)
 ```
 
-Note that there is a species present in my trees that is not present in my phenotype vector and that this will not impact our ability to continue with our analysis, but is important to note if it is unexpected.  I am also using "metric diff", which means that branch lengths are assigned to my trait tree based on the difference in trait values on the nodes connected to that branch.  The "char2Paths" function creates a paths vector with length equal to the number of columns in the RER matrix.  The phylogenetic relationships represented in the "char2Paths" output are the same as those represented in the RER matrix.  
+I am using "metric diff", which means that branch lengths are assigned to my trait tree based on the difference in trait values on the nodes connected to that branch.  The "char2Paths" function creates a paths vector with length equal to the number of columns in the RER matrix.  The phylogenetic relationships represented in the "char2Paths" output are the same as those represented in the RER matrix.  
   
 Finally, we can perform our ultimate analysis to find correlations between the rate of evolution of a genomic element (encoded in the RER matrix) and the rate of change of a phenotype (encoded in charpaths).  The final output is the list of input genes with relevant statistics.  As input, I provide the RER matrix and trait path.  I set method="p" to use a Pearson correlation, which is the most appropriate option for continuous traits.  I set min.pos=0 (min.pos for "minimum positive") so no foreground species are required; correlation statistics will be calculated even if all species have negative RER values.  Finally, winsorize=3 pulls the outermost three points in all four directions to the center of the data before calculating correlations to mitigate the effects of outlier points.
 
