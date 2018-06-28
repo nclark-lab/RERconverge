@@ -81,7 +81,7 @@ Briefly, RERs are calculated by normalizing branch lengths across all trees by t
 
 We will use the `getAllResiduals` function to calculate RERs. This uses the following input variables (all the options set here are also the defaults):
 
-* `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the full set of tip labels in the master tree.
+* `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the species in our AdultWeightLog vector that will be used for continuous trait analysis. Note that these are also the same species used for binary trait analysis.
 * `transform`: the method used to transform the raw data. By transforming the raw data, we reduce the heteroscedasticity (relationship between mean and variance) and the influence of outliers. Here we will use a square-root transform.
 * `weighted`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data. 
 * `scale`: whether to scale the individual branches of the gene trees to account for variance across trees. This scales the variance, though not the mean, of each branch length, using the R function `scale`.
@@ -89,7 +89,7 @@ We will use the `getAllResiduals` function to calculate RERs. This uses the foll
 Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
-mamRERw=RERconverge::getAllResiduals(mamTrees,useSpecies=mamTrees$masterTree$tip.label, 
+mamRERw=RERconverge::getAllResiduals(mamTrees,useSpecies=names(AdultWeightLog), 
                            transform = "sqrt", weighted = T, scale = T)
 ```
 
@@ -267,28 +267,27 @@ hist(corMarine$P, breaks=15, xlab="Kendall P-value",
 
 There appears to be a slight enrichment of low p-values, but since we have only evaluated the first 200 genes from our ~19,000 gene genome-wide set, we should hold off on drawing conclusions from this.
 
-## Continous Trait Analysis
+## Continuous Trait Analysis
+  
+In addition to supporting binary trait analyses, RERconverge can also calculate correlations between rates of evolution of genes and the change in a *continuous* trait.  To perform a continuous trait analysis, start with a named vector in R.  Vector names must match the names in the trees read in previously. Here are the first few entries in the vector we will use for continuous trait analysis:
 
-With our trees and phenotype successfully loaded, we can start to run the RERconverge analysis.  First, we will calculate RERs, or relative evolutionary rates, for all of our trees.  RERs are calculated by nromalizing all branch lengths across all tree lengths by the master branch lengths.  Branch lengths are then corrected for the heteroskedastic relationship between average branch length and variance useing weighted regression.  This function has a lot going on under the hood, so let me show you the line I use to calculate RERs before I explain the input parameters I have chosen:
-
-```{r,message=FALSE}
-RER=RERconverge::getAllResiduals(toyTrees, transform="sqrt", weighted=T, scale=T, useSpecies =names(AdultWeightLog), cutoff=.001)
+```{r}
+head(AdultWeightLog)
 ```
 
-The first parameter is my previously-loaded trees object.  Next, I specify a square-root transformation on the branch lengths to help correct for heteroskedasticity.  The square-root correction is the recommended method based on its ability to increase power more significantly than other methods, but you may also want to try a log correction for your data.  Setting weighted=T uses a weighted regression to further correct for heteroskedasticity.  The two plots indicate the reduction in heteroskedasticity with the transformation and weighted regression.  The plot on the left shows an increase in variance along the y-axis as mean branch length increases along the x-axis in untransformed data.  That trend is not seen in the corrected data on the right.  Setting scale=T scales the variance of the branch lengths to 1 after all corrections.  I chose this parameter based on further analysis of permutations of node labels that showed a uniform distribution of p-values when variance scaling was used and a non-uniform distribution without variance scaling.  I set useSpecies to the names in my phenotype vector so RERs are only calculated based on species for which I have phenotypes.  Finally, cutoff=.001 removes very short, noisy branches from trees.  RERs are stored in a paths matrix with rows representing genomic elements and columns representing every potential branch that could exist along the phylogenetic topology.  Non-NA values in the RER matrix are branch RERs for branches that exist in that genomic element phylogeny.  
-  
-We must convert my trait vector to paths comparable to the paths in the RER matrix.  To do that, I can use the function "char2Paths" as shown here:
+
+We must convert my trait vector to paths comparable to the paths in the RER matrix.  To do that, I can use the function 'char2Paths' as shown here:
 
 ```{r}
 charpaths=char2Paths(AdultWeightLog, toyTrees)
 ```
 
-Note that there is a species present in my trees that is not present in my phenotype vector and that this will not impact our ability to continue with our analysis, but is important to note if it is unexpected.  I am also using "metric diff", which means that branch lengths are assigned to my trait tree based on the difference in trait values on the nodes connected to that branch.  The "char2Paths" function creates a paths vector with length equal to the number of columns in the RER matrix.  The phylogenetic relationships represented in the "char2Paths" output are the same as those represented in the RER matrix.  
+I am using "metric diff", which means that branch lengths are assigned to my trait tree based on the difference in trait values on the nodes connected to that branch.  The "char2Paths" function creates a paths vector with length equal to the number of columns in the RER matrix.  The phylogenetic relationships represented in the "char2Paths" output are the same as those represented in the RER matrix.  
   
 Finally, we can perform our ultimate analysis to find correlations between the rate of evolution of a genomic element (encoded in the RER matrix) and the rate of change of a phenotype (encoded in charpaths).  The final output is the list of input genes with relevant statistics.  As input, I provide the RER matrix and trait path.  I set method="p" to use a Pearson correlation, which is the most appropriate option for continuous traits.  I set min.pos=0 (min.pos for "minimum positive") so no foreground species are required; correlation statistics will be calculated even if all species have negative RER values.  Finally, winsorize=3 pulls the outermost three points in all four directions to the center of the data before calculating correlations to mitigate the effects of outlier points.
 
 ```{r}
-res=getAllCor(RER, charpaths, method = "p", min.pos = 0, winsorize = 3)
+res=RERconverge::getAllCor(RER, charpaths, method = "p", min.pos = 0, winsorize = 3)
 head(res[order(res$P),])
 ```
 
