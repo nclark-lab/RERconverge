@@ -380,7 +380,7 @@ getChildren=function(tree, nodeN){
 #' @export
 correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto"){
   if(weighted=="auto"){
-    if (any(charP>0&charP<1)){
+    if (any(charP>0&charP<1, na.rm=TRUE)){
       message("Fractional values detected, will use weighted correlation mode")
       weighted=T
     }
@@ -1552,7 +1552,7 @@ if(F){
     torm=setdiff(treesObj$masterTree$tip.label, both)
     tree1=pruneTree(tree1, both)
     tree1=unroot(tree1)
-    if(tree1Bin){ #fix any edgest that were created through pruning
+    if(tree1Bin){ #fix any edges that were created through pruning
       tree1$edge.length[tree1$edge.length>1]=1
     }
     tree2=pruneTree(tree2, both)
