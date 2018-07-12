@@ -90,11 +90,11 @@ Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
 #Need to call data() prior to this step to load AdultWeightLog
-data(verbose=F)
-if(!exists('AdultWeightLog')) {
-  load(paste(rerpath,'/data/logAdultWeightcm.RData',sep=''))
-}
-mamRERw=RERconverge::getAllResiduals(mamTrees,useSpecies=names(AdultWeightLog), 
+#data(verbose=F)
+# if(!exists('AdultWeightLog')) {
+#   load(paste(rerpath,'/data/logAdultWeightcm.RData',sep=''))
+# }
+mamRERw=RERconverge::getAllResiduals(mamTrees,useSpecies=names(logAdultWeightcm), 
                            transform = "sqrt", weighted = T, scale = T)
 ```
 
@@ -108,7 +108,7 @@ noneutherians <- c("Platypus","Wallaby","Tasmanian_devil","Opossum")
 par(mfrow=c(1,2))
 #The following function is not in the compiled R package but is available in 'plottingFuncs.R' and separately in 'plotTreeHighlightBranches.R' on the 'UpdateVignette' branch....
 if (!exists('plotTreeHighlightBranches')) {
-  repopath = "~/repos/RERconverge" #modify this to the location of the repo
+  repopath = "C:/Users/apacz/Documents/GitHub/RERconverge" #modify this to the location of the repo
   source(paste(repopath,"/R/plotTreeHighlightBranches.R", sep=""))
 }
 avgtree=plotTreeHighlightBranches(mamTrees$masterTree, outgroup=noneutherians, hlspecies=c("Vole","Squirrel"), hlcols=c("blue","red"), main="Average tree") #plot average tree
@@ -117,7 +117,7 @@ bend3tree=plotTreeHighlightBranches(mamTrees$trees$BEND3, outgroup=noneutherians
 par(mfrow=c(1,1))
 phenvExample <- foreground2Paths(c("Vole","Squirrel"),mamTrees)
 if (!exists('plotRers')) {
-  repopath = "~/repos/RERconverge" #modify this to the location of the repo
+  repopath = "C:/Users/apacz/Documents/GitHub/RERconverge" #modify this to the location of the repo
   source(paste(repopath,"/R/plottingFuncs.R", sep=""))
 }
 plotRers(mamRERw,"BEND3",phenv=phenvExample) #plot RERs
