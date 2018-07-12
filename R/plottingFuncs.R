@@ -239,6 +239,7 @@ plotContinuousChar=function(gene, treeObj, tip.vals, tip.vals.ref=NULL, rank=F, 
 #' @param main. Main text for plot.
 #' @return A plot of the the (optionally rerooted) tree, with branches highlighted.
 #' @export
+
 plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NULL, main=""){
   if (is.null(hlcols)) {
     hlcols <- c(2:(length(hlspecies)+1))
@@ -490,6 +491,7 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
 #' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
 #' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}
 #' @return A plot of the RERs with foreground species labelled in red, and the rest in blue
+#' @export
 
 plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 's', plot = 1, xextend = 0.2, sortrers = F){
      if(is.null(rers)){
