@@ -99,7 +99,7 @@ Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
 if(!exists('AdultWeightLog')) {
-  load(paste(rerpath,'/data/logAdultWeightcm.RData',sep=''))
+  load(paste(rerpath,'/data/logAdultWeightcm.RData',sep='')) #The variable saved in this .RData file is 'AdultWeightLog.' Check to verify that this loads as 'AdultWeightLog' and not as 'logAdultWeightcm'.
 }
 mamRERw=RERconverge::getAllResiduals(toyTrees,useSpecies=names(AdultWeightLog), 
                            transform = "sqrt", weighted = T, scale = T)
