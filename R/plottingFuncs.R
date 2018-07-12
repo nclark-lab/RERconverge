@@ -238,7 +238,7 @@ plotContinuousChar=function(gene, treeObj, tip.vals, tip.vals.ref=NULL, rank=F, 
 #' @param hlcols. Colors to use in highlighting the branches. If not specified, will use default R colors.
 #' @param main. Main text for plot.
 #' @return A plot of the the (optionally rerooted) tree, with branches highlighted.
-
+#' @export
 plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NULL, main=""){
   if (is.null(hlcols)) {
     hlcols <- c(2:(length(hlspecies)+1))
