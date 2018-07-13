@@ -1,6 +1,6 @@
 #comment everything out
 
-require(dplyr)
+#require(dplyr)
 require(ggplot2)
 
 if(F){
@@ -57,7 +57,6 @@ multiplot = function(..., plotlist=NULL, file, cols=1, layout=NULL, widths=NULL,
     }
   }
 }
-
 
 plotAllHists=function(resAll){
   plotlist=list()
@@ -351,13 +350,13 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
   if (!is.null(speclist1)) {
     pfonts[which(tree$tip.label %in% speclist1)] <- 2
     tipcol[which(tree$tip.label %in% speclist1)] <- "blue"
-  }  
+  }
   if (! is.null(plotspecies)) { #only plot certain species names by making others white
     tipcol[which(tree$tip.label %in% plotspecies == FALSE)] <- "white"
   }
   if (!is.null(speclist2)) {
     toadd <- which(tree$tip.label %in% speclist2)
-    
+
     #tree$tip.label[toadd] <- paste(tree$tip.label[toadd],"*",sep="_")
     #tree$tip.label[toadd] <- paste(tree$tip.label[toadd],expression(psi),sep="_")
     #tree$tip.label[toadd] <- expression(paste(tree$tip.label[toadd], psi, sep="_"))
@@ -385,19 +384,19 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
   plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1)), include.lowest = T, right = T)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
   tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
   #par(mar=oldpar)
-  
+
   min.raw <- min(vals, na.rm = TRUE)
   max.raw <- max(vals, na.rm = TRUE)
   z <- seq(min.raw, max.raw, length = length(col))
   #z <- quantile(vals, probs = seq(0,1,length = length(col)))
-  
+
   par(mai=c(1,0.5,0,0.5))
   #par(mai=c(0.5,0.5,0,0.5))
-  #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1), 
+  #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
   #      xaxt = "n", yaxt = "n")
-  image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1), 
+  image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
         xaxt = "n", yaxt = "n")
-  #image(z = matrix(z, ncol = 1), col = col, breaks = quantile(vals, probs = seq(0, 1, length.out=nlevels+1)), 
+  #image(z = matrix(z, ncol = 1), col = col, breaks = quantile(vals, probs = seq(0, 1, length.out=nlevels+1)),
   #      xaxt = "n", yaxt = "n")
   #par(usr = c(0, 1, 0, 1))
   lv <- pretty(seq(min.raw, max.raw, length.out=nlevels+1))
@@ -410,7 +409,7 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
     x
   }
   xv <- scale01(as.numeric(lv), min.raw, max.raw)
-  xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)  
+  xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)
   axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
   #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
   mtext(colbarlab,at=0.5)
@@ -419,15 +418,16 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
 
 
 #' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
-#'  
+#'
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
 #' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
 #' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}
 #' @return A plot of the RERs with foreground species labelled in red, and the rest in blue
+#' @export
 
 plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 's', plot = 1, xextend = 0.2, sortrers = F){
      if(is.null(rers)){
-      e1 = rermat[index,][!is.na(rermat[index,])]     
+      e1 = rermat[index,][!is.na(rermat[index,])]
       colids = !is.na(rermat[index,])
       e1plot <- e1
       #print(e1plot)
@@ -435,7 +435,7 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method 
           names(e1plot) <- speciesNames[names(e1),]
       }
       if(is.numeric(index)){
-         gen = rownames(rermat)[index]  
+         gen = rownames(rermat)[index]
       }else{
          gen = index
       }
@@ -443,30 +443,30 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method 
       e1plot = rers
       gen = 'rates'
      }
-     names(e1plot)[is.na(names(e1plot))]=""     
+     names(e1plot)[is.na(names(e1plot))]=""
      if(!is.null(phenv)){
-      phenvid = phenv[colids]               
-      fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)     
+      phenvid = phenv[colids]
+      fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)
       plottitle = paste0(gen, ': rho = ',round(fgdcor$Rho,4),', p = ',round(fgdcor$P,4))
-      fgd = setdiff(names(e1plot)[phenvid == 1],"")            
+      fgd = setdiff(names(e1plot)[phenvid == 1],"")
       df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
           mutate(mole = as.factor(ifelse(phenvid > 0,2,1)))
      }else{
       plottitle = gen
-      fgd = NULL      
+      fgd = NULL
       df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
           mutate(mole = as.factor(ifelse(0,2,1)))
-     }          
-     #print(plottitle)     
+     }
+     #print(plottitle)
      if(sortrers){
       df = filter(df, species!="") %>%
           arrange(desc(rer))
      }
      #print(df)
      #df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
-     #     mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))     
-     ll=c(min(df$rer)*1.1, max(df$rer)+xextend)     
-     g  <- ggplot(df, aes(x = rer, y=factor(species, levels = ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species))) ), col=mole, label=species)) + scale_size_manual(values=c(3,3))+ geom_point(aes(size=mole))+
+     #     mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))
+     ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
+     g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(3,3))+ geom_point(aes(size=mole))+
           scale_color_manual(values = c("deepskyblue3", "brown1"))+
           scale_x_continuous(limits=ll)+
           #scale_x_continuous(expand = c(.1,.1))+
@@ -487,7 +487,7 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method 
      }
      else{
       g
-     }     
+     }
 }
 
 
@@ -510,9 +510,9 @@ nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
      nv=t(projection(t(allbranch), method="AVE", returnNV = T))
      nv=as.vector(nv)
      mastertree=treesObj$master
-     mastertree$edge.length=nv 
+     mastertree$edge.length=nv
      nn=character(length(nv))
-     iim=match(1:length(treesObj$masterTree$tip.label), treesObj$masterTree$edge[,2])    
+     iim=match(1:length(treesObj$masterTree$tip.label), treesObj$masterTree$edge[,2])
      nn[iim]=treesObj$masterTree$tip.label
      names(mastertree$edge.length) = nn
      nvplot2 = sort(mastertree$edge.length)
@@ -536,6 +536,7 @@ nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
      return(mastertree)
 }
 
+
 #' Plot the provided tree, (optionally) rerooted, with specified branches highlighted
 #'  
 #' @param tree. A tree object.
@@ -544,6 +545,7 @@ nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
 #' @param hlcols. Colors to use in highlighting the branches. If not specified, will use default R colors.
 #' @param main. Main text for plot.
 #' @return A plot of the the (optionally rerooted) tree, with branches highlighted.
+#' @export
 
 plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NULL, main=""){
   if (is.null(hlcols)) {
@@ -592,6 +594,7 @@ plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NUL
   }
   termedge <- order(rooted$edge[,2])[1:length(rooted$tip.label)] #which edge corresponds to each terminal branch
   colMasterTip <- colMaster[termedge]
+  #Make branches of length 0 just *slightly* larger values to visualize tree
   rooted2=rooted
   mm=min(rooted2$edge.length[rooted2$edge.length>0])
   rooted2$edge.length[rooted2$edge.length==0]=max(0.02,mm/20)
