@@ -7,7 +7,7 @@ output:
     css: custom.css
     toc: yes
   pdf_document:
-    toc: yes
+    toc: no
 authors: Amanda Kowalczyk and Wynn Meyer
 ---
 
