@@ -1,0 +1,11 @@
+base
+RColorBrewer
+gplots
+ape
+maps
+phytools
+geiger
+knitr
+Rcpp
+RcppArmadillo
+RERconverge

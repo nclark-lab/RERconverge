@@ -6,3 +6,10 @@ maps
 phytools
 plotrix
 bindrcpp
+RColorBrewer
+gplots
+geiger
+knitr
+Rcpp
+RcppArmadillo
+RERconverge

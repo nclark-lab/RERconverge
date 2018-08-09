@@ -400,10 +400,16 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
 #' @export
+<<<<<<< HEAD
 correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3){
 
   getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorize = winsorize )
 
+=======
+
+correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3){
+  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorize = winsorize )
+>>>>>>> UpdateVignette
 }
 
 
@@ -477,10 +483,15 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
       }
       else{
         charPb=(charP[ii]>0)+1-1
+<<<<<<< HEAD
 
            weights=charP[ii]
         weights[weights==0]=1
 
+=======
+        weights=charP[ii]
+        weights[weights==0]=1
+>>>>>>> UpdateVignette
         cres=wtd.cor(RERmat[i,ii], charPb, weight = weights, mean1 = F)
         corout[i, 1:3]=c(cres[1], nb, cres[4])
       }
@@ -724,16 +735,28 @@ foreground2Paths = function(foreground,treesObj, plotTree=F){
   tree2Paths(res, treesObj)
 }
 
+<<<<<<< HEAD
 #' Creates a tree form a set of foreground species
 #' @param foreground. A character vector containing the foreground species
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
 #' @param clade A character string indicating which branches within the clade
 #' containing the foreground species should be set to foreground. Must be one
 #' of the strings "ancestral", "terminal", "all", or "weighted".
+=======
+#' Creates a tree from a set of foreground species
+#' @param foreground. A character vector containing the foreground species
+#' @param treesObj A treesObj created by \code{\link{readTrees}}
+>>>>>>> UpdateVignette
 #' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade (redundant to "clade", kept for backwards compatibility)
 #' @param plotTree Plot a tree representation of the result
 #' @param wholeClade Whether to implement the weighted edge option across
 #' all members of a foreground clade (redundant to "clade", kept for backwards compatibility)
+<<<<<<< HEAD
+=======
+#' @param clade A character string indicating which branches within the clade
+#' containing the foreground species should be set to foreground. Must be one
+#' of the strings "ancestral", "terminal", "all", or "weighted".
+>>>>>>> UpdateVignette
 #' @return A tree with edge.lengths representing phenotypic states
 #' @export
 foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted")){

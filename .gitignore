@@ -10,6 +10,13 @@ RERconverge.Rproj
 .Rbuildignore
 .Rhistory
 vignettes/*/*/*chunk*
+<<<<<<< HEAD
 *.o
 *.so
 *.pdf
+=======
+.DS_Store
+*.o
+*.so
+*.pdf
+>>>>>>> UpdateVignette
