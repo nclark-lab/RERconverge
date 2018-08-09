@@ -98,10 +98,11 @@ We will use the `getAllResiduals` function to calculate RERs. This uses the foll
 Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
-if(!exists('AdultWeightLog')) {
-  load(paste(rerpath,'/data/logAdultWeightcm.RData',sep='')) #The variable saved in this .RData file is 'AdultWeightLog.' Check to verify that this loads as 'AdultWeightLog' and not as 'logAdultWeightcm'.
-}
-mamRERw=RERconverge::getAllResiduals(toyTrees,useSpecies=names(AdultWeightLog), 
+#if(!exists('AdultWeightLog')) {
+#  load(paste(rerpath,'/data/logAdultWeightcm.RData',sep='')) #The variable saved in this .RData file is 'AdultWeightLog.' #Check to verify that this loads as 'AdultWeightLog' and not as 'logAdultWeightcm'.
+#}
+data(RERconverge::logAdultWeightcm)
+mamRERw=RERconverge::getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), 
                            transform = "sqrt", weighted = T, scale = T)
 ```
 
