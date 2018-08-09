@@ -216,7 +216,11 @@ naresidCPP=function(data, mod, weights=NULL){
   out
 }
 
-#' @keywords  internal
+#' Provides names for paths/RERs representing terminal branches for plotting
+#' Originally an internal function but necessary for the vignette/walk-through
+#' @param  masterTree The master tree used for analysis
+#' @return  Names corresponding to the paths/RERs for terminal branches
+#' @export 
 namePathsWSpecies=function(masterTree){
   mat=transformMat(masterTree)
   n=length(masterTree$tip.label)
