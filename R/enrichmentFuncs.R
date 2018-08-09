@@ -119,4 +119,93 @@ myAUC<-function(labels, values){
   myres$pval=res$p.value
   return(myres)
 }
+
+simpleAUCgenesRanks=function(pos, neg){
+
+  posn=length(pos)
+  negn=length(neg)
+  stat=sum(pos)-posn*(posn+1)/2
+  auc=stat/(posn*negn)
+  mu=posn*negn/2
+  sd=sqrt((posn*negn*(posn+negn+1))/12)
+  stattest=apply(cbind(stat, posn*negn-stat),1,max)
+  pp=(2*pnorm(stattest, mu, sd, lower.tail = F))
+
+  return(c(auc,pp))
+}
+
+
+
+fastwilcoxGMTall=function(vals, annotList, ...){
+  reslist=list()
+  for ( n in names(annotList)){
+    reslist[[n]]=fastwilcoxGMT(vals, annotList[[n]], ...)
+    message(paste0(nrow(reslist[[n]]), " results for annotation set ", n))
+  }
+  reslist
+}
+
+fastwilcoxGMT=function(vals, gmt, simple=T, use.all=F, num.g=10,genes=NULL, outputGeneVals=F, order=F){
+  vals=vals[!is.na(vals)]
+  if(is.null(genes)){
+    genes=unique(unlist(gmt$genesets))
+  }
+  out=matrix(nrow=length(gmt$genesets), ncol=5)
+  rownames(out)=gmt$geneset.names
+  colnames(out)=c("stat", "pval", "p.adj","num.genes", "gene.vals")
+  out=as.data.frame(out)
+  genes=intersect(genes, names(vals))
+
+  valsr=rank(vals[genes])
+  numg=length(vals)+1
+  valsallr=rank(vals)
+  for( i in 1:nrow(out)){
+
+    curgenes=intersect(genes,gmt$genesets[[i]])
+
+    bkgenes=setdiff(genes, curgenes)
+
+    if (length(bkgenes)==0 || use.all){
+      bkgenes=setdiff(names(vals), curgenes)
+    }
+    if(length(curgenes)>=num.g & length(bkgenes)>2){
+      if(!simple){
+        res=wilcox.test(x = vals[curgenes], y=vals[bkgenes], exact=F)
+
+        out[i, 1:2]=c(res$statistic/(length(bkgenes)*length(curgenes)), res$p.value)
+      }
+      else{
+
+        out[i, 1:2]=simpleAUCgenesRanks(valsr[curgenes],valsr[bkgenes])
+
+      }
+      out[i,"num.genes"]=length(curgenes)
+      if(outputGeneVals){
+        if (out[i,1]>0.5){
+          oo=order(vals[curgenes], decreasing = T)
+          granks=numg-valsallr[curgenes]
+        }
+        else{
+          oo=order(vals[curgenes], decreasing = F)
+          granks=valsallr[curgenes]
+        }
+
+
+        nn=paste(curgenes[oo],round((granks[curgenes])[oo],2),sep=':' )
+        out[i,"gene.vals"]=paste(nn, collapse = ", ")
+      }
+    }
+
+  }
+  # hist(out[,2])
+  out[,1]=out[,1]-0.5
+  out[, "p.adj"]=p.adjust(out[,2], method="BH")
+
+  out=out[!is.na(out[,2]),]
+  if(order){
+    out=out[order(-abs(out[,1])),]
+  }
+  out
+}
+
 }
