@@ -26,6 +26,7 @@ The analysis requires two sources of data as input:
   
 When choosing a dataset to work with, consider the availability and accuracy of both genomic and phenotypic data, and be sure to select a valid convergent phenotype that is observed at high and low levels in multiple independent clades in your phylogeny.  In the following lines of code, I load my phenotypic data of mammal adult weight:  
 
+<<<<<<< HEAD
 ```{r, results='hide', message=FALSE, warning=FALSE}
 library("RERconverge")
 
@@ -33,15 +34,29 @@ library("RERconverge")
 ```{r}
 head(AdultWeightLog)
 length(AdultWeightLog)
+=======
+```{r}
+head(logAdultWeightcm)
+length(logAdultWeightcm)
+>>>>>>> master
 ```
 
 Note that my phenotype vector contains numeric values that are assigned species names.  These names, by design, are the same names that are used as terminal node labels in my phylogenetic trees.  A dataset of phylogenetic trees for a real analysis would contain one tree for every genomic element of interest with branch lengths representing element-specific evolutionary rates.  Trees should be in Newick format in a tab-delimited file in which each line contains the tree name and the tree.  Importantly, trees must preseve the same topology or encode the same evolutionary relationships among species.  The "readTrees" function takes the filepath of the trees and reads them into a tree object that is used in later analysis steps.  Reading in trees and performing subsequent analyses can take a long time for large genomic datasets over large phylogenies, so for the sake of brevity, we will read in a subset of 200 trees using the parameter "max.read=200".
 
+<<<<<<< HEAD
 
 ```{r}
 rerpath = paste(.libPaths()[1],"/RERconverge",sep="")
 toytreefile = "subsetMammalGeneTrees.txt"
 toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+=======
+```{r, results='hide', message=FALSE, warning=FALSE}
+library("RERconverge")
+
+```
+```{r}
+toytrees=readTrees("../data/MammalToyTrees.txt", max.read = 500)
+>>>>>>> master
 ```
 
 The output from "readTrees" indicates that there are 3170 total trees in the file provided with 62 total species.  In addition to reading in the trees, "readTrees" also created a master tree with branch lengths that represent the average branch lengths across many trees.  In this case, the master tree branch lengths were estimated from 55 genes because 55 of the trees had all species present.  
@@ -53,7 +68,11 @@ At this point, note that the number of species in my trees does not match the nu
 With our trees and phenotype successfully loaded, we can start to run the RERconverge analysis.  First, we will calculate RERs, or relative evolutionary rates, for all of our trees.  RERs are calculated by nromalizing all branch lengths across all tree lengths by the master branch lengths.  Branch lengths are then corrected for the heteroskedastic relationship between average branch length and variance useing weighted regression.  This function has a lot going on under the hood, so let me show you the line I use to calculate RERs before I explain the input parameters I have chosen:
 
 ```{r,message=FALSE}
+<<<<<<< HEAD
 RER=RERconverge::getAllResiduals(toyTrees, transform="sqrt", weighted=T, scale=T, useSpecies =names(AdultWeightLog), cutoff=.001)
+=======
+RER=getAllResiduals(toytrees, transform="sqrt", weighted=T, scale=T, useSpecies =names(adult.weights.log), cutoff=.001)
+>>>>>>> master
 ```
 
 The first parameter is my previously-loaded trees object.  Next, I specify a square-root transformation on the branch lengths to help correct for heteroskedasticity.  The square-root correction is the recommended method based on its ability to increase power more significantly than other methods, but you may also want to try a log correction for your data.  Setting weighted=T uses a weighted regression to further correct for heteroskedasticity.  The two plots indicate the reduction in heteroskedasticity with the transformation and weighted regression.  The plot on the left shows an increase in variance along the y-axis as mean branch length increases along the x-axis in untransformed data.  That trend is not seen in the corrected data on the right.  Setting scale=T scales the variance of the branch lengths to 1 after all corrections.  I chose this parameter based on further analysis of permutations of node labels that showed a uniform distribution of p-values when variance scaling was used and a non-uniform distribution without variance scaling.  I set useSpecies to the names in my phenotype vector so RERs are only calculated based on species for which I have phenotypes.  Finally, cutoff=.001 removes very short, noisy branches from trees.  RERs are stored in a paths matrix with rows representing genomic elements and columns representing every potential branch that could exist along the phylogenetic topology.  Non-NA values in the RER matrix are branch RERs for branches that exist in that genomic element phylogeny.  
@@ -61,7 +80,11 @@ The first parameter is my previously-loaded trees object.  Next, I specify a squ
 We must convert my trait vector to paths comparable to the paths in the RER matrix.  To do that, I can use the function "char2Paths" as shown here:
 
 ```{r}
+<<<<<<< HEAD
 charpaths=char2Paths(AdultWeightLog, toyTrees)
+=======
+charpaths=char2Paths(adult.weights.log, toytrees)
+>>>>>>> master
 ```
 
 Note that there is a species present in my trees that is not present in my phenotype vector and that this will not impact our ability to continue with our analysis, but is important to note if it is unexpected.  I am also using "metric diff", which means that branch lengths are assigned to my trait tree based on the difference in trait values on the nodes connected to that branch.  The "char2Paths" function creates a paths vector with length equal to the number of columns in the RER matrix.  The phylogenetic relationships represented in the "char2Paths" output are the same as those represented in the RER matrix.  
@@ -84,8 +107,13 @@ hist(res$P, breaks=100)
 One important consideration of the results is the impact of one or a few species on the overall correlation.  To assess this risk, we can examine individual correlation plots as follows:
 ```{r}
 x=charpaths
+<<<<<<< HEAD
 y=RER['TTN',]
 pathnames=namePathsWSpecies(toyTrees$masterTree)
+=======
+y=RER['ADSS',]
+pathnames=namePathsWSpecies(toytrees$masterTree)
+>>>>>>> master
 names(y)=pathnames
 plot(x,y, cex.axis=1, cex.lab=1, cex.main=1, xlab="Weight Change", ylab="Evolutionary Rate", main="Gene ADSS Pearson Correlation",pch=19, cex=1, xlim=c(-2,2))
 text(x,y, labels=names(y), pos=4)

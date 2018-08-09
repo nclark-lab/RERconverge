@@ -380,7 +380,7 @@ getChildren=function(tree, nodeN){
 #' @export
 correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto"){
   if(weighted=="auto"){
-    if (any(charP>0&charP<1)){
+    if (any(charP>0&charP<1, na.rm=TRUE)){
       message("Fractional values detected, will use weighted correlation mode")
       weighted=T
     }
