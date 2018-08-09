@@ -98,10 +98,11 @@ We will use the `getAllResiduals` function to calculate RERs. This uses the foll
 Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
-if(!exists('AdultWeightLog')) {
-  load(paste(rerpath,'/data/logAdultWeightcm.RData',sep='')) #The variable saved in this .RData file is 'AdultWeightLog.' Check to verify that this loads as 'AdultWeightLog' and not as 'logAdultWeightcm'.
-}
-mamRERw=RERconverge::getAllResiduals(toyTrees,useSpecies=names(AdultWeightLog), 
+# if(!exists('AdultWeightLog')) {
+#   load(paste(rerpath,'/data/logAdultWeightcm.RData',sep='')) #The variable saved in this .RData file is 'AdultWeightLog.' Check to verify that this loads as 'AdultWeightLog' and not as 'logAdultWeightcm'.
+# }
+data(RERconverge::logAdultWeightcm)
+mamRERw=RERconverge::getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), 
                            transform = "sqrt", weighted = T, scale = T)
 ```
 
@@ -143,7 +144,7 @@ Now we will associate variation in these RERs with variation in a **binary trait
 1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one for foreground branches. An example is provided in *extdata/MarineTreeBinCommonNames.txt*. This tree must have the same topology as the master tree or a subset of the master tree.
 
 ```{r fig3, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE}
-marineb=read.tree(paste(rerpath,"/extdata/MarineTreeBinCommonNames.txt",sep=""))
+marineb=read.tree(paste(rerpath,"/ext/MarineTreeBinCommonNames.txt",sep=""))
 marinebrooted = root(marineb,outgroup=noneutherians)
 mb1 = marineb
 mb1$edge.length = c(rep(1,length(mb1$edge.length)))
