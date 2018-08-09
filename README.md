@@ -4,24 +4,13 @@ RERConverge is a set of software written in R that estimates the correlation bet
 
 ## Getting Started
 
-Here are some basic instructions for how to run RERConverge on your own data.
+Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for detailed instructions to **install** RERConverge from scratch. For more information on running RERConverge, please see the full documentation ***(Link to R documentation)*** and R vignettes. ***(Link to R vignettes)***
 
-### Prerequisites
-
-To run RERConverge, you will first need to have [R](https://cran.r-project.org/) installed. Package dependencies include *ape*, *phytools*, *compiler*, and *plotrix*.
-
-To install the required package dependencies, run the following:
-
-```
-install.packages(c("ape","phytools","compiler","devtools","plotrix"))
-```
-
-Then install the RERconverge package with the following:
+### Quick Start
 ```
 library(devtools)
 install_github("nclark-lab/RERconverge")
 ```
-
 To run an analysis you will need:
 1) a trees file: a tab-delimited files with gene names and Newick format trees for each gene.
 Tree topologies must be the same for all genes, and at least one tree must contain all species in the dataset.
@@ -43,10 +32,6 @@ Running RERConverge will produce the following outputs:
 1) an object containing, for each gene, the correlation between its relative evolutionary rate and the trait of interest, along with the estimateed p-value
 2) an object containing, for each gene, its relative evolutionary rate for each branch of the phylogeny, which can be used in the included visualization scripts (e.g., to illustrate the difference in relative evolutionary rate between foreground and background branches)
 
-### Documentation
-
-For more information on running RERConverge, please see the full documentation ***(Link to R documentation)*** and R vignettes. ***(Link to R vignettes)***
-
 
 ## Authors
 
@@ -65,10 +50,12 @@ RERConverge can be cited as follows:
 
 ```
 For coding sequences:
-Chikina M, Robinson JD, Clark NL. Hundreds of Genes Experienced Convergent Shifts in Selective Pressure in Marine Mammals. Mol Biol Evol. 2016;33: 2182–92. doi:10.1093/molbev/msw112
+Chikina M, Robinson JD, Clark NL. Hundreds of Genes Experienced Convergent Shifts in Selective Pressure in Marine 
+Mammals. Mol Biol Evol. 2016;33: 2182–92. doi:10.1093/molbev/msw112
 
 For conserved non-coding sequences:
-Partha R, Chauhan B, Ferreira Z, Robinson J, Lathrop K, Nischal K, et al. Subterranean mammals show convergent regression in ocular genes and enhancers, along with adaptation to tunneling. In press eLife. 
+Partha R, Chauhan B, Ferreira Z, Robinson J, Lathrop K, Nischal K, et al. Subterranean mammals show convergent 
+regression in ocular genes and enhancers, along with adaptation to tunneling. In press eLife. 
 
 ```
 
@@ -80,12 +67,16 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 * Methods for computing weights rely on ideas from the following paper:
 ```
-Law CW, Chen Y, Shi W, Smyth GK. voom: Precision weights unlock linear model analysis tools for RNA-seq read counts. Genome Biol. 2014;15: R29. doi:10.1186/gb-2014-15-2-r29
+Law CW, Chen Y, Shi W, Smyth GK. voom: Precision weights unlock linear model analysis tools for RNA-seq read
+counts. Genome Biol. 2014;15: R29. doi:10.1186/gb-2014-15-2-r29
 
 ```
 * Projection operations are drawn from the following paper:
 ```
-Sato T, Yamanishi Y, Kanehisa M, Toh H. The inference of protein-protein interactions by co-evolutionary analysis is improved by excluding the information about the phylogenetic relationships. Bioinformatics. Bioinformatics Center, Institute for Chemical Research, Kyoto University, Gokasho, Uji, Kyoto 611-0011, Japan. sato@kuicr.kyoto-u.ac.jp; 2005;21: 3482–3489. doi:10.1093/bioinformatics/bti564
+Sato T, Yamanishi Y, Kanehisa M, Toh H. The inference of protein-protein interactions by co-evolutionary 
+analysis is improved by excluding the information about the phylogenetic relationships. Bioinformatics. 
+Bioinformatics Center, Institute for Chemical Research, Kyoto University, Gokasho, Uji, Kyoto 611-0011, 
+Japan. sato@kuicr.kyoto-u.ac.jp; 2005;21: 3482–3489. doi:10.1093/bioinformatics/bti564
 
 ```
 * Thanks to [PurpleBooth](https://github.com/PurpleBooth) for this template.

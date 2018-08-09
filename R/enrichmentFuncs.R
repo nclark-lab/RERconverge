@@ -209,3 +209,40 @@ fastwilcoxGMT=function(vals, gmt, simple=T, use.all=F, num.g=10,genes=NULL, outp
 }
 
 }
+
+#adopted from GSA package, gsa.read.gmt()
+read.gmt <- function (filename) 
+{
+    a = scan(filename, what = list("", ""), sep = "\t", quote = NULL, 
+        fill = T, flush = T, multi.line = F)
+    geneset.names = a[1][[1]]
+    geneset.descriptions = a[2][[1]]
+    dd = scan(filename, what = "", sep = "\t", quote = NULL)
+    nn = length(geneset.names)
+    n = length(dd)
+    ox = rep(NA, nn)
+    ii = 1
+    for (i in 1:nn) {
+        cat(i)
+        while ((dd[ii] != geneset.names[i]) | (dd[ii + 1] != 
+            geneset.descriptions[i])) {
+            ii = ii + 1
+        }
+        ox[i] = ii
+        ii = ii + 1
+    }
+    genesets = vector("list", nn)
+    for (i in 1:(nn - 1)) {
+        cat(i, fill = T)
+        i1 = ox[i] + 2
+        i2 = ox[i + 1] - 1
+        geneset.descriptions[i] = dd[ox[i] + 1]
+        genesets[[i]] = dd[i1:i2]
+    }
+    geneset.descriptions[nn] = dd[ox[nn] + 1]
+    genesets[[nn]] = dd[(ox[nn] + 2):n]
+    out = list(genesets = genesets, geneset.names = geneset.names, 
+        geneset.descriptions = geneset.descriptions)
+    class(out) = "GSA.genesets"
+    return(out)
+}

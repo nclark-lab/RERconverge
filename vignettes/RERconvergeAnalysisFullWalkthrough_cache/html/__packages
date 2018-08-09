@@ -9,3 +9,14 @@ knitr
 Rcpp
 RcppArmadillo
 RERconverge
+lattice
+survival
+Formula
+ggplot2
+Hmisc
+gdata
+mice
+weights
+phangorn
+dplyr
+bindrcpp

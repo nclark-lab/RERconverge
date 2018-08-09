@@ -1,3 +1,5 @@
+#Early version of the steps used in the walk-through
+#If including, modify script to align with latest vignette
 
 library("RERconverge")
 rerpath = paste(.libPaths()[1],"/RERconverge",sep="")
