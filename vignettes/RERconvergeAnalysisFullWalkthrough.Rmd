@@ -3,11 +3,11 @@ title: "RERconverge Analysis Walkthrough"
 bibliography: RERConverge.bib
 date: "June 28, 2018"
 output:
+  pdf_document:
+    toc: no
   html_document:
     css: custom.css
     toc: yes
-  pdf_document:
-    toc: no
 authors: Amanda Kowalczyk and Wynn Meyer
 ---
 
@@ -53,7 +53,7 @@ In R, load the RERConverge library.
 ```{r results='hide', message = FALSE, warning = FALSE, cache = TRUE}
 if (!require("RERconverge", character.only=T, quietly=T)) {
     require(devtools)
-    install_github("nclark-lab/RERconverge", ref="CleanupVignette")
+    install_github("nclark-lab/RERconverge", ref="CleanupVignette") #change ref once branch is merged
 }
 library(RERconverge)
 ```

@@ -1,4 +1,5 @@
 base
+devtools
 RColorBrewer
 gplots
 ape
@@ -8,7 +9,6 @@ geiger
 knitr
 Rcpp
 RcppArmadillo
-RERconverge
 lattice
 survival
 Formula
@@ -19,4 +19,5 @@ mice
 weights
 phangorn
 dplyr
+RERconverge
 bindrcpp
