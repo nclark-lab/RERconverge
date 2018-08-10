@@ -2,17 +2,25 @@
 % Please edit documentation in R/RERfuncs.R
 \name{foreground2Tree}
 \alias{foreground2Tree}
-\title{Creates a tree form a set of foreground species}
+\title{Creates a tree from a set of foreground species}
 \usage{
 foreground2Tree(foreground, treesObj, collapse2anc = T, plotTree = T,
-  wholeClade = F)
+  wholeClade = F, clade = c("ancestral", "terminal", "all",
+  "weighted"))
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
 
-\item{collapse2anc}{Put all the weight on the ancestral branch when the trait appears on a while clade}
+\item{collapse2anc}{Put all the weight on the ancestral branch when the trait appears on a whole clade (redundant to "clade", kept for backwards compatibility)}
 
 \item{plotTree}{Plot a tree representation of the result}
+
+\item{wholeClade}{Whether to implement the weighted edge option across
+all members of a foreground clade (redundant to "clade", kept for backwards compatibility)}
+
+\item{clade}{A character string indicating which branches within the clade
+containing the foreground species should be set to foreground. Must be one
+of the strings "ancestral", "terminal", "all", or "weighted".}
 
 \item{foreground.}{A character vector containing the foreground species}
 }
@@ -20,5 +28,5 @@ foreground2Tree(foreground, treesObj, collapse2anc = T, plotTree = T,
 A tree with edge.lengths representing phenotypic states
 }
 \description{
-Creates a tree form a set of foreground species
+Creates a tree from a set of foreground species
 }

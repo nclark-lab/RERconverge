@@ -2,13 +2,13 @@ Package: RERconverge
 Type: Package
 Title: Analysis of Convergence Between Organismal Traits and DNA/Protein Sequences
 Version: 0.1.0
-Authors: Maria Chikina, Nathan Clark, Amanda Kowalczyk, Weiguang (Wayne) Mao, Wynn Meyer, and Raghavendran Partha
+Author: Maria Chikina, Nathan Clark, Amanda Kowalczyk, Weiguang (Wayne) Mao, Wynn Meyer, and Raghavendran Partha
 Maintainer: Maria Chikina <mchikina@pitt.edu> / Nathan Clark <nclark@pitt.edu>
 Description: RERConverge is a set of software written in R that estimates the correlation between relative evolutionary rates of genes and the    evolution of a convergent binary or continuous trait across a phylogeny.
 License: GNU General Public License v3.0
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.0
 Depends: RColorBrewer, gplots,  phytools, geiger, knitr, Rcpp, RcppArmadillo, weights, phangorn, ggplot2, dplyr
 Imports: Rcpp (>= 0.11.0), ape
 LinkingTo: Rcpp, RcppArmadillo, ape

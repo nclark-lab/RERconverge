@@ -4,9 +4,9 @@
 \alias{getAllResiduals}
 \title{main RER computation function}
 \usage{
-getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt", weighted = T,
-  useSpecies = NULL, min.sp = 10, scale = T, doOnly = NULL,
-  maxT = NULL, scaleForPproj = F, mean.trim = 0.05)
+getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt",
+  weighted = T, useSpecies = NULL, min.sp = 10, scale = T,
+  doOnly = NULL, maxT = NULL, scaleForPproj = F, mean.trim = 0.05)
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
