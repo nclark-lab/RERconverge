@@ -53,7 +53,7 @@ In R, load the RERConverge library.
 ```{r results='hide', message = FALSE, warning = FALSE, cache = TRUE}
 if (!require("RERconverge", character.only=T, quietly=T)) {
     require(devtools)
-    install_github("nclark-lab/RERconverge")
+    install_github("nclark-lab/RERconverge", ref="CleanupVignette")
 }
 library(RERconverge)
 ```
