@@ -18,3 +18,4 @@ export(tree2Paths)
 import(Rcpp)
 importFrom(Rcpp,evalCpp)
 useDynLib(RERconverge)
+
