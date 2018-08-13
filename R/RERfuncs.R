@@ -216,7 +216,11 @@ naresidCPP=function(data, mod, weights=NULL){
   out
 }
 
-#' @keywords  internal
+#' Provides names for paths/RERs representing terminal branches for plotting
+#' Originally an internal function but necessary for the vignette/walk-through
+#' @param  masterTree The master tree used for analysis
+#' @return  Names corresponding to the paths/RERs for terminal branches
+#' @export 
 namePathsWSpecies=function(masterTree){
   mat=transformMat(masterTree)
   n=length(masterTree$tip.label)
@@ -830,7 +834,7 @@ nameEdges=function(tree){
 tree2Paths=function(tree, treesObj, binarize=NULL){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
-  stopifnot(all.equal.phylo(tree, treesObj$masterTree, use.edge.length=F)) #check for concordant topologies between phenotype and master trees (ignore branch lengths)
+  #stopifnot(all.equal.phylo(tree, treesObj$masterTree, use.edge.length=F)) #check for concordant topologies between phenotype and master trees (ignore branch lengths): removed because matchAllNodes should check for this
 
   isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
   if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
@@ -842,7 +846,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL){
   }
 
   treePaths=allPaths(tree)
-  map=matchAllNodes_c(tree,treesObj$masterTree)
+  map=matchAllNodes_c(tree,treesObj$masterTree) #does this fail with a warning if tree is not a subset of masterTree?
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]

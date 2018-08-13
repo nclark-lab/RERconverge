@@ -1,8 +1,9 @@
 #TOC {
   position: fixed;
   left: 0;
-  top: 200px;
-  width: 200px;
+  top: 100px;
+  bottom: 0px;
+  width: 300px;
   height: 100%;
   overflow:auto;
 }
@@ -10,6 +11,6 @@
 body {
   max-width: 800px;
   margin: auto;
-  margin-left:210px;
+  margin-left:310px;
   line-height: 20px;
 }
