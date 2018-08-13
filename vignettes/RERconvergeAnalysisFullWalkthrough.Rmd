@@ -3,11 +3,11 @@ title: "RERconverge Analysis Walkthrough"
 bibliography: RERConverge.bib
 date: "June 28, 2018"
 output:
-  pdf_document:
-    toc: no
   html_document:
     css: custom.css
     toc: yes
+  pdf_document:
+    toc: no
 authors: Amanda Kowalczyk and Wynn Meyer
 ---
 
