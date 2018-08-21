@@ -723,9 +723,6 @@ foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral"
   #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
   #names(res$edge.length) = nameEdges(treesObj$masterTree)
   res = foreground2Tree(foreground, treesObj, plotTree=plotTree, clade=clade)
-  if(plotTree){
-    plot(res)
-  }
   tree2Paths(res, treesObj)
 }
 
