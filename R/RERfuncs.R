@@ -846,6 +846,10 @@ tree2Paths=function(tree, treesObj, binarize=NULL){
       binarize = F #default for continuous phenotype trees: do not convert to binary
     }
   }
+  #unroot if rooted
+  if (is.rooted(tree)) {
+    tree = unroot(tree)
+  }
 
   treePaths=allPaths(tree)
   map=matchAllNodes_c(tree,treesObj$masterTree) #does this fail with a warning if tree is not a subset of masterTree?
@@ -872,7 +876,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL){
   vals
 }
 
-#' Makes a binary path vector from either a tree of class "phylo" or a forground species set supplied as a character vector
+#' Makes a binary path vector from either a tree of class "phylo" or a foreground species set supplied as a character vector
 #' @param input Either a phenotype tree of class "phylo" (with branch length encoding a phenotype) or a character vector of foreground branches
 #' @param  treesObj A treesObj created by \code{\link{readTrees}}
 #' @return A vector of length equal to the number of paths in treesObj
