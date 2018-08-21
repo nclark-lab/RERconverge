@@ -220,7 +220,7 @@ naresidCPP=function(data, mod, weights=NULL){
 #' Originally an internal function but necessary for the vignette/walk-through
 #' @param  masterTree The master tree used for analysis
 #' @return  Names corresponding to the paths/RERs for terminal branches
-#' @export 
+#' @export
 namePathsWSpecies=function(masterTree){
   mat=transformMat(masterTree)
   n=length(masterTree$tip.label)
@@ -300,6 +300,9 @@ matchNodesInject=function (tr1, tr2){
 
   iim=match(tr1$tip.label, tr2$tip.label)
   Nodes=rbind(cbind(1:length(tr1$tip.label),iim),Nodes)
+  if(any(is.na(Nodes))){
+    stop("Discrodant trees detected")
+  }
   Nodes
 }
 
