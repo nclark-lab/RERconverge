@@ -425,7 +425,12 @@ correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3)
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
 getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=NULL,weighted=F){
-  if (method=="auto"){
+ RERna=(apply(is.na(RERmat),2,all))
+ iicharPna=which(is.na(charP))
+ if(!all(RERna[iicharPna])){
+   warning("Species in phenotype vector are a subset of the those used for RER computation. For best results run RER with the useSpecies")
+ }
+   if (method=="auto"){
     lu=length(unique(charP))
     if(lu==2){
       method="k"
