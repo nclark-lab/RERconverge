@@ -9,22 +9,22 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).
+This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).  A detailed walkthrough to produce the data used for this example is provided in the [vignettes folder](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/RERconvergeAnalysisFullWalkthrough.Rmd).
 
 # Overview
 
-Download all curated gene sets, gene symbols (c2.all.v6.2.symbols.gmt) from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt.  You must register for 
 
-```{r cars}
-summary(cars)
+# Extract Results from RERconverge Correlation Analysis
+
+Enrichment analysis starts with the results from the **correlateWithContinuousPhenotype**, **correlateWithBinaryPhenotype**, or **getAllCor** functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/RERconvergeAnalysisFullWalkthrough.Rmd).
+
+```{r, cache=T}
+correlationresults=data("RERresults")
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+# Download Pathway Annotations
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
+Download all curated gene sets, gene symbols (c2.all.v6.2.symbols.gmt) from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt.  You must register for an account prior to downloading.  The rest of the vignette expects "gmtfile.gmt" to be in the current working directory.
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
