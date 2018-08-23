@@ -65,19 +65,25 @@ library(RERconverge)
 
 This should also download all the files we will be working with to your computer, in the directory where your R library lives. If you'd like to visualize or work with any of these files separately, this is where you can find them:
 
+```{r, eval = FALSE}
+#Old version of finding package through .libPaths()
+#wpath = NA
+#for (i in 1:length(.libPaths())) {
+#  if (file.exists(paste(.libPaths()[i],"/RERconverge/R/RERconverge",sep=""))) {
+#      wpath = i
+#      break
+#  }
+#}
+#if (is.na(wpath)) {
+#    print("RERconverge not found in R paths; check installation.")
+#}
+#print(paste(.libPaths()[wpath],"/RERconverge",sep="")) #This is the path to the files
+#rerpath = paste(.libPaths()[wpath],"/RERconverge",sep="")
+```
+
 ```{r, cache = T}
-wpath = NA
-for (i in 1:length(.libPaths())) {
-  if (file.exists(paste(.libPaths()[i],"/RERconverge/R/RERconverge",sep=""))) {
-      wpath = i
-      break
-  }
-}
-if (is.na(wpath)) {
-    print("RERconverge not found in R paths; check installation.")
-}
-print(paste(.libPaths()[wpath],"/RERconverge",sep="")) #This is the path to the files
-rerpath = paste(.libPaths()[wpath],"/RERconverge",sep="")
+rerpath = find.package('RERconverge') #If this errors, there is an issue with installation
+print(rerpath)
 ```
 
 ## Reading in gene trees with `readTrees`
