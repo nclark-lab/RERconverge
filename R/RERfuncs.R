@@ -428,7 +428,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
  RERna=(apply(is.na(RERmat),2,all))
  iicharPna=which(is.na(charP))
  if(!all(RERna[iicharPna])){
-   warning("Species in phenotype vector are a subset of the those used for RER computation. For best results run RER with the useSpecies")
+   warning("Species in phenotype vector are a subset of the those used for RER computation. For best results run getAllResiduals with the useSpecies")
  }
    if (method=="auto"){
     lu=length(unique(charP))
