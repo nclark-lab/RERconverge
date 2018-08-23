@@ -282,7 +282,10 @@ matchAllNodes_c=cmpfun(matchAllNodes)
 
 #' @keywords  internal
 matchNodesInject=function (tr1, tr2){
-
+  if(length(tmpsp<-setdiff(tr1$tip.label, tr2$tip.label))>0){
+    stop(paste(paste(tmpsp, ","), "in tree1 do not exist in tree2"))
+  }
+  toRm=setdiff(tr2$tip.label, tr1$tip.label)
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
                                                                               x)$tip.label)
   names(desc.tr1) <- 1:tr1$Nnode + length(tr1$tip)
@@ -300,9 +303,10 @@ matchNodesInject=function (tr1, tr2){
 
   iim=match(tr1$tip.label, tr2$tip.label)
   Nodes=rbind(cbind(1:length(tr1$tip.label),iim),Nodes)
-  if(any(is.na(Nodes))){
-    stop("Discrodant trees detected")
+  if(any(table(Nodes[,2])>1)){
+    stop("Discrodant tree topology detected")
   }
+
   Nodes
 }
 
@@ -1860,4 +1864,53 @@ if(F){
   }
 
 
+}
+
+
+
+matchNodesInjectUpdate=function (tr1, tr2){
+  ancMatFrom=getAncestorMatrix(tr1)
+
+
+  ancMatTo=getAncestorMatrix(tr2) # this is the
+
+  outMat=matrix(0,nrow=nrow(ancMatFrom), ncol=ncol(ancMatTo))
+  colnames(outMat)=colnames(ancMatTo)
+  #rownames(outMat)=rownames(ancMatFrom)
+  outMat[, colnames(ancMatFrom)]=ancMatFrom
+  tt=tcrossprod(outMat,ancMatTo)
+  tt2=sqrt(outer(rowSums(outMat), rowSums(ancMatTo[, colnames(ancMatFrom)])))
+  ii=which(tt/tt2==1, arr.ind = T)
+
+  rr2<-rowSums(ancMatTo)
+  #ii is mappint tr1 to tr2
+  iidouble=which(table(ii[,1])>1)
+  if(length(iidouble)>0){
+    for (i in iidouble){
+      iiresolve=which(ii[,1]==i)
+
+      #     show(rr2[ii[iiresolve,2]])
+      #  show(ii[iiresolve,])
+      j=which.min(rr2[ii[iiresolve,2]])
+      #show(i)
+      j=ii[iiresolve[j],2]
+      #show(j)
+      iirm=which(ii[,1]==i&ii[,2]!=j)
+      #show(ii[iirm,])
+
+      ii[iirm,]=NA
+      #show(ii[iiresolve,])
+    }
+  }
+  ii[,1]=ii[,1]+length(tr1$tip.label)
+  ii[,2]=ii[,2]+length(tr2$tip.label)
+
+  ii=ii[!is.na(ii[,1]),]
+
+  ii=rbind(cbind(1:length(tr1$tip.label), match(tr1$tip.label, tr2$tip.label)),ii)
+  if(nrow(ii)!=length(tr1$tip.label)+tr1$Nnode){
+   stop("Discordant tree topology detected")
+  }
+  ii
+  #ii=ii[order(ii[,1]),]
 }
