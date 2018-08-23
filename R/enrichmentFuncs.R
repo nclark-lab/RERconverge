@@ -1,5 +1,7 @@
 #comment everything out for now
-if(T){
+#if(T){
+
+
   wilcoxGMTall=function(vals, annotList){
     reslist=list()
     for ( n in names(annotList)){
@@ -134,7 +136,12 @@ if(T){
     return(c(auc,pp))
   }
 
+  #' Performs Wilcoxon Rank-Sum pathway enrichment on pathway genesets
 
+  #' @param vals The output from getStat run on RERconverge correlation functions (correlateWithContinuousPhenotype, correlateWithBinaryPhenotype, getAllCor)
+  #' @param annotList Pathway annotations formatted as a list of lists of annotation information
+  #' @return A list of pathways with enrichment statistics
+  #' @export
 
   fastwilcoxGMTall=function(vals, annotList, ...){
     reslist=list()
@@ -208,10 +215,16 @@ if(T){
     out
   }
 
-}
+#}
 
-#adopted from GSA package, gsa.read.gmt()
+#' Reads pathway data from a gmt-formatted file from GSEA-MSigDB
+
+#' @param filename The gmt-formatted pathway file
+#' @return A list of pathway information with pathway names and genesets
+#' @export
+
 read.gmt <- function (filename)
+  #adopted from GSA package, gsa.read.gmt()
 {
   a = scan(filename, what = list("", ""), sep = "\t", quote = NULL,
            fill = T, flush = T, multi.line = F)

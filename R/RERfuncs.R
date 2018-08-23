@@ -220,7 +220,7 @@ naresidCPP=function(data, mod, weights=NULL){
 #' Originally an internal function but necessary for the vignette/walk-through
 #' @param  masterTree The master tree used for analysis
 #' @return  Names corresponding to the paths/RERs for terminal branches
-#' @export 
+#' @export
 namePathsWSpecies=function(masterTree){
   mat=transformMat(masterTree)
   n=length(masterTree$tip.label)
@@ -1188,7 +1188,7 @@ getAllCladeEdges=function(tree, AncEdge){
 
 
 
-if(F){
+#if(T){
   getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
     report=treesObj[["report"]]
     both=names(which(colSums(report[c(name1,name2),])==2))
@@ -1739,8 +1739,11 @@ if(F){
   }
 
 
+  #' Calculates Rho-signed negative log-base-ten p-value for use in enrichment functions
 
-
+  #' @param res The output from RERconverge correlation functions (correlateWithContinuousPhenotype, correlateWithBinaryPhenotype, getAllCor)
+  #' @return A dataframe of Rho-signed negative log-base-ten p-values for all genes, NAs removed
+  #' @export
 
   getStat=function(res){
     stat=sign(res$Rho)*(-log10(res$P))
@@ -1857,4 +1860,4 @@ if(F){
   }
 
 
-}
+#}#if T

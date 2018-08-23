@@ -5,8 +5,7 @@
 \title{Creates a tree from a set of foreground species}
 \usage{
 foreground2Tree(foreground, treesObj, collapse2anc = T, plotTree = T,
-  wholeClade = F, clade = c("ancestral", "terminal", "all",
-  "weighted"))
+  wholeClade = F, clade = c("ancestral", "terminal", "all", "weighted"))
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/RERfuncs.R
 \name{makeBinaryPaths}
 \alias{makeBinaryPaths}
-\title{Makes a binary path vector from either a tree of class "phylo" or a forground species set supplied as a character vector}
+\title{Makes a binary path vector from either a tree of class "phylo" or a foreground species set supplied as a character vector}
 \usage{
 makeBinaryPaths(input, treesObj)
 }
@@ -15,5 +15,5 @@ makeBinaryPaths(input, treesObj)
 A vector of length equal to the number of paths in treesObj
 }
 \description{
-Makes a binary path vector from either a tree of class "phylo" or a forground species set supplied as a character vector
+Makes a binary path vector from either a tree of class "phylo" or a foreground species set supplied as a character vector
 }
