@@ -234,16 +234,12 @@ namePathsWSpecies=function(masterTree){
 #' @keywords  internal
 scaleMat=function(mat){t(apply(mat,1,scaleDist))}
 
-#' @keywords internal
-scaleMat_c=cmpfun(scaleMat)
+
 
 #' @keywords  internal
 scaleDist=function(x){
   x/sqrt(sum(x^2))
 }
-
-#' @keywords  internal
-scaleDist_c=compiler::cmpfun(scaleDist)
 
 #' @keywords  internal
 allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
@@ -252,7 +248,7 @@ allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
   }
 
   treePaths=allPaths(tree)
-  map=matchAllNodes_c(tree,masterTree)
+  map=matchAllNodes(tree,masterTree)
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
@@ -273,12 +269,11 @@ allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
 
 #' @keywords  internal
 matchAllNodes=function(tree1, tree2){
-  map=matchNodesInject_c(tree1,tree2)
+  map=matchNodesInject(tree1,tree2)
   map=map[order(map[,1]),]
   map
 }
-#' @keywords  internal
-matchAllNodes_c=cmpfun(matchAllNodes)
+
 
 #' @keywords  internal
 matchNodesInject=function (tr1, tr2){
@@ -310,8 +305,7 @@ matchNodesInject=function (tr1, tr2){
   Nodes
 }
 
-#' @keywords  internal
-matchNodesInject_c=cmpfun(matchNodesInject)
+
 
 #' @keywords  internal
 allPaths=function(tree){
@@ -611,7 +605,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
           allbranchw=weights[iiboth,ii]
         }
         if(scaleForPproj){
-          nv=apply(scaleMatMean_c(allbranch), 2, mean, na.rm=T, trim=mean.trim)
+          nv=apply(scaleMatMean(allbranch), 2, mean, na.rm=T, trim=mean.trim)
         }
         else{
           nv=apply(allbranch, 2, mean, na.rm=T, trim=mean.trim)
@@ -619,7 +613,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
 
         iibad=which(allbranch<cutoff)
         #don't scale
-        #allbranch=scaleMat_c(allbranch)
+        #allbranch=scaleMat(allbranch)
         if(!is.null(transform)){
           nv=transform(nv)
           allbranch=transform(allbranch)
@@ -857,7 +851,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL){
   }
 
   treePaths=allPaths(tree)
-  map=matchAllNodes_c(tree,treesObj$masterTree) #does this fail with a warning if tree is not a subset of masterTree?
+  map=matchAllNodes(tree,treesObj$masterTree) #does this fail with a warning if tree is not a subset of masterTree?
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
@@ -1248,7 +1242,7 @@ if(F){
     ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
     ii= match(namePaths(ee,T), colnames(treesObj$paths))
     allbranch=treesObj$paths[iiboth,ii]
-    allbranch=scaleMat_c(allbranch)
+    allbranch=scaleMat(allbranch)
     allbranch
   }
 
@@ -1318,7 +1312,7 @@ if(F){
             t1=as.double(Sys.time())
             message(paste("20 took", t1-t0))
             t0=t1
-            allbranch=scaleMat_c(allbranch)
+            allbranch=scaleMat(allbranch)
           }
 
           message("done")
@@ -1420,7 +1414,7 @@ if(F){
           stopifnot(all(ii=ii2))
           allbranch=treesObj$paths[iiboth,ii]
 
-          allbranch=scaleMat_c(allbranch)
+          allbranch=scaleMat(allbranch)
         }
         # message("done")
         nb=length(both)
@@ -1491,7 +1485,7 @@ if(F){
     stopifnot(all(ii==ii2))
     allbranch=treesObj$paths[iiboth,ii]
     thisgene=which(iiboth==index)
-    allbranch=scaleMat_c(allbranch)
+    allbranch=scaleMat(allbranch)
 
     nb=length(both)
 
@@ -1589,7 +1583,7 @@ if(F){
         ii= match(namePaths(ee,T), colnames(treesObj$paths))
         allbranch=treesObj$paths[iiboth,ii]
         show(sum(is.na(allbranch)))
-        allbranch=scaleMat_c(allbranch)
+        allbranch=scaleMat(allbranch)
 
         nv=projection(t(allbranch), method="AVE", returnNV = T)
         mastertree=treesObj$master
@@ -1602,7 +1596,7 @@ if(F){
       else{
         allbranch=getBranch(treesObj, bothIndex)
         show(rownames(allbranch)[1])
-        allbranch=scaleMat_c(allbranch)
+        allbranch=scaleMat(allbranch)
         nv=projection(t(allbranch), method="AVE",returnNV = T)
         rr=resid(allbranch, model.matrix(~0+nv))
         rownames(rr)=rownames(allbranch)
@@ -1640,7 +1634,7 @@ if(F){
     }
     else{
       allbranch=treesObj$paths[iiboth,getEdgeIndex(tree1, treesObj$masterTree)]
-      #allbranch=scaleMat_c(allbranch)
+      #allbranch=scaleMat(allbranch)
     }
     #nv=projection(t(allbranch), method="AVE", returnNV = T)
     nv=colMeans(allbranch)
@@ -1701,7 +1695,7 @@ if(F){
 
     allbranch=treesObj$paths[iiboth,ii]
 
-    allbranch=scaleMat_c(allbranch)
+    allbranch=scaleMat(allbranch)
     show(sum(is.na(allbranch)))
     nv=projection(t(allbranch), method="AVE", returnNV = T)
 
