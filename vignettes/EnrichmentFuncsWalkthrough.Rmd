@@ -12,7 +12,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).  A detailed walkthrough to produce the data used for this example is provided in the [vignettes folder](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/RERconvergeAnalysisFullWalkthrough.Rmd).
+This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).  A detailed walkthrough to produce the data used for this example is provided in the [full walkthrough vignette](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html).
 
 # Overview
 
@@ -26,7 +26,7 @@ This document describes how to run pathway enrichment analysis using RERconverge
 
 Enrichment analysis starts with the results from the *correlateWithContinuousPhenotype*, *correlateWithBinaryPhenotype*, or *getAllCor* functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  These statistics are used to calculate enrichments. 
  
-In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/RERconvergeAnalysisFullWalkthrough.Rmd) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
+In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
 
 ```{r results='hide', message = FALSE, warning = FALSE, cache=T}
 library(RERconverge)
