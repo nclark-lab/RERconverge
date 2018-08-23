@@ -2,7 +2,10 @@
 title: "RERconverge Enrichment Functions Walkthrough"
 author: "Amanda Kowalczyk"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: html_document
+output: 
+  html_document:
+        css: custom.css
+        toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -30,9 +33,25 @@ library(RERconverge)
 data("RERresults")
 ```
 
+# Convert Statistics
+
+We will perform our enrichment on Rho-signed negative log p-values from our correlation results.  The *getStat* function converts our correlation results to these values and removes NA values.
+
+```{r cache=T}
+library(RERconverge)
+stats=getStat(res)
+```
 
 # Download Pathway Annotations
 
-Download all curated gene sets, gene symbols (c2.all.v6.2.symbols.gmt) from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt.  You must register for an account prior to downloading.  The rest of the vignette expects "gmtfile.gmt" to be in the current working directory.
+Now that we have our gene statistics, we need pathway annotations.  Download all curated gene sets, gene symbols (c2.all.v6.2.symbols.gmt) from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt.  You must register for an account prior to downloading.  The rest of the vignette expects "gmtfile.gmt" to be in the current working directory.
+
+# Format Pathway Annotations
+
+RERconverge enrichment functions expect pathways to be in pathway-group lists contained within a list.  Each pathway-group list contains
+
+
+
+
 
 
