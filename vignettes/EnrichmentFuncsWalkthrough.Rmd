@@ -13,13 +13,21 @@ This walkthrough provides instructions for implementing the RERconverge package 
 
 # Overview
 
+This document describes how to run pathway enrichment analysis using RERconverge output and functions included with the RERconverge package.  Enrichment analysis detects groups of genes that are evolving faster or slower with a phenotype of interest.  In the RERconverge package, the enrichment function is implemented as a Wilcoxon Rank-Sum Test on a list of genes ranked based on their correlation values.  It detects distribution shifts in groups of genes compared to all genes, and it thereby bypasses the need to set a foreground significance cutoff like some other enrichment methods. 
+ 
+**Input** to the enrichment function is the output from RERconverge correlation functions and pathways of interest with gene symbols (gene names). 
+ 
+**Output** is enrichment statistics for each pathway, including genes in the pathways and their ranks.
 
 # Extract Results from RERconverge Correlation Analysis
 
-Enrichment analysis starts with the results from the **correlateWithContinuousPhenotype**, **correlateWithBinaryPhenotype**, or **getAllCor** functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/RERconvergeAnalysisFullWalkthrough.Rmd).
+Enrichment analysis starts with the results from the *correlateWithContinuousPhenotype*, *correlateWithBinaryPhenotype*, or *getAllCor* functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  These statistics are used to calculate enrichments. 
+ 
+In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/RERconvergeAnalysisFullWalkthrough.Rmd) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
 
-```{r, cache=T}
-correlationresults=data("RERresults")
+```{r results='hide', message = FALSE, warning = FALSE, cache=T}
+library(RERconverge)
+data("RERresults")
 ```
 
 
