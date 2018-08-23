@@ -709,22 +709,21 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 
 
 
-#' Obtain a trees object where the foreground species have branch lengths of 1, and the rest 0
-#'
-
+#' Creates paths from a set of foreground species
 #' @param foreground. A character vector containing the foreground species
 #' @param  treesObj A treesObj created by \code{\link{readTrees}}
 #' @param plotTree Plot a tree representation of the result
+#' @param clade A character string indicating which branches within the clade
+#' containing the foreground species should be set to foreground. Must be one
+#' of the strings "ancestral", "terminal", "all", or "weighted".
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-foreground2Paths = function(foreground,treesObj, plotTree=F){
-  res = treesObj$masterTree
-  res$edge.length <- rep(0,length(res$edge.length))
-  res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
-  names(res$edge.length) = nameEdges(treesObj$masterTree)
-  if(plotTree){
-    plot(res)
-  }
+foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral","terminal","all","weighted")){
+  #res = treesObj$masterTree
+  #res$edge.length <- rep(0,length(res$edge.length))
+  #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
+  #names(res$edge.length) = nameEdges(treesObj$masterTree)
+  res = foreground2Tree(foreground, treesObj, plotTree=plotTree, clade=clade)
   tree2Paths(res, treesObj)
 }
 
