@@ -1,0 +1,30 @@
+---
+title: "RERconverge Enrichment Functions Walkthrough"
+author: "Amanda Kowalczyk"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).
+
+# Overview
+
+Download all curated gene sets, gene symbols (c2.all.v6.2.symbols.gmt) from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt.  You must register for 
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
