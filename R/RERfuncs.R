@@ -553,7 +553,12 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
 
   #cm is the common names of species that are included in the char vector and ucsctree
   cm=intersect(treesObj$masterTree$tip.label, useSpecies)
-  #master.tree=pruneTree(ucsctreeUse, cm)
+  sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
+  if (length(sp.miss) > 0) {
+    message(paste0("Species from useSpecies not present in master tree: ", paste(sp.miss,
+                                                  collapse = ",")))
+    
+  }
 
   rr=matrix(nrow=nrow(treesObj$paths), ncol=ncol(treesObj$paths))
 
@@ -766,8 +771,17 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
   }
   res = treesObj$masterTree
   if (!is.null(useSpecies)) {
+    useSpecies = intersect(useSpecies, res$tip.label)
     res = pruneTree(res, useSpecies)
+    sp.miss = setdiff(res$tip.label, useSpecies)
+    if (length(sp.miss) > 0) {
+      message(paste0("Species from useSpecies not present in master tree: ", paste(sp.miss,
+                                                                                   collapse = ",")))
+    }
+  } else {
+    useSpecies = res$tip.label
   }
+  foreground = intersect(foreground, useSpecies)
   res$edge.length <- rep(0,length(res$edge.length))
   if(!collapse2anc){
     res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
@@ -843,12 +857,13 @@ nameEdges=function(tree){
 #'    If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
 #'        Converts a continuous phenotype to a binary phenotype, with state determined by comparison to the mean across all paths.
 #'        Default behavior: binarize = FALSE.
+#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction 
+#' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-tree2Paths=function(tree, treesObj, binarize=NULL){
+tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
-  #stopifnot(all.equal.phylo(tree, treesObj$masterTree, use.edge.length=F)) #check for concordant topologies between phenotype and master trees (ignore branch lengths): removed because matchAllNodes should check for this
 
   isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
   if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
@@ -862,9 +877,21 @@ tree2Paths=function(tree, treesObj, binarize=NULL){
   if (is.rooted(tree)) {
     tree = unroot(tree)
   }
-
+  
+  #reduce tree to species in master tree
+  sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
+  if (length(sp.miss) > 0) {
+    message(paste0("Species from tree not present in master tree or useSpecies: ", paste(sp.miss,
+                                                                                 collapse = ",")))
+  }
+  if (!is.null(useSpecies)) {
+    tree = pruneTree(tree, intersect(intersect(tree$tip.label, treesObj$masterTree$tip.label), useSpecies))
+  } else {
+    tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
+  }
+  #also need to prune the masterTree if tree is a subset
   treePaths=allPaths(tree)
-  map=matchAllNodes(tree,treesObj$masterTree) #does this fail with a warning if tree is not a subset of masterTree?
+  map=matchAllNodes(tree,treesObj$masterTree)
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]

@@ -3,8 +3,8 @@
 require(devtools)
 #install_github("nclark-lab/RERconverge",branch="MatchingTrees")
 library('RERconverge')
-#repopath = '~/repos/RERconverge' #local path to repo
-repopath = '~/Documents/GitHub/RERconverge'
+repopath = '~/repos/RERconverge' #local path to repo
+#repopath = '~/Documents/GitHub/RERconverge'
 rerpath = find.package('RERconverge') #will files in the tests directory be installed here?
 
 #If necessary, convert species names using 'convertSpeciesNames'
