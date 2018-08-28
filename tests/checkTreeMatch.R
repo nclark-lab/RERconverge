@@ -7,6 +7,9 @@ library('RERconverge')
 repopath = '~/Documents/GitHub/RERconverge'
 rerpath = find.package('RERconverge') #will files in the tests directory be installed here?
 
+#If necessary, convert species names using 'convertSpeciesNames'
+#Conversion table should be 'cctab' (or readable from 'SpeciesNamesConversionTable0818.csv')
+
 #Use same master tree for all cases:
 toytreefile = "subsetMammalGeneTrees.txt"
 toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
@@ -14,7 +17,6 @@ toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200
 #Example cases:
 # -rooted trait tree
 # -different tree topology
-#need a more recent ucsc tree.... this one has numbers in it rather than species names
 ucsctree = read.tree(paste(repopath,'tests/ucsc62mammals_commonnames.tre',sep='/'))
 ttucsc = tree2Paths(ucsctree, toyTrees)
 
