@@ -278,7 +278,8 @@ matchAllNodes=function(tree1, tree2){
 #' @keywords  internal
 matchNodesInject=function (tr1, tr2){
   if(length(tmpsp<-setdiff(tr1$tip.label, tr2$tip.label))>0){
-    stop(paste(paste(tmpsp, ","), "in tree1 do not exist in tree2"))
+    #stop(paste(paste(tmpsp, ","), "in tree1 do not exist in tree2"))
+    stop(c("The following species in tree1 do not exist in tree2: ",paste(tmpsp, ", ")))
   }
   toRm=setdiff(tr2$tip.label, tr1$tip.label)
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
@@ -721,7 +722,7 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 #' @param clade A character string indicating which branches within the clade
 #' containing the foreground species should be set to foreground. Must be one
 #' of the strings "ancestral", "terminal", "all", or "weighted".
-#' #' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction 
+#' #' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
@@ -738,7 +739,7 @@ foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral"
 #' Creates a binary trait tree from a set of foreground species.
 #' @param foreground. A character vector containing the foreground species
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade 
+#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade
 #' (redundant to "clade", kept for backwards compatibility)
 #' @param plotTree Plot a tree representation of the result
 #' @param wholeClade Whether to implement the weighted edge option across
@@ -746,11 +747,11 @@ foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral"
 #' @param clade A character string indicating which branches within the clade
 #' containing the foreground species should be set to foreground. Must be one
 #' of the strings "ancestral", "terminal", "all", or "weighted".
-#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction 
+#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A tree with edge.lengths representing phenotypic states
 #' @export
-foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL,){
+foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL){
   clade <- match.arg(clade) #should error if not an allowed option
   wholeClade = T
   collapse2anc = T
