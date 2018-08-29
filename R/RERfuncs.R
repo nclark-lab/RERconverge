@@ -536,7 +536,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
 
   if (is.null(useSpecies)){
     useSpecies=treesObj$masterTree$tip.label
-    mappedEdges=trees$mappedEdges
+    #mappedEdges=trees$mappedEdges
   }
   if(is.null(maxT)){
     maxT=treesObj$numTrees
@@ -551,11 +551,11 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
 
 
 
-  #cm is the common names of species that are included in the char vector and ucsctree
+  #cm is the names of species that are included in useSpecies and the master tree
   cm=intersect(treesObj$masterTree$tip.label, useSpecies)
   sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
   if (length(sp.miss) > 0) {
-    message(paste0("Species from useSpecies not present in master tree: ", paste(sp.miss,
+    message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
                                                   collapse = ",")))
     
   }
@@ -897,7 +897,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
   treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
 
-
+  #Does this work if treesObj$masterTree needs to be pruned to get map?
   ii=treesObj$ap$matIndex[(treePaths$nodeId[,2]-1)*nrow(treesObj$ap$matIndex)+treePaths$nodeId[,1]]
 
   vals=double(length(treesObj$ap$dist))
