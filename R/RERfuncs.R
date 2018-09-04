@@ -727,7 +727,7 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 #' @param clade A character string indicating which branches within the clade
 #' containing the foreground species should be set to foreground. Must be one
 #' of the strings "ancestral", "terminal", "all", or "weighted".
-#' #' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
+#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
@@ -851,12 +851,14 @@ nameEdges=function(tree){
 #' @param treesObj A treesObject created by \code{\link{readTrees}}
 #' @param binarize Force binary path representation. Default action depends upon the type of data within the phenotype tree
 #'     (binary or continuous).
-#'    If binary (all branch lengths == 0 or 1): Sets all positive path values to 1. Useful if the tree has non-zero branch lengths
+#'     \itemize{
+#'    \item If binary (all branch lengths == 0 or 1): Sets all positive path values to 1. Useful if the tree has non-zero branch lengths
 #'        for an internal branch or branches; otherwise, values are simply added along branches when calculating paths.
 #'        Default behavior: binarize = TRUE.
-#'    If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
+#'    \item If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
 #'        Converts a continuous phenotype to a binary phenotype, with state determined by comparison to the mean across all paths.
 #'        Default behavior: binarize = FALSE.
+#'        }
 #' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction 
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
@@ -878,7 +880,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
     tree = unroot(tree)
   }
   
-  #reduce tree to species in master tree
+  #reduce tree to species in master tree and useSpecies
   sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
   if (length(sp.miss) > 0) {
     message(paste0("Species from tree not present in master tree or useSpecies: ", paste(sp.miss,
@@ -889,7 +891,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
   } else {
     tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
   }
-  #also need to prune the masterTree if tree is a subset
+  
   treePaths=allPaths(tree)
   map=matchAllNodes(tree,treesObj$masterTree)
 
@@ -897,7 +899,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
   treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
 
-  #Does this work if treesObj$masterTree needs to be pruned to get map?
+  #indices for which paths to return
   ii=treesObj$ap$matIndex[(treePaths$nodeId[,2]-1)*nrow(treesObj$ap$matIndex)+treePaths$nodeId[,1]]
 
   vals=double(length(treesObj$ap$dist))

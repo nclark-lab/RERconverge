@@ -3,8 +3,8 @@
 require(devtools)
 #install_github("nclark-lab/RERconverge",branch="MatchingTrees")
 library('RERconverge')
-#repopath = '~/repos/RERconverge' #local path to repo
-repopath = '~/Documents/GitHub/RERconverge'
+repopath = '~/repos/RERconverge' #local path to repo
+#repopath = '~/Documents/GitHub/RERconverge'
 rerpath = find.package('RERconverge') #will files in the tests directory be installed here?
 
 #If necessary, convert species names using 'convertSpeciesNames'
@@ -26,3 +26,5 @@ pon1tree = read.tree(paste(repopath,'tests/PON1_addl_species.tre',sep='/'))
 ttpon1 = tree2Paths(pon1tree, toyTrees)
 
 # -different species filtered from trait tree and master tree
+
+#Check what happens if getAllResiduals uses a different set of species from those in the trait tree
