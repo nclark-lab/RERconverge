@@ -2,10 +2,12 @@
 title: "RERconverge Enrichment Functions Walkthrough"
 author: "Amanda Kowalczyk"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: 
+output:
+  pdf_document:
+    toc: yes
   html_document:
-        css: custom.css
-        toc: yes
+    css: custom.css
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
