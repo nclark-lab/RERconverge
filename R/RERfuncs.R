@@ -771,25 +771,29 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
   }
   res = treesObj$masterTree
   if (!is.null(useSpecies)) {
-    useSpecies = intersect(useSpecies, res$tip.label)
-    res = pruneTree(res, useSpecies)
     sp.miss = setdiff(res$tip.label, useSpecies)
     if (length(sp.miss) > 0) {
-      message(paste0("Species from useSpecies not present in master tree: ", paste(sp.miss,
+      message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
                                                                                    collapse = ",")))
     }
+    useSpecies = intersect(useSpecies, res$tip.label)
+    res = pruneTree(res, useSpecies)
   } else {
     useSpecies = res$tip.label
   }
   foreground = intersect(foreground, useSpecies)
   res$edge.length <- rep(0,length(res$edge.length))
   if(!collapse2anc){
-    res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
-    names(res$edge.length) = nameEdges(treesObj$masterTree)
+    #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
+    res$edge.length[nameEdges(res) %in% foreground] = 1
+    #names(res$edge.length) = nameEdges(treesObj$masterTree)
+    names(res$edge.length) = nameEdges(res)
   }
   else{
-    tip.vals=rep(0, length(treesObj$masterTree$tip.label))
-    names(tip.vals)=treesObj$masterTree$tip.label
+    #tip.vals=rep(0, length(treesObj$masterTree$tip.label))
+    tip.vals=rep(0, length(res$tip.label))
+    #names(tip.vals)=treesObj$masterTree$tip.label
+    names(tip.vals)=res$tip.label
     tip.vals[foreground]=1
     tmp=cbind(as.character(tip.vals))
     rownames(tmp)=names(tip.vals)
@@ -799,10 +803,13 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
 
     ancres=unlist(lapply(ancres, function(x){x[2]}))
     internalVals=ancres
-    evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
+    #evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
+    evals=matrix(nrow=nrow(res$edge), ncol=2)
     eres=ancres
-    evals[,1]=eres[treesObj$masterTree$edge[,1]]
-    evals[,2]=eres[treesObj$masterTree$edge[,2]]
+    #evals[,1]=eres[treesObj$masterTree$edge[,1]]
+    evals[,1]=eres[res$edge[,1]]
+    #evals[,2]=eres[treesObj$masterTree$edge[,2]]
+    evals[,2]=eres[res$edge[,2]]
     res$edge.length=evals[,2]-evals[,1]
 
     res$edge.length[res$edge.length<1]=0
