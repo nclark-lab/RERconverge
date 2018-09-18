@@ -8,7 +8,7 @@ source('R/RERfuncs.R')
 
 #Load toy trees data:
 rerpath = find.package('RERconverge')
-toytreefile = "subsetMammalGeneTrees.txt" 
+toytreefile = "subsetMammalGeneTrees.txt"
 toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
 
 #Herbivore data:
@@ -22,5 +22,5 @@ print(dietus[dietus %in% herb == F])
 
 #Plot output:
 pdf('tests/herbivoreTest.pdf')
-herbv2state <- foreground2Tree(herb, toytrees, clade="all", useSpecies=dietus)
+herbv2state <- foreground2Tree(herb, toyTrees, clade="all", useSpecies=dietus)
 dev.off()
