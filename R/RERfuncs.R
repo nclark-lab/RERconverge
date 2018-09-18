@@ -281,6 +281,7 @@ matchNodesInject=function (tr1, tr2){
     #stop(paste(paste(tmpsp, ","), "in tree1 do not exist in tree2"))
     stop(c("The following species in tree1 do not exist in tree2: ",paste(tmpsp, ", ")))
   }
+
   toRm=setdiff(tr2$tip.label, tr1$tip.label)
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
                                                                               x)$tip.label)
@@ -426,12 +427,12 @@ correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3)
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
 getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=NULL,weighted=F){
- RERna=(apply(is.na(RERmat),2,all))
- iicharPna=which(is.na(charP))
- if(!all(RERna[iicharPna])){
-   warning("Species in phenotype vector are a subset of the those used for RER computation. For best results run getAllResiduals with the useSpecies")
- }
-   if (method=="auto"){
+  RERna=(apply(is.na(RERmat),2,all))
+  iicharPna=which(is.na(charP))
+  if(!all(RERna[iicharPna])){
+    warning("Species in phenotype vector are a subset of the those used for RER computation. For best results run getAllResiduals with the useSpecies")
+  }
+  if (method=="auto"){
     lu=length(unique(charP))
     if(lu==2){
       method="k"
@@ -505,7 +506,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
   corout=as.data.frame(corout)
   corout$p.adj=p.adjust(corout$P, method="BH")
   corout
-  }
+}
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
@@ -556,8 +557,8 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
   sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
   if (length(sp.miss) > 0) {
     message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
-                                                  collapse = ",")))
-    
+                                                                                 collapse = ",")))
+
   }
 
   rr=matrix(nrow=nrow(treesObj$paths), ncol=ncol(treesObj$paths))
@@ -813,7 +814,7 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
       clade.edges=getAllCladeEdges(res, i)
       clade.edges=unique(c(i, clade.edges))
       if (clade == "weighted") {
-          res$edge.length[clade.edges]=1/length(clade.edges)
+        res$edge.length[clade.edges]=1/length(clade.edges)
       } else {
         res$edge.length[clade.edges]=1
       }
@@ -859,7 +860,7 @@ nameEdges=function(tree){
 #'        Converts a continuous phenotype to a binary phenotype, with state determined by comparison to the mean across all paths.
 #'        Default behavior: binarize = FALSE.
 #'        }
-#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction 
+#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
@@ -879,19 +880,36 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
   if (is.rooted(tree)) {
     tree = unroot(tree)
   }
-  
+
   #reduce tree to species in master tree and useSpecies
   sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
   if (length(sp.miss) > 0) {
     message(paste0("Species from tree not present in master tree or useSpecies: ", paste(sp.miss,
-                                                                                 collapse = ",")))
+                                                                                         collapse = ",")))
   }
   if (!is.null(useSpecies)) {
     tree = pruneTree(tree, intersect(intersect(tree$tip.label, treesObj$masterTree$tip.label), useSpecies))
   } else {
     tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
   }
-  
+
+  #fix pseudorooting
+  tr1=tree
+  tr2=treesObj$masterTree
+  #get species at pseudoroot
+  toroot=tr2$tip.label[tr2$edge[,2][tr2$edge[,1]==as.numeric(names(which(table(tr2$edge[,1])==3)))]]
+  toroot=toroot[!is.na(toroot)]
+  #pick one, must be in tr1
+  if(toroot[[1]] %in% tr1$tip.label){
+    toroot=toroot[[1]]
+  }else if(toroot [[2]] %in% tr1$tip.label){
+    toroot=toroot[[2]]
+  }else{
+    stop("Key species missing from trait tree")
+  }
+  tr1=root.phylo(tr1, toroot)
+  tree=tr1
+
   treePaths=allPaths(tree)
   map=matchAllNodes(tree,treesObj$masterTree)
 
@@ -1945,7 +1963,7 @@ matchNodesInjectUpdate=function (tr1, tr2){
 
   ii=rbind(cbind(1:length(tr1$tip.label), match(tr1$tip.label, tr2$tip.label)),ii)
   if(nrow(ii)!=length(tr1$tip.label)+tr1$Nnode){
-   stop("Discordant tree topology detected")
+    stop("Discordant tree topology detected")
   }
   ii
   #ii=ii[order(ii[,1]),]
