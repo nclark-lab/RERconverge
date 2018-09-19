@@ -4,7 +4,7 @@ bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
   pdf_document:
-    toc: no
+    toc: yes
   html_document:
     css: custom.css
     toc: yes
@@ -65,19 +65,25 @@ library(RERconverge)
 
 This should also download all the files we will be working with to your computer, in the directory where your R library lives. If you'd like to visualize or work with any of these files separately, this is where you can find them:
 
+```{r, eval = FALSE}
+#Old version of finding package through .libPaths()
+#wpath = NA
+#for (i in 1:length(.libPaths())) {
+#  if (file.exists(paste(.libPaths()[i],"/RERconverge/R/RERconverge",sep=""))) {
+#      wpath = i
+#      break
+#  }
+#}
+#if (is.na(wpath)) {
+#    print("RERconverge not found in R paths; check installation.")
+#}
+#print(paste(.libPaths()[wpath],"/RERconverge",sep="")) #This is the path to the files
+#rerpath = paste(.libPaths()[wpath],"/RERconverge",sep="")
+```
+
 ```{r, cache = T}
-wpath = NA
-for (i in 1:length(.libPaths())) {
-  if (file.exists(paste(.libPaths()[i],"/RERconverge/R/RERconverge",sep=""))) {
-      wpath = i
-      break
-  }
-}
-if (is.na(wpath)) {
-    print("RERconverge not found in R paths; check installation.")
-}
-print(paste(.libPaths()[wpath],"/RERconverge",sep="")) #This is the path to the files
-rerpath = paste(.libPaths()[wpath],"/RERconverge",sep="")
+rerpath = find.package('RERconverge') #If this errors, there is an issue with installation
+print(rerpath)
 ```
 
 ## Reading in gene trees with `readTrees`
@@ -318,6 +324,9 @@ head(logAdultWeightcm)
 
 
 We must convert the trait vector to paths comparable to the paths in the RER matrix.  To do that, we can use the function 'char2Paths' as shown here:
+
+<!-- The following chunk prevents knitting, although it runs fine on its own. When knitting, it produces the following error (despite char2Paths being set to export and listed in NAMESPACE):
+Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
 
 ```{r}
 charpaths=char2Paths(logAdultWeightcm, toyTrees)

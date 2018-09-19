@@ -234,16 +234,12 @@ namePathsWSpecies=function(masterTree){
 #' @keywords  internal
 scaleMat=function(mat){t(apply(mat,1,scaleDist))}
 
-#' @keywords internal
-scaleMat_c=cmpfun(scaleMat)
+
 
 #' @keywords  internal
 scaleDist=function(x){
   x/sqrt(sum(x^2))
 }
-
-#' @keywords  internal
-scaleDist_c=compiler::cmpfun(scaleDist)
 
 #' @keywords  internal
 allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
@@ -252,7 +248,7 @@ allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
   }
 
   treePaths=allPaths(tree)
-  map=matchAllNodes_c(tree,masterTree)
+  map=matchAllNodes(tree,masterTree)
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
@@ -273,16 +269,20 @@ allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
 
 #' @keywords  internal
 matchAllNodes=function(tree1, tree2){
-  map=matchNodesInject_c(tree1,tree2)
+  map=matchNodesInject(tree1,tree2)
   map=map[order(map[,1]),]
   map
 }
-#' @keywords  internal
-matchAllNodes_c=cmpfun(matchAllNodes)
+
 
 #' @keywords  internal
 matchNodesInject=function (tr1, tr2){
+  if(length(tmpsp<-setdiff(tr1$tip.label, tr2$tip.label))>0){
+    #stop(paste(paste(tmpsp, ","), "in tree1 do not exist in tree2"))
+    stop(c("The following species in tree1 do not exist in tree2: ",paste(tmpsp, ", ")))
+  }
 
+  toRm=setdiff(tr2$tip.label, tr1$tip.label)
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
                                                                               x)$tip.label)
   names(desc.tr1) <- 1:tr1$Nnode + length(tr1$tip)
@@ -300,11 +300,14 @@ matchNodesInject=function (tr1, tr2){
 
   iim=match(tr1$tip.label, tr2$tip.label)
   Nodes=rbind(cbind(1:length(tr1$tip.label),iim),Nodes)
+  if(any(table(Nodes[,2])>1)){
+    stop("Discordant tree topology detected")
+  }
+
   Nodes
 }
 
-#' @keywords  internal
-matchNodesInject_c=cmpfun(matchNodesInject)
+
 
 #' @keywords  internal
 allPaths=function(tree){
@@ -424,6 +427,11 @@ correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3)
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
 getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=NULL,weighted=F){
+  RERna=(apply(is.na(RERmat),2,all))
+  iicharPna=which(is.na(charP))
+  if(!all(RERna[iicharPna])){
+    warning("Species in phenotype vector are a subset of the those used for RER computation. For best results run getAllResiduals with the useSpecies")
+  }
   if (method=="auto"){
     lu=length(unique(charP))
     if(lu==2){
@@ -498,7 +506,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
   corout=as.data.frame(corout)
   corout$p.adj=p.adjust(corout$P, method="BH")
   corout
-  }
+}
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
@@ -529,7 +537,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
 
   if (is.null(useSpecies)){
     useSpecies=treesObj$masterTree$tip.label
-    mappedEdges=trees$mappedEdges
+    #mappedEdges=trees$mappedEdges
   }
   if(is.null(maxT)){
     maxT=treesObj$numTrees
@@ -544,9 +552,14 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
 
 
 
-  #cm is the common names of species that are included in the char vector and ucsctree
+  #cm is the names of species that are included in useSpecies and the master tree
   cm=intersect(treesObj$masterTree$tip.label, useSpecies)
-  #master.tree=pruneTree(ucsctreeUse, cm)
+  sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
+  if (length(sp.miss) > 0) {
+    message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
+                                                                                 collapse = ",")))
+
+  }
 
   rr=matrix(nrow=nrow(treesObj$paths), ncol=ncol(treesObj$paths))
 
@@ -604,7 +617,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
           allbranchw=weights[iiboth,ii]
         }
         if(scaleForPproj){
-          nv=apply(scaleMatMean_c(allbranch), 2, mean, na.rm=T, trim=mean.trim)
+          nv=apply(scaleMatMean(allbranch), 2, mean, na.rm=T, trim=mean.trim)
         }
         else{
           nv=apply(allbranch, 2, mean, na.rm=T, trim=mean.trim)
@@ -612,7 +625,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
 
         iibad=which(allbranch<cutoff)
         #don't scale
-        #allbranch=scaleMat_c(allbranch)
+        #allbranch=scaleMat(allbranch)
         if(!is.null(transform)){
           nv=transform(nv)
           allbranch=transform(allbranch)
@@ -708,39 +721,43 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 
 
 
-#' Obtain a trees object where the foreground species have branch lengths of 1, and the rest 0
-#'
-
+#' Creates paths from a set of foreground species
 #' @param foreground. A character vector containing the foreground species
 #' @param  treesObj A treesObj created by \code{\link{readTrees}}
 #' @param plotTree Plot a tree representation of the result
+#' @param clade A character string indicating which branches within the clade
+#' containing the foreground species should be set to foreground. Must be one
+#' of the strings "ancestral", "terminal", "all", or "weighted".
+#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
+#' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-foreground2Paths = function(foreground,treesObj, plotTree=F){
-  res = treesObj$masterTree
-  res$edge.length <- rep(0,length(res$edge.length))
-  res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
-  names(res$edge.length) = nameEdges(treesObj$masterTree)
-  if(plotTree){
-    plot(res)
-  }
+foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL){
+  #res = treesObj$masterTree
+  #res$edge.length <- rep(0,length(res$edge.length))
+  #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
+  #names(res$edge.length) = nameEdges(treesObj$masterTree)
+  res = foreground2Tree(foreground, treesObj, plotTree=plotTree, clade=clade, useSpecies=useSpecies)
   tree2Paths(res, treesObj)
 }
 
 
-#' Creates a tree from a set of foreground species
+#' Creates a binary trait tree from a set of foreground species.
 #' @param foreground. A character vector containing the foreground species
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade (redundant to "clade", kept for backwards compatibility)
+#' @param collapse2anc Put all the weight on the ancestral branch when the trait appears on a whole clade
+#' (redundant to "clade", kept for backwards compatibility)
 #' @param plotTree Plot a tree representation of the result
 #' @param wholeClade Whether to implement the weighted edge option across
 #' all members of a foreground clade (redundant to "clade", kept for backwards compatibility)
 #' @param clade A character string indicating which branches within the clade
 #' containing the foreground species should be set to foreground. Must be one
 #' of the strings "ancestral", "terminal", "all", or "weighted".
+#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
+#' (e.g., only those species for which the trait can be reliably determined).
 #' @return A tree with edge.lengths representing phenotypic states
 #' @export
-foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted")){
+foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL){
   clade <- match.arg(clade) #should error if not an allowed option
   wholeClade = T
   collapse2anc = T
@@ -754,14 +771,30 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
     collapse2anc = F
   }
   res = treesObj$masterTree
+  if (!is.null(useSpecies)) {
+    sp.miss = setdiff(res$tip.label, useSpecies)
+    if (length(sp.miss) > 0) {
+      message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
+                                                                                   collapse = ",")))
+    }
+    useSpecies = intersect(useSpecies, res$tip.label)
+    res = pruneTree(res, useSpecies)
+  } else {
+    useSpecies = res$tip.label
+  }
+  foreground = intersect(foreground, useSpecies)
   res$edge.length <- rep(0,length(res$edge.length))
   if(!collapse2anc){
-    res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
-    names(res$edge.length) = nameEdges(treesObj$masterTree)
+    #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
+    res$edge.length[nameEdges(res) %in% foreground] = 1
+    #names(res$edge.length) = nameEdges(treesObj$masterTree)
+    names(res$edge.length) = nameEdges(res)
   }
   else{
-    tip.vals=rep(0, length(treesObj$masterTree$tip.label))
-    names(tip.vals)=treesObj$masterTree$tip.label
+    #tip.vals=rep(0, length(treesObj$masterTree$tip.label))
+    tip.vals=rep(0, length(res$tip.label))
+    #names(tip.vals)=treesObj$masterTree$tip.label
+    names(tip.vals)=res$tip.label
     tip.vals[foreground]=1
     tmp=cbind(as.character(tip.vals))
     rownames(tmp)=names(tip.vals)
@@ -771,10 +804,13 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
 
     ancres=unlist(lapply(ancres, function(x){x[2]}))
     internalVals=ancres
-    evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
+    #evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
+    evals=matrix(nrow=nrow(res$edge), ncol=2)
     eres=ancres
-    evals[,1]=eres[treesObj$masterTree$edge[,1]]
-    evals[,2]=eres[treesObj$masterTree$edge[,2]]
+    #evals[,1]=eres[treesObj$masterTree$edge[,1]]
+    evals[,1]=eres[res$edge[,1]]
+    #evals[,2]=eres[treesObj$masterTree$edge[,2]]
+    evals[,2]=eres[res$edge[,2]]
     res$edge.length=evals[,2]-evals[,1]
 
     res$edge.length[res$edge.length<1]=0
@@ -785,7 +821,7 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
       clade.edges=getAllCladeEdges(res, i)
       clade.edges=unique(c(i, clade.edges))
       if (clade == "weighted") {
-          res$edge.length[clade.edges]=1/length(clade.edges)
+        res$edge.length[clade.edges]=1/length(clade.edges)
       } else {
         res$edge.length[clade.edges]=1
       }
@@ -823,18 +859,21 @@ nameEdges=function(tree){
 #' @param treesObj A treesObject created by \code{\link{readTrees}}
 #' @param binarize Force binary path representation. Default action depends upon the type of data within the phenotype tree
 #'     (binary or continuous).
-#'    If binary (all branch lengths == 0 or 1): Sets all positive path values to 1. Useful if the tree has non-zero branch lengths
+#'     \itemize{
+#'    \item If binary (all branch lengths == 0 or 1): Sets all positive path values to 1. Useful if the tree has non-zero branch lengths
 #'        for an internal branch or branches; otherwise, values are simply added along branches when calculating paths.
 #'        Default behavior: binarize = TRUE.
-#'    If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
+#'    \item If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
 #'        Converts a continuous phenotype to a binary phenotype, with state determined by comparison to the mean across all paths.
 #'        Default behavior: binarize = FALSE.
+#'        }
+#' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
+#' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-tree2Paths=function(tree, treesObj, binarize=NULL){
+tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
-  #stopifnot(all.equal.phylo(tree, treesObj$masterTree, use.edge.length=F)) #check for concordant topologies between phenotype and master trees (ignore branch lengths): removed because matchAllNodes should check for this
 
   isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
   if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
@@ -849,14 +888,43 @@ tree2Paths=function(tree, treesObj, binarize=NULL){
     tree = unroot(tree)
   }
 
+  #reduce tree to species in master tree and useSpecies
+  sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
+  if (length(sp.miss) > 0) {
+    message(paste0("Species from tree not present in master tree or useSpecies: ", paste(sp.miss,
+                                                                                         collapse = ",")))
+  }
+  if (!is.null(useSpecies)) {
+    tree = pruneTree(tree, intersect(intersect(tree$tip.label, treesObj$masterTree$tip.label), useSpecies))
+  } else {
+    tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
+  }
+
+  #fix pseudorooting
+  tr1=tree
+  tr2=treesObj$masterTree
+  #get species at pseudoroot
+  toroot=tr2$tip.label[tr2$edge[,2][tr2$edge[,1]==as.numeric(names(which(table(tr2$edge[,1])==3)))]]
+  toroot=toroot[!is.na(toroot)]
+  #pick one, must be in tr1
+  if(toroot[[1]] %in% tr1$tip.label){
+    toroot=toroot[[1]]
+  }else if(toroot [[2]] %in% tr1$tip.label){
+    toroot=toroot[[2]]
+  }else{
+    stop("Key species missing from trait tree")
+  }
+  tr1=root.phylo(tr1, toroot)
+  tree=tr1
+
   treePaths=allPaths(tree)
-  map=matchAllNodes_c(tree,treesObj$masterTree) #does this fail with a warning if tree is not a subset of masterTree?
+  map=matchAllNodes(tree,treesObj$masterTree)
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
   treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
 
-
+  #indices for which paths to return
   ii=treesObj$ap$matIndex[(treePaths$nodeId[,2]-1)*nrow(treesObj$ap$matIndex)+treePaths$nodeId[,1]]
 
   vals=double(length(treesObj$ap$dist))
@@ -1241,7 +1309,7 @@ getAllCladeEdges=function(tree, AncEdge){
     ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
     ii= match(namePaths(ee,T), colnames(treesObj$paths))
     allbranch=treesObj$paths[iiboth,ii]
-    allbranch=scaleMat_c(allbranch)
+    allbranch=scaleMat(allbranch)
     allbranch
   }
 
@@ -1311,7 +1379,7 @@ getAllCladeEdges=function(tree, AncEdge){
             t1=as.double(Sys.time())
             message(paste("20 took", t1-t0))
             t0=t1
-            allbranch=scaleMat_c(allbranch)
+            allbranch=scaleMat(allbranch)
           }
 
           message("done")
@@ -1413,7 +1481,7 @@ getAllCladeEdges=function(tree, AncEdge){
           stopifnot(all(ii=ii2))
           allbranch=treesObj$paths[iiboth,ii]
 
-          allbranch=scaleMat_c(allbranch)
+          allbranch=scaleMat(allbranch)
         }
         # message("done")
         nb=length(both)
@@ -1484,7 +1552,7 @@ getAllCladeEdges=function(tree, AncEdge){
     stopifnot(all(ii==ii2))
     allbranch=treesObj$paths[iiboth,ii]
     thisgene=which(iiboth==index)
-    allbranch=scaleMat_c(allbranch)
+    allbranch=scaleMat(allbranch)
 
     nb=length(both)
 
@@ -1582,7 +1650,7 @@ getAllCladeEdges=function(tree, AncEdge){
         ii= match(namePaths(ee,T), colnames(treesObj$paths))
         allbranch=treesObj$paths[iiboth,ii]
         show(sum(is.na(allbranch)))
-        allbranch=scaleMat_c(allbranch)
+        allbranch=scaleMat(allbranch)
 
         nv=projection(t(allbranch), method="AVE", returnNV = T)
         mastertree=treesObj$master
@@ -1595,7 +1663,7 @@ getAllCladeEdges=function(tree, AncEdge){
       else{
         allbranch=getBranch(treesObj, bothIndex)
         show(rownames(allbranch)[1])
-        allbranch=scaleMat_c(allbranch)
+        allbranch=scaleMat(allbranch)
         nv=projection(t(allbranch), method="AVE",returnNV = T)
         rr=resid(allbranch, model.matrix(~0+nv))
         rownames(rr)=rownames(allbranch)
@@ -1633,7 +1701,7 @@ getAllCladeEdges=function(tree, AncEdge){
     }
     else{
       allbranch=treesObj$paths[iiboth,getEdgeIndex(tree1, treesObj$masterTree)]
-      #allbranch=scaleMat_c(allbranch)
+      #allbranch=scaleMat(allbranch)
     }
     #nv=projection(t(allbranch), method="AVE", returnNV = T)
     nv=colMeans(allbranch)
@@ -1694,7 +1762,7 @@ getAllCladeEdges=function(tree, AncEdge){
 
     allbranch=treesObj$paths[iiboth,ii]
 
-    allbranch=scaleMat_c(allbranch)
+    allbranch=scaleMat(allbranch)
     show(sum(is.na(allbranch)))
     nv=projection(t(allbranch), method="AVE", returnNV = T)
 
@@ -1860,4 +1928,54 @@ getAllCladeEdges=function(tree, AncEdge){
   }
 
 
-#}#if T
+
+
+
+
+matchNodesInjectUpdate=function (tr1, tr2){
+  ancMatFrom=getAncestorMatrix(tr1)
+
+
+  ancMatTo=getAncestorMatrix(tr2) # this is the
+
+  outMat=matrix(0,nrow=nrow(ancMatFrom), ncol=ncol(ancMatTo))
+  colnames(outMat)=colnames(ancMatTo)
+  #rownames(outMat)=rownames(ancMatFrom)
+  outMat[, colnames(ancMatFrom)]=ancMatFrom
+  tt=tcrossprod(outMat,ancMatTo)
+  tt2=sqrt(outer(rowSums(outMat), rowSums(ancMatTo[, colnames(ancMatFrom)])))
+  ii=which(tt/tt2==1, arr.ind = T)
+
+  rr2<-rowSums(ancMatTo)
+  #ii is mappint tr1 to tr2
+  iidouble=which(table(ii[,1])>1)
+  if(length(iidouble)>0){
+    for (i in iidouble){
+      iiresolve=which(ii[,1]==i)
+
+      #     show(rr2[ii[iiresolve,2]])
+      #  show(ii[iiresolve,])
+      j=which.min(rr2[ii[iiresolve,2]])
+      #show(i)
+      j=ii[iiresolve[j],2]
+      #show(j)
+      iirm=which(ii[,1]==i&ii[,2]!=j)
+      #show(ii[iirm,])
+
+      ii[iirm,]=NA
+      #show(ii[iiresolve,])
+    }
+  }
+  ii[,1]=ii[,1]+length(tr1$tip.label)
+  ii[,2]=ii[,2]+length(tr2$tip.label)
+
+  ii=ii[!is.na(ii[,1]),]
+
+  ii=rbind(cbind(1:length(tr1$tip.label), match(tr1$tip.label, tr2$tip.label)),ii)
+  if(nrow(ii)!=length(tr1$tip.label)+tr1$Nnode){
+    stop("Discordant tree topology detected")
+  }
+  ii
+  #ii=ii[order(ii[,1]),]
+}
+
