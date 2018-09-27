@@ -2,14 +2,23 @@
 % Please edit documentation in R/RERfuncs.R
 \name{foreground2Paths}
 \alias{foreground2Paths}
-\title{Obtain a trees object where the foreground species have branch lengths of 1, and the rest 0}
+\title{Creates paths from a set of foreground species}
 \usage{
-foreground2Paths(foreground, treesObj, plotTree = F)
+foreground2Paths(foreground, treesObj, plotTree = F,
+  clade = c("ancestral", "terminal", "all", "weighted"),
+  useSpecies = NULL)
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
 
 \item{plotTree}{Plot a tree representation of the result}
+
+\item{clade}{A character string indicating which branches within the clade
+containing the foreground species should be set to foreground. Must be one
+of the strings "ancestral", "terminal", "all", or "weighted".}
+
+\item{useSpecies}{Give only a subset of the species to use for ancestral state reconstruction
+(e.g., only those species for which the trait can be reliably determined).}
 
 \item{foreground.}{A character vector containing the foreground species}
 }
@@ -17,5 +26,5 @@ foreground2Paths(foreground, treesObj, plotTree = F)
 A vector of length equal to the number of paths in treesObj
 }
 \description{
-Obtain a trees object where the foreground species have branch lengths of 1, and the rest 0
+Creates paths from a set of foreground species
 }

@@ -2,15 +2,17 @@
 % Please edit documentation in R/RERfuncs.R
 \name{foreground2Tree}
 \alias{foreground2Tree}
-\title{Creates a tree from a set of foreground species}
+\title{Creates a binary trait tree from a set of foreground species.}
 \usage{
 foreground2Tree(foreground, treesObj, collapse2anc = T, plotTree = T,
-  wholeClade = F, clade = c("ancestral", "terminal", "all", "weighted"))
+  wholeClade = F, clade = c("ancestral", "terminal", "all",
+  "weighted"), useSpecies = NULL)
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
 
-\item{collapse2anc}{Put all the weight on the ancestral branch when the trait appears on a whole clade (redundant to "clade", kept for backwards compatibility)}
+\item{collapse2anc}{Put all the weight on the ancestral branch when the trait appears on a whole clade
+(redundant to "clade", kept for backwards compatibility)}
 
 \item{plotTree}{Plot a tree representation of the result}
 
@@ -21,11 +23,14 @@ all members of a foreground clade (redundant to "clade", kept for backwards comp
 containing the foreground species should be set to foreground. Must be one
 of the strings "ancestral", "terminal", "all", or "weighted".}
 
+\item{useSpecies}{Give only a subset of the species to use for ancestral state reconstruction
+(e.g., only those species for which the trait can be reliably determined).}
+
 \item{foreground.}{A character vector containing the foreground species}
 }
 \value{
 A tree with edge.lengths representing phenotypic states
 }
 \description{
-Creates a tree from a set of foreground species
+Creates a binary trait tree from a set of foreground species.
 }

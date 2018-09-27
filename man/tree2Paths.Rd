@@ -4,7 +4,7 @@
 \alias{tree2Paths}
 \title{Generate a phenotype paths vector from a phenotype tree}
 \usage{
-tree2Paths(tree, treesObj, binarize = NULL)
+tree2Paths(tree, treesObj, binarize = NULL, useSpecies = NULL)
 }
 \arguments{
 \item{tree}{A phenotype tree, with branch length encoding a phenotype.}
@@ -13,12 +13,17 @@ tree2Paths(tree, treesObj, binarize = NULL)
 
 \item{binarize}{Force binary path representation. Default action depends upon the type of data within the phenotype tree
  (binary or continuous).
-If binary (all branch lengths == 0 or 1): Sets all positive path values to 1. Useful if the tree has non-zero branch lengths
+ \itemize{
+\item If binary (all branch lengths == 0 or 1): Sets all positive path values to 1. Useful if the tree has non-zero branch lengths
     for an internal branch or branches; otherwise, values are simply added along branches when calculating paths.
     Default behavior: binarize = TRUE.
-If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
+\item If continuous (not all branch lengths == 0 or 1): Sets all path values > the mean to 1 and all those <= the mean to 0.
     Converts a continuous phenotype to a binary phenotype, with state determined by comparison to the mean across all paths.
-    Default behavior: binarize = FALSE.}
+    Default behavior: binarize = FALSE.
+    }}
+
+\item{useSpecies}{Give only a subset of the species to use for ancestral state reconstruction
+(e.g., only those species for which the trait can be reliably determined).}
 }
 \value{
 A vector of length equal to the number of paths in treesObj
