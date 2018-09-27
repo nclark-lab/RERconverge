@@ -281,6 +281,9 @@ matchNodesInject=function (tr1, tr2){
     #stop(paste(paste(tmpsp, ","), "in tree1 do not exist in tree2"))
     stop(c("The following species in tree1 do not exist in tree2: ",paste(tmpsp, ", ")))
   }
+  if(RF.dist(tr1,tr2)>0){
+    stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
+  }
 
   toRm=setdiff(tr2$tip.label, tr1$tip.label)
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
@@ -301,7 +304,7 @@ matchNodesInject=function (tr1, tr2){
   iim=match(tr1$tip.label, tr2$tip.label)
   Nodes=rbind(cbind(1:length(tr1$tip.label),iim),Nodes)
   if(any(table(Nodes[,2])>1)){
-    stop("Discordant tree topology detected")
+    stop("Incorrect pseudorooting detected - use fixPseudoroot() function to correct trait tree topology")
   }
 
   Nodes
@@ -847,6 +850,35 @@ nameEdges=function(tree){
   nn
 }
 
+#' pseudoroot trait tree to match the psuedoroot of trees from \code{\link{readTrees}}  if the trees are reconcilable
+#' @param tree A trait tree with branch lengths representing trait values
+#' @treesObj A treesObject created by \code{\link{readTrees}}
+#' @return A trait tree with the correct topology
+#' @export
+fixPseudoroot=function(tree, treesObj){
+  if(RF.dist(tree, treesObj$masterTree)>0){
+    stop("The trait tree and treesObj$masterTree are not reconcilable - they have different topologies")
+  }
+  #fix pseudorooting
+  tr1=tree
+  tr2=treesObj$masterTree
+  #get species at pseudoroot
+  toroot=tr2$tip.label[tr2$edge[,2][tr2$edge[,1]==as.numeric(names(which(table(tr2$edge[,1])==3)))]]
+  toroot=toroot[!is.na(toroot)]
+  #pick one, must be in tr1
+  if(toroot[[1]] %in% tr1$tip.label){
+    toroot=toroot[[1]]
+  }else if(toroot [[2]] %in% tr1$tip.label){
+    toroot=toroot[[2]]
+  }else{
+    stop("Key species missing from trait tree")
+  }
+  tr1=root.phylo(tr1, toroot)
+  tree=tr1
+  plot(tree)
+  message("Make sure the branch lengths for the new trait tree are correct")
+  return(tree)
+}
 
 #' Generate a phenotype paths vector from a phenotype tree
 #'
@@ -899,23 +931,6 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
   } else {
     tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
   }
-
-  #fix pseudorooting
-  tr1=tree
-  tr2=treesObj$masterTree
-  #get species at pseudoroot
-  toroot=tr2$tip.label[tr2$edge[,2][tr2$edge[,1]==as.numeric(names(which(table(tr2$edge[,1])==3)))]]
-  toroot=toroot[!is.na(toroot)]
-  #pick one, must be in tr1
-  if(toroot[[1]] %in% tr1$tip.label){
-    toroot=toroot[[1]]
-  }else if(toroot [[2]] %in% tr1$tip.label){
-    toroot=toroot[[2]]
-  }else{
-    stop("Key species missing from trait tree")
-  }
-  tr1=root.phylo(tr1, toroot)
-  tree=tr1
 
   treePaths=allPaths(tree)
   map=matchAllNodes(tree,treesObj$masterTree)
