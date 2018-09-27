@@ -425,7 +425,7 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
 #' @return A plot of the RERs with foreground species labelled in red, and the rest in blue
 #' @export
 
-plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 's', plot = 1, xextend = 0.2, sortrers = F){
+plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 'k', xlims = NULL, plot = 1, xextend = 0.2, sortrers = F){
      if(is.null(rers)){
       e1 = rermat[index,][!is.na(rermat[index,])]
       colids = !is.na(rermat[index,])
@@ -465,7 +465,12 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method 
      #print(df)
      #df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
      #     mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))
-     ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
+     #ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
+     if(is.null(xlims)){
+          ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
+     }else{
+          ll=xlims
+     }
      g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(3,3))+ geom_point(aes(size=mole))+
           scale_color_manual(values = c("deepskyblue3", "brown1"))+
           scale_x_continuous(limits=ll)+

@@ -61,6 +61,11 @@ click_plot_base <- function(mastertre,fgdedgs = NULL){
      text(resetloc,textlocy,'Reset\nall branches')
 }
 
+#' Interactive click-based function to select foreground branches showing convergent binary trait
+#'
+#' @param mastertre. A phylo tree object defining the topology of all species
+#' @return A binary trait tree with branch lengths of 1 for selected foreground species and lengths of 0 for the rest
+#' @export
 click_select_foreground_branches <- function(mastertre){
      tre = mastertre
      tre$edge.length = rep(1,nrow(tre$edge))
@@ -75,6 +80,7 @@ click_select_foreground_branches <- function(mastertre){
      doneloc <- qnts[2] 
      undoloc <- qnts[4]
      resetloc <- qnts[6]
+     par(mfrow = c(1,1))
      par(mar = c(1,1,2,2))
      plot.phylo(tre, plot=F)
      
