@@ -42,7 +42,7 @@ Running RERConverge will produce the following outputs:
 * **Wynn Meyer** - [sorrywm](https://github.com/sorrywm)
 * **Raghavendran Partha** - [raghavendranpartha](https://github.com/raghavendranpartha)
 
-See also the list of [contributors](https://github.com/raghavendranpartha/RERconverge/contributors) who participated in this project.
+See also the list of [contributors](https://github.com/nclark-lab/RERconverge/contributors) who participated in this project.
 
 ## Citation
 
