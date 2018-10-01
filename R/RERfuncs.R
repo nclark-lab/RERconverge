@@ -281,9 +281,13 @@ matchNodesInject=function (tr1, tr2){
     #stop(paste(paste(tmpsp, ","), "in tree1 do not exist in tree2"))
     stop(c("The following species in tree1 do not exist in tree2: ",paste(tmpsp, ", ")))
   }
-  if(RF.dist(tr1,tr2)>0){
+  commontiplabels <- intersect(tr1$tip,tr2$tip)
+  if(RF.dist(pruneTree(tr1,commontiplabels),pruneTree(tr2,commontiplabels))>0){
     stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
   }
+  #if(RF.dist(tr1,tr2)>0){
+  #  stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
+  #}
 
   toRm=setdiff(tr2$tip.label, tr1$tip.label)
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
