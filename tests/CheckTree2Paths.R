@@ -21,6 +21,10 @@ print('Non-herbivore species:')
 print(dietus[dietus %in% herb == F])
 
 #Plot output:
-pdf('tests/herbivoreTest.pdf')
+pdf('tests/herbivoreTest_al_wt_an_te.pdf')
+par(mfrow=c(2,2))
 herbv2state <- foreground2Tree(herb, toyTrees, clade="all", useSpecies=dietus)
+herbv2weight <- foreground2Tree(herb, toyTrees, clade="weighted", useSpecies=dietus)
+herbv2anc <- foreground2Tree(herb, toyTrees, clade="ancestral", useSpecies=dietus)
+herbv2term <- foreground2Tree(herb, toyTrees, clade="terminal", useSpecies=dietus)
 dev.off()

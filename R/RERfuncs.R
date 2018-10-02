@@ -832,8 +832,8 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
       clade.edges=getAllCladeEdges(res, edgedf$edgeIndexAll[i])
       clade.edges=unique(c(edgedf$edgeIndexAll[i], clade.edges))
       if (any(clade.edges %in% cladedf$clade.edges)==F) {
-        if (clade == "weighted") {
-          res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1/length(sum(cladedf$clade.lengths))
+        if (clade == "weighted") { #still ends up with all edges = 1
+          res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1/sum(as.vector(cladedf$clade.lengths))
           #check whether this errors with the initial empty df
           } else {
           res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
@@ -860,6 +860,7 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
     } else {
       res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
     }
+    res$edge.length[res$edge.length<0]=0
   } else {
     res$edge.length[res$edge.length<1]=0
   }
