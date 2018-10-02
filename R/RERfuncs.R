@@ -799,7 +799,7 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
     tmp=cbind(as.character(tip.vals))
     rownames(tmp)=names(tip.vals)
     tip.vals=tmp
-
+  #Add option to function for "type" within ancestral.pars
     ancres=ancestral.pars(res, df<-as.phyDat(tip.vals, type="USER", levels=unique(as.character(tip.vals))),type="ACCTRAN" )
 
     ancres=unlist(lapply(ancres, function(x){x[2]}))
@@ -812,20 +812,56 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
     #evals[,2]=eres[treesObj$masterTree$edge[,2]]
     evals[,2]=eres[res$edge[,2]]
     res$edge.length=evals[,2]-evals[,1]
-
-    res$edge.length[res$edge.length<1]=0
+    #show(evals)
+    #res$edge.length[res$edge.length<1]=0 #retain info about negative values 
+                                         #to get sub-clades
+                                         #that should not be foreground.
   }
   if(wholeClade){ #should implement for "all" and "weighted"
     edgeIndex=which(res$edge.length>0)
-    for(i in edgeIndex){
-      clade.edges=getAllCladeEdges(res, i)
-      clade.edges=unique(c(i, clade.edges))
-      if (clade == "weighted") {
-        res$edge.length[clade.edges]=1/length(clade.edges)
+    edgeIndexNeg=which(res$edge.length<0)
+    edgeIndexAll = c(edgeIndex,edgeIndexNeg)
+    edgeDirection = c(rep(1, length(edgeIndex)),rep(-1, length(edgeIndexNeg)))
+    edgedf = data.frame(edgeIndexAll,edgeDirection)
+    edgedf = edgedf[order(edgedf$edgeIndexAll),]
+    clade.edges=NA
+    clade.lengths=NA
+    cladedf = data.frame(clade.edges,clade.lengths)
+    for(i in 1:nrow(edgedf)) { #Does this go from ancestral to terminal?
+      #save the clade until the edges no longer overlap
+      clade.edges=getAllCladeEdges(res, edgedf$edgeIndexAll[i])
+      clade.edges=unique(c(edgedf$edgeIndexAll[i], clade.edges))
+      if (any(clade.edges %in% cladedf$clade.edges)==F) {
+        if (clade == "weighted") {
+          res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1/length(sum(cladedf$clade.lengths))
+          #check whether this errors with the initial empty df
+          } else {
+          res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
+        }
+        #create new df
+        if (edgedf$edgeDirection[i] == 1) {
+          clade.lengths = c(rep(1,length(clade.edges)))
+        } else {
+          clade.lengths = c(rep(0,length(clade.edges)))
+        }
+        cladedf = data.frame(clade.edges,clade.lengths)
       } else {
-        res$edge.length[clade.edges]=1
+        #update df lengths
+        if (edgedf$edgeDirection[i] == 1) {
+          cladedf$clade.lengths[which(cladedf$clade.edges %in% clade.edges)] = 1
+        } else {
+          cladedf$clade.lengths[which(cladedf$clade.edges %in% clade.edges)] = 0
+        }
       }
     }
+    #update edge lengths from the final clade
+    if (clade == "weighted") {
+      res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1/length(sum(cladedf$clade.lengths))
+    } else {
+      res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
+    }
+  } else {
+    res$edge.length[res$edge.length<1]=0
   }
   if(plotTree){
     res2=res
