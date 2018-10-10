@@ -752,28 +752,25 @@ foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral"
 #' all members of a foreground clade (redundant to "clade", kept for backwards compatibility)
 #' @param clade A character string indicating which branches within the clade
 #' containing the foreground species should be set to foreground. Must be one
-#' of the strings "ancestral", "terminal", "all", or "weighted".
+#' of the strings "ancestral", "terminal", "all".
+#' @param transition A character string indicating whether transitions between background and foreground branches 
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions), or "none" (permitted only when clade is set to terminal)
+#' @param weighted if set to TRUE weights foreground edges belonging to the same clade such that their branch lengths sum upto 1 (only done for clade options "all" and "terminal").
 #' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A tree with edge.lengths representing phenotypic states
 #' @export
-foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  wholeClade=F, clade=c("ancestral","terminal","all","weighted","MaximalForegroundClade"), useSpecies=NULL){
-     #foreground <- herb
-     #treesObj <- toyTrees
-     #clade="all"
-     #useSpecies=dietus
-     #plotTree=T
-     clade <- match.arg(clade) #should error if not an allowed option
-     wholeClade = T
-     collapse2anc = T
-     if (clade %in% c("ancestral","terminal")) {
-          wholeClade = F
-     }
-     #if(wholeClade){
-     #  collapse2anc=T
-     #}
-     if (clade == "terminal") {
-          collapse2anc = F
+foreground2Tree = function(foreground,treesObj, plotTree=T, clade=c("ancestral","terminal","all"), weighted = F, transition = c("bidirectional","unidirectional","none"), useSpecies=NULL){
+#      foreground <- herb
+#      treesObj <- toyTrees
+#      clade="terminal"
+#      useSpecies=dietus
+#      transition <- 'none'
+#      plotTree=T
+     clade <- match.arg(clade)
+     transition <-  match.arg(transition)#should error if not an allowed option
+     if(transition == 'none' & clade != 'terminal'){
+          stop("Transition can be none only if clade option is terminal")
      }
      res = treesObj$masterTree
      if (!is.null(useSpecies)) {
@@ -789,45 +786,113 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
      }
      foreground = intersect(foreground, useSpecies)
      res$edge.length <- rep(0,length(res$edge.length))
-     if(!collapse2anc){
-          #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
-          res$edge.length[nameEdges(res) %in% foreground] = 1
-          #names(res$edge.length) = nameEdges(treesObj$masterTree)
+     if(clade == "terminal"){          
+          res$edge.length[nameEdges(res) %in% foreground] = 1          
           names(res$edge.length) = nameEdges(res)
+     }else if(clade == 'ancestral'){
+          weighted = F
+          if(transition == 'bidirectional'){
+               res <- inferBidirectionalForegroundClades(res,foreground,ancestralOnly =T)
+          }else{
+               res <- inferUnidirectionalForegroundClades(res,foreground,ancestralOnly =T)
+          }
+     }else{
+          if(transition == 'bidirectional'){
+               res <- inferBidirectionalForegroundClades(res,foreground,ancestralOnly = F)
+          }else{
+               res <- inferUnidirectionalForegroundClades(res,foreground,ancestralOnly = F)
+          }
      }
-     else{
-          #tip.vals=rep(0, length(treesObj$masterTree$tip.label))
-          tip.vals=rep(0, length(res$tip.label))
-          #names(tip.vals)=treesObj$masterTree$tip.label
-          names(tip.vals)=res$tip.label
-          tip.vals[foreground]=1
-          tmp=cbind(as.character(tip.vals))
-          rownames(tmp)=names(tip.vals)
-          tip.vals=tmp
-          #Add option to function for "type" within ancestral.pars
-          ancres=ancestral.pars(res, df<-as.phyDat(tip.vals, type="USER", levels=unique(as.character(tip.vals))),type="ACCTRAN" )
-          
-          ancres=unlist(lapply(ancres, function(x){x[2]}))
-          internalVals=ancres
-          #evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
-          evals=matrix(nrow=nrow(res$edge), ncol=2)
-          eres=ancres
-          #evals[,1]=eres[treesObj$masterTree$edge[,1]]
-          evals[,1]=eres[res$edge[,1]]
-          #evals[,2]=eres[treesObj$masterTree$edge[,2]]
-          evals[,2]=eres[res$edge[,2]]
-          res$edge.length=evals[,2]-evals[,1]
-          #show(evals)
-          #res$edge.length[res$edge.length<1]=0 #retain info about negative values 
-          #to get sub-clades
-          #that should not be foreground.
+     if(weighted){
+          if(clade == 'all'){
+               tobeweighted <- rep(TRUE,length(res$edge.length))
+               tobeweighted[res$edge.length == 0] <- FALSE
+               while(sum(tobeweighted)>0){
+                    edgetodo <- which(tobeweighted == T)[1]
+                    clade.down.edges = getAllCladeEdges(res, edgetodo)
+                    if(length(clade.down.edges) > 1){
+                         clade.edges = c(clade.down.edges, edgetodo)
+                         clade.edges.toweight <- clade.edges[res$edge.length[clade.edges] == 1]
+                         res$edge.length[clade.edges.toweight] <- 1.0/(length(clade.edges.toweight))
+                         tobeweighted[clade.edges] <- FALSE
+                    } else{
+                         tobeweighted[clade.down.edges] <- FALSE
+                    }
+               }
+          } else if(clade == 'terminal'){               
+               tobeweightededgeterminalnode <- unique(res$edge[(res$edge[,2] %in% c(1:length(res$tip.label))),1])
+               tobeweighted <- setdiff(match(tobeweightededgeterminalnode, res$edge[,2]), NA)
+               for(edgetodo in tobeweighted){                    
+                    clade.down.edges = getAllCladeEdges(res, edgetodo)
+                    if(all(res$edge.length[clade.down.edges]==1)){
+                         res$edge.length[clade.down.edges] <- 0.5
+                    }
+               }
+          }
      }
-     if(clade == 'MaximalForegroundClade'){
-          res <- inferMaximalForegroundClade(treesObj$masterTree, fgd = foreground)
+     if(plotTree){
+          res2=res
+          mm=min(res2$edge.length[res2$edge.length>0])
+          res2$edge.length[res2$edge.length==0]=max(0.02,mm/20)
+          plot(res2, main = paste0("Clade: ",clade,'\nTransition: ',transition,'\nWeighted: ',weighted))
      }
-     if(wholeClade){ #should implement for "all" and "weighted"
-          edgeIndex=which(res$edge.length>0)
-          edgeIndexNeg=which(res$edge.length<0)
+     res
+}
+
+inferUnidirectionalForegroundClades <- function(tree, fgd = NULL, ancestralOnly = F){
+     finaltree <- tree
+     finaltree$edge.length <- rep(0, length(tree$edge.length))
+     finaltree$edge.length[nameEdges(finaltree) %in% fgd] <- 1
+     #figure out node depth - terminal nodes have depth of 1; higher numbers indicate ancestral nodes;
+     nodedepths <- node.depth(finaltree)
+     edgeterminalnodedepths <- nodedepths[finaltree$edge[,2]]
+     #going from 1-away from terminal ancestral branch to the base of the tree, figure out branches where all downstream clades are foreground
+     for(inode in sort(unique(edgeterminalnodedepths))[-1]){
+          edgesToDo <- which(edgeterminalnodedepths == inode)
+          for(edgeindex in edgesToDo){
+               clade.edges = getAllCladeEdges(finaltree, edgeindex)
+               if(all(finaltree$edge.length[clade.edges]==1)){
+                    finaltree$edge.length[edgeindex] <- 1
+               }
+          }
+     }
+     if(ancestralOnly){
+          for(edgeii in 1:length(finaltree$edge.length)){
+               if(finaltree$edge.length[edgeii] == 1){
+                    if(nameEdges(finaltree)[edgeii]==""){
+                         clade.edges = setdiff(getAllCladeEdges(finaltree, edgeii), edgeii)
+                         finaltree$edge.length[clade.edges] <- 0
+                    }                
+               }
+          }
+     }
+     finaltree
+}
+
+inferBidirectionalForegroundClades <- function(treeinput, foreground = NULL, ancestralOnly = F){
+     tree <- treeinput
+     tip.vals=rep(0, length(tree$tip.label))          
+     names(tip.vals)=tree$tip.label
+     tip.vals[foreground]=1
+     tmp=cbind(as.character(tip.vals))
+     rownames(tmp)=names(tip.vals)
+     tip.vals=tmp
+     #Add option to function for "type" within ancestral.pars
+     ancres=ancestral.pars(tree, df<-as.phyDat(tip.vals, type="USER", levels=unique(as.character(tip.vals))),type="ACCTRAN" )          
+     ancres=unlist(lapply(ancres, function(x){x[2]}))
+     internalVals=ancres
+     #evals=matrix(nrow=nrow(treesObj$masterTree$edge), ncol=2)
+     evals=matrix(nrow=nrow(tree$edge), ncol=2)
+     eres=ancres
+     #evals[,1]=eres[treesObj$masterTree$edge[,1]]
+     evals[,1]=eres[tree$edge[,1]]
+     #evals[,2]=eres[treesObj$masterTree$edge[,2]]
+     evals[,2]=eres[tree$edge[,2]]
+     tree$edge.length=evals[,2]-evals[,1]
+     #res$edge.length[res$edge.length<1]=0
+     if(!ancestralOnly){
+          edgeIndex=which(tree$edge.length>0)
+          edgeIndexNeg=which(tree$edge.length<0)
           edgeIndexAll = c(edgeIndex,edgeIndexNeg)
           edgeDirection = c(rep(1, length(edgeIndex)),rep(-1, length(edgeIndexNeg)))
           edgedf = data.frame(edgeIndexAll,edgeDirection)
@@ -837,16 +902,10 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
           cladedf = data.frame(clade.edges,clade.lengths)
           for(i in 1:nrow(edgedf)) { #Does this go from ancestral to terminal?
                #save the clade until the edges no longer overlap
-               clade.edges=getAllCladeEdges(res, edgedf$edgeIndexAll[i])
+               clade.edges=getAllCladeEdges(tree, edgedf$edgeIndexAll[i])
                clade.edges=unique(c(edgedf$edgeIndexAll[i], clade.edges))
                if (any(clade.edges %in% cladedf$clade.edges)==F) {
-                    if (clade == "weighted") { #still ends up with all edges = 1
-                         res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1/sum(as.vector(cladedf$clade.lengths))
-                         #check whether this errors with the initial empty df
-                    } else {
-                         res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
-                    }
-                    #create new df
+                    tree$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
                     if (edgedf$edgeDirection[i] == 1) {
                          clade.lengths = c(rep(1,length(clade.edges)))
                     } else {
@@ -863,44 +922,12 @@ foreground2Tree = function(foreground,treesObj, collapse2anc=T, plotTree=T,  who
                }
           }
           #update edge lengths from the final clade
-          if (clade == "weighted") {
-               res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1/length(sum(cladedf$clade.lengths))
-          } else {
-               res$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
-          }
-          res$edge.length[res$edge.length<0]=0
-     } else {
-          res$edge.length[res$edge.length<1]=0
+          tree$edge.length[cladedf$clade.edges[which(cladedf$clade.lengths==1)]]=1
+          tree$edge.length[tree$edge.length<0]=0
      }
-     if(plotTree){
-          res2=res
-          mm=min(res2$edge.length[res2$edge.length>0])
-          res2$edge.length[res2$edge.length==0]=max(0.02,mm/20)
-          plot(res2)
-     }
-     res
+     tree$edge.length[tree$edge.length<0]=0
+     tree
 }
-
-inferMaximalForegroundClade <- function(tree, fgd = NULL){
-     tree$edge.length <- rep(0, length(tree$edge.length))
-     finaltree <- tree
-     finaltree$edge.length[nameEdges(finaltree) %in% fgd] <- 1
-     #figure out node depth - terminal nodes have depth of 1; higher numbers indicate ancestral nodes;
-     nodedepths <- node.depth(tree)
-     edgeterminalnodedepths <- nodedepths[tree$edge[,2]]
-     #going from 1-away from terminal ancestral branch to the base of the tree, figure out branches where all downstream clades are foreground
-     for(inode in sort(unique(edgeterminalnodedepths))[-1]){
-          edgesToDo <- which(edgeterminalnodedepths == inode)
-          for(edgeindex in edgesToDo){
-               clade.edges = getAllCladeEdges(tree, edgeindex)
-               if(all(finaltree$edge.length[clade.edges]==1)){
-                    finaltree$edge.length[edgeindex] <- 1
-               }
-          }
-     }
-     finaltree
-}
-
 
 #' @keywords internal
 nameEdges=function(tree){
