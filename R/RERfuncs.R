@@ -834,7 +834,12 @@ foreground2Tree = function(foreground,treesObj, plotTree=T, clade=c("ancestral",
           res2=res
           mm=min(res2$edge.length[res2$edge.length>0])
           res2$edge.length[res2$edge.length==0]=max(0.02,mm/20)
-          plot(res2, main = paste0("Clade: ",clade,'\nTransition: ',transition,'\nWeighted: ',weighted))
+          plot(res2, main = paste0("Clade: ",clade,'\nTransition: ',transition,'\nWeighted: ',weighted), cex = 0.5)
+          if(weighted){
+            labs <- round(res$edge.length,3)
+            labs[labs == 0] <- NA
+            edgelabels(labs, col = 'black', bg = 'transparent', adj = c(0.5,-0.5),cex = 0.4)
+          }
      }
      res
 }

@@ -21,11 +21,11 @@ print('Non-herbivore species:')
 print(dietus[dietus %in% herb == F])
 
 #Plot output:
-pdf('tests/herbivoreTest_al_wt_an_te.pdf')
+pdf('tests/herbivoreTest_al_an_te.pdf', width = 12)
 par(mfrow=c(1,2))
 herbv2statebi <- foreground2Tree(herb, toyTrees, clade="all", transition = 'bidirectional',useSpecies=dietus)
-herbv2stateuni <- foreground2Tree(herb, toyTrees, clade="all", transition = 'unidirectional', useSpecies=dietus)
 herbv2statebiwt <- foreground2Tree(herb, toyTrees, clade="all", transition = 'bidirectional', weighted = T, useSpecies=dietus)
+herbv2stateuni <- foreground2Tree(herb, toyTrees, clade="all", transition = 'unidirectional', useSpecies=dietus)
 herbv2stateuniwt <- foreground2Tree(herb, toyTrees, clade="all", transition = 'unidirectional', weighted = T, useSpecies=dietus)
 herbv2ancbi <- foreground2Tree(herb, toyTrees, clade="ancestral", transition = 'bidirectional',useSpecies=dietus)
 herbv2ancuni <- foreground2Tree(herb, toyTrees, clade="ancestral", transition = 'unidirectional', useSpecies=dietus)
