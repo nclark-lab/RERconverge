@@ -387,7 +387,7 @@ getChildren=function(tree, nodeN){
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
-#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override
+#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param weighted perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.
@@ -410,13 +410,14 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a continuous phenotype made with \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
-#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override
+#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override
 #' @param min.sp Minimum number of species that must be present for a gene
-#' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
+#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
+#' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
 #' @export
 
-correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3){
-  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorize = winsorize )
+correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER=3, winsorizetrait=3){
+  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorizeRER = winsorizeRER, winsorizetrait = winsorizetrait)
 }
 
 
@@ -425,15 +426,16 @@ correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorize=3)
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
-#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override
+#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
-#' @param winsorize Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.
+#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.
+#' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme trait values at each end to the value closest to 0.
 #' @param weighted perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
-getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=NULL,weighted=F){
+getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeRER=NULL, winsorizetrait=NULL, weighted=F){
   RERna=(apply(is.na(RERmat),2,all))
   iicharPna=which(is.na(charP))
   if(!all(RERna[iicharPna])){
@@ -452,8 +454,13 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
     else{
       method="p"
       message("Setting method to Pearson")
-      if(is.null(winsorize)){
-        message("Setting winsorise=3")
+      if(is.null(winsorizeRER)){
+        message("Setting winsorizeRER=3")
+        winsorizeRER=3
+      }
+      if(is.null(winsorizetrait)){
+        message("Setting winsorizetrait=3")
+        winsorizetrait=3
       }
     }
   }
@@ -470,9 +477,6 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
   rownames(corout)=rownames(RERmat)
 
   colnames(corout)=c("Rho", "N", "P")
-  if(!is.null(winsorize)){
-    charP=win(charP, winsorize)
-  }
 
   for( i in 1:nrow(corout)){
 
@@ -483,14 +487,20 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorize=
 
       if(!weighted){
 
+        x=RERmat[i,]
 
-        if (!is.null(winsorize)){
-          x=win(RERmat[i,], winsorize)
+        #winsorize
+        indstouse=which(!is.na(x) & !is.na(charP))
+        if(!is.null(winsorizeRER)){
+          x=win(x[indstouse], winsorizeRER)
         }
-        else{
-          x=RERmat[i,]
+        if(!is.null(winsorizetrait)){
+          y=win(charP[indstouse], winsorizetrait)
+        }else{
+          y=charP
         }
-        cres=cor.test(x, charP, method=method, exact=F)
+
+        cres=cor.test(x, y, method=method, exact=F)
         corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
       }
       else{
@@ -1276,213 +1286,107 @@ getAllCladeEdges=function(tree, AncEdge){
 
 
 #if(T){
-  getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
-    report=treesObj[["report"]]
-    both=names(which(colSums(report[c(name1,name2),])==2))
-    show(length(both))
-    mastertree=pruneTree(treesObj[["master"]], both)
-    allbranch=matrix(nrow=0, ncol=length(mastertree$edge.length))
-    for ( i in 1:(length(treesObj)-3)){
-      if(sum(is.na(match(both, treesObj[[i]]$tip.label)))==0){
-        tmptree=(pruneTree(treesObj[[i]], both, mastertree))
+getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
+  report=treesObj[["report"]]
+  both=names(which(colSums(report[c(name1,name2),])==2))
+  show(length(both))
+  mastertree=pruneTree(treesObj[["master"]], both)
+  allbranch=matrix(nrow=0, ncol=length(mastertree$edge.length))
+  for ( i in 1:(length(treesObj)-3)){
+    if(sum(is.na(match(both, treesObj[[i]]$tip.label)))==0){
+      tmptree=(pruneTree(treesObj[[i]], both, mastertree))
 
-        # show(c(length(tmptree$edge.length), ncol(allbranch)))
-        allbranch=rbind(allbranch, tmptree$edge.length)
-      }
+      # show(c(length(tmptree$edge.length), ncol(allbranch)))
+      allbranch=rbind(allbranch, tmptree$edge.length)
     }
-    nv=projection(t(allbranch), method="AVE", returnNV = T)
-    mastertree$edge.length=nv
-    # par(mfrow=c(1,3))
-    res=correlateTrees(treesObj[[name1]], treesObj[[name2]], mastertree, residfun=residfun, plot=plot)
-    res$nv=nv
-    res$master=mastertree
-    return(res)
   }
+  nv=projection(t(allbranch), method="AVE", returnNV = T)
+  mastertree$edge.length=nv
+  # par(mfrow=c(1,3))
+  res=correlateTrees(treesObj[[name1]], treesObj[[name2]], mastertree, residfun=residfun, plot=plot)
+  res$nv=nv
+  res$master=mastertree
+  return(res)
+}
 
 
-  getProjection=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
-    both=intersect(tree1$tip.label, tree2$tip.label)
-    tree1=unroot(pruneTree(tree1, both))
-    tree2=unroot(pruneTree(tree2, both))
-    allreport=treesObj$report[1:maxT,both]
+getProjection=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
+  both=intersect(tree1$tip.label, tree2$tip.label)
+  tree1=unroot(pruneTree(tree1, both))
+  tree2=unroot(pruneTree(tree2, both))
+  allreport=treesObj$report[1:maxT,both]
 
-    ss=rowSums(allreport)
-    iiboth=which(ss==length(both))
-    torm=setdiff(treesObj$masterTree$tip.label, both)
-    allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-    for ( k in 1:length(iiboth)){
-      tmptree=rescaleTree(unroot(drop.tip(treesObj$trees[[iiboth[k]]], torm)))
-      allbranch[k, ]=tmptree$edge.length
-    }
-    allbranch
+  ss=rowSums(allreport)
+  iiboth=which(ss==length(both))
+  torm=setdiff(treesObj$masterTree$tip.label, both)
+  allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
+  for ( k in 1:length(iiboth)){
+    tmptree=rescaleTree(unroot(drop.tip(treesObj$trees[[iiboth[k]]], torm)))
+    allbranch[k, ]=tmptree$edge.length
   }
+  allbranch
+}
 
-  getProjectionPaths=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
-    both=intersect(tree1$tip.label, tree2$tip.label)
-    tree1=unroot(pruneTree(tree1, both))
-    tree2=unroot(pruneTree(tree2, both))
-    allreport=treesObj$report[1:maxT,both]
-    ss=rowSums(allreport)
-    iiboth=which(ss==length(both))
-    allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-    ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
-    ii= match(namePaths(ee,T), colnames(treesObj$paths))
-    allbranch=treesObj$paths[iiboth,ii]
-    allbranch=scaleMat(allbranch)
-    allbranch
+getProjectionPaths=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
+  both=intersect(tree1$tip.label, tree2$tip.label)
+  tree1=unroot(pruneTree(tree1, both))
+  tree2=unroot(pruneTree(tree2, both))
+  allreport=treesObj$report[1:maxT,both]
+  ss=rowSums(allreport)
+  iiboth=which(ss==length(both))
+  allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
+  ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+  ii= match(namePaths(ee,T), colnames(treesObj$paths))
+  allbranch=treesObj$paths[iiboth,ii]
+  allbranch=scaleMat(allbranch)
+  allbranch
+}
+
+
+correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
+  maxT=treesObj$numTrees
+  if (is.null(maxDo)){
+
+    maxDo=maxT*(maxT-1)
   }
-
-
-  correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
-    maxT=treesObj$numTrees
-    if (is.null(maxDo)){
-
-      maxDo=maxT*(maxT-1)
-    }
-    corout=matrix(nrow=maxT, ncol=maxT)
-    message("10")
-    if(is.null(maxn)){
-      maxn=treesObj$report%*%t(treesObj$report)
-    }
-    message("20")
-    done=0
-    # todo=length(maxn[upper.tri(maxn)]>=10)
-    todo=100
-    message("30")
-    #corout[maxn<10]=0
-    message(40)
-    diag(corout)=1
-    #corout[lower.tri(corout)]=0
-    message("Starting loop")
-    for (i in 1:(maxT-1)){
-      for(j in (i+1):maxT){
-        #  show(c(i,j))
-        if (is.na(corout[i,j]) || maxn[i,j]<11){
-          t0=as.double(Sys.time())
-          tree1=treesObj$trees[[i]]
-          tree2=treesObj$trees[[j]]
-
-          bothIndex=which(colSums(treesObj$report[c(i, j),])==2)
-          both=intersect(tree1$tip.label, tree2$tip.label)
-          if(!useIndex){
-            tree1=unroot(pruneTree(tree1, both))
-            tree2=unroot(pruneTree(tree2, both))
-          }
-          allreport=treesObj$report[,bothIndex]
-          ss=rowSums(allreport)
-          iiboth=which(ss==length(bothIndex))
-          #  torm=setdiff(treesObj$masterTree$tip.label, both)
-          # allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-
-          t1=as.double(Sys.time())
-          message(paste("10 took", t1-t0))
-          t0=t1
-          if(! usePaths){
-            torm=setdiff(treesObj$masterTree$tip.label, both)
-            allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-            for ( k in 1:length(iiboth)){
-              tmptree=rescaleTree(unroot(drop.tip(treesObj$trees[[iiboth[k]]], torm)))
-              allbranch[k, ]=tmptree$edge.length
-            }
-          }
-          else{
-            if(!useIndex){
-              message("Here")
-              ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
-              ii= match(namePaths(ee,T), colnames(treesObj$paths))
-              allbranch=treesObj$paths[iiboth,ii]
-            }
-            else{
-              allbranch=getBranch(treesObj, bothIndex)
-            }
-            t1=as.double(Sys.time())
-            message(paste("20 took", t1-t0))
-            t0=t1
-            allbranch=scaleMat(allbranch)
-          }
-
-          message("done")
-          nb=length(both)
-          proj=t(projection(t(allbranch), method="AVE", returnNV = F))
-          # i1=match(i, iiboth)
-          #j1=match(j,iiboth)
-          #corout[i,j]=cor(proj[i1, ], proj[j1,])
-          #  tmpcor=cor(t(proj))
-
-          ai=which(maxn[iiboth, iiboth]==nb, arr.ind = T)
-          t1=as.double(Sys.time())
-          message(paste("30 took", t1-t0))
-          t0=t1
-          for (m in 1:nrow(ai)){
-            k=sort(ai[m,])[1]
-            l=sort(ai[m,])[2]
-
-            tmpcor=cor(proj[k,], proj[l,])
-            if (is.na(tmpcor)){
-              tmpcor=0
-            }
-            corout[iiboth[k], iiboth[l]]=tmpcor
-
-
-          }
-          t1=as.double(Sys.time())
-          message(paste("40 took", t1-t0))
-          t0=t1
-          done=done+nrow(ai)
-          message(paste("Done with",done, "out of", todo))
-          #  message(paste(sum(is.na(corout))," left"), appendLF = T)
-          if(done>=maxDo){
-            message("DOne")
-            return(corout)
-          }
-          #generate the projection
-        }
-      }
-    }
-
+  corout=matrix(nrow=maxT, ncol=maxT)
+  message("10")
+  if(is.null(maxn)){
+    maxn=treesObj$report%*%t(treesObj$report)
   }
-
-
-
-  #assume the binTree is already in canonical form
-  correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, species.list=NULL, useSQ=F){
-    maxT=treesObj$numTrees
-    if (is.null(maxDo)){
-
-      maxDo=maxT
-    }
-    corout=matrix(nrow=maxT, ncol=1)
-    pout=matrix(nrow=maxT, ncol=1)
-    rownames(corout)=rownames(pout)=names(treesObj$trees)
-    show(binTree$tip.label )
-    binReport=as.vector(as.numeric(binTree$tip.label %in% colnames(treesObj$report)))
-    show((binReport))
-    names(binReport)=colnames(treesObj$report)
-    maxn=treesObj$report[, species.list]%*%(binReport[species.list])
-
-    done=0
-    todo=length(maxn>=10)
-    corout[maxn<10]=0
-
-    for (i in 1:maxT){
-
-      if (is.na(corout[i,1])){
+  message("20")
+  done=0
+  # todo=length(maxn[upper.tri(maxn)]>=10)
+  todo=100
+  message("30")
+  #corout[maxn<10]=0
+  message(40)
+  diag(corout)=1
+  #corout[lower.tri(corout)]=0
+  message("Starting loop")
+  for (i in 1:(maxT-1)){
+    for(j in (i+1):maxT){
+      #  show(c(i,j))
+      if (is.na(corout[i,j]) || maxn[i,j]<11){
+        t0=as.double(Sys.time())
         tree1=treesObj$trees[[i]]
-        if(! is.null(species.list)){
-          tree1=unroot(pruneTree(tree1, species.list))
+        tree2=treesObj$trees[[j]]
+
+        bothIndex=which(colSums(treesObj$report[c(i, j),])==2)
+        both=intersect(tree1$tip.label, tree2$tip.label)
+        if(!useIndex){
+          tree1=unroot(pruneTree(tree1, both))
+          tree2=unroot(pruneTree(tree2, both))
         }
-        both=tree1$tip.label
-        bothIndex=match(both, colnames(treesObj$report))
         allreport=treesObj$report[,bothIndex]
         ss=rowSums(allreport)
-        iiboth=which(ss==length(both))
+        iiboth=which(ss==length(bothIndex))
         #  torm=setdiff(treesObj$masterTree$tip.label, both)
-        binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
-        allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-        if(length(both)<10){
-          next
-        }
+        # allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
 
+        t1=as.double(Sys.time())
+        message(paste("10 took", t1-t0))
+        t0=t1
         if(! usePaths){
           torm=setdiff(treesObj$masterTree$tip.label, both)
           allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
@@ -1492,459 +1396,565 @@ getAllCladeEdges=function(tree, AncEdge){
           }
         }
         else{
-
-          ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
-          ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
-          #show(ii)
-          #show(ii2)
-          stopifnot(all(ii=ii2))
-          allbranch=treesObj$paths[iiboth,ii]
-
+          if(!useIndex){
+            message("Here")
+            ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+            ii= match(namePaths(ee,T), colnames(treesObj$paths))
+            allbranch=treesObj$paths[iiboth,ii]
+          }
+          else{
+            allbranch=getBranch(treesObj, bothIndex)
+          }
+          t1=as.double(Sys.time())
+          message(paste("20 took", t1-t0))
+          t0=t1
           allbranch=scaleMat(allbranch)
         }
-        # message("done")
+
+        message("done")
         nb=length(both)
-        if(!useSQ){
-          proj=t(projection(t(allbranch), method="AVE", returnNV = F))
-        }
-        else{
-          proj=projectionSQ(allbranch)
-        }
+        proj=t(projection(t(allbranch), method="AVE", returnNV = F))
         # i1=match(i, iiboth)
         #j1=match(j,iiboth)
         #corout[i,j]=cor(proj[i1, ], proj[j1,])
         #  tmpcor=cor(t(proj))
-        ai=which(maxn[iiboth, 1]==nb)
-        # show(iiboth[1])
+
+        ai=which(maxn[iiboth, iiboth]==nb, arr.ind = T)
+        t1=as.double(Sys.time())
+        message(paste("30 took", t1-t0))
+        t0=t1
+        for (m in 1:nrow(ai)){
+          k=sort(ai[m,])[1]
+          l=sort(ai[m,])[2]
+
+          tmpcor=cor(proj[k,], proj[l,])
+          if (is.na(tmpcor)){
+            tmpcor=0
+          }
+          corout[iiboth[k], iiboth[l]]=tmpcor
 
 
-        tmp=simpleAUCmat(binTreeUse$edge.length, (proj[ai, ,drop=F]))
-
-        corout[iiboth[ai]]=tmp$auc
-
-        pout[iiboth[ai]]=tmp$pp
-        done=done+length(ai)
-        show(length(ai))
-        #  message(paste("Done with",done, "out of", todo))
+        }
+        t1=as.double(Sys.time())
+        message(paste("40 took", t1-t0))
+        t0=t1
+        done=done+nrow(ai)
+        message(paste("Done with",done, "out of", todo))
         #  message(paste(sum(is.na(corout))," left"), appendLF = T)
         if(done>=maxDo){
-          message("DONE")
-          return(list(r=corout, p=pout))
+          message("DOne")
+          return(corout)
         }
         #generate the projection
       }
     }
-
-    return(list(r=corout, p=pout))
   }
 
-
-  plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
-    maxT=treesObj$numTrees
-
-    binReport=as.vector(as.numeric(binTree$tip.label %in% colnames(treesObj$report)))
-
-    names(binReport)=colnames(treesObj$report)
-    maxn=treesObj$report[, species.list]%*%(binReport[species.list])
+}
 
 
 
+#assume the binTree is already in canonical form
+correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, species.list=NULL, useSQ=F){
+  maxT=treesObj$numTrees
+  if (is.null(maxDo)){
 
-    tree1=treesObj$trees[[index]]
-    if(! is.null(species.list)){
-      tree1=unroot(pruneTree(tree1, species.list))
-    }
-    both=tree1$tip.label
-    bothIndex=match(both, colnames(treesObj$report))
-    allreport=treesObj$report[,bothIndex]
-    ss=rowSums(allreport)
-    iiboth=which(ss==length(both))
-    #  torm=setdiff(treesObj$masterTree$tip.label, both)
-    binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
-    allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-
-    ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
-    ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
-    plot(tree1,use.edge.length = F)
-    plot(binTreeUse,use.edge.length = F)
-    show(cbind(ii,ii2))
-    stopifnot(all(ii==ii2))
-    allbranch=treesObj$paths[iiboth,ii]
-    thisgene=which(iiboth==index)
-    allbranch=scaleMat(allbranch)
-
-    nb=length(both)
-
-    proj=t(projection(t(allbranch), method="AVE", returnNV = F))
-    nv=t(projection(t(allbranch), method="AVE", returnNV = T))
-
-    plot(nv,proj[thisgene,], col=binTreeUse$edge.length+1)
-
+    maxDo=maxT
   }
+  corout=matrix(nrow=maxT, ncol=1)
+  pout=matrix(nrow=maxT, ncol=1)
+  rownames(corout)=rownames(pout)=names(treesObj$trees)
+  show(binTree$tip.label )
+  binReport=as.vector(as.numeric(binTree$tip.label %in% colnames(treesObj$report)))
+  show((binReport))
+  names(binReport)=colnames(treesObj$report)
+  maxn=treesObj$report[, species.list]%*%(binReport[species.list])
 
+  done=0
+  todo=length(maxn>=10)
+  corout[maxn<10]=0
 
+  for (i in 1:maxT){
 
-  correlateTrees=function(tree1, tree2, mastertree, residfun=residLN, plot=F, cutoff=0.00001, Tree1Bin=F){
-    both=intersect(tree1$tip.label, tree2$tip.label)
-    if(length(both)<10){
-      return(0)
-    }
-    iibad1=which(tree1$edge.length<cutoff)
-    iibad2=which(tree2$edge.length<cutoff)
-    show(c(length(iibad1), length(iibad2)))
-    show(tree1$edge.length)
-    if (!Tree1Bin){
-      tree1=rescaleTree(tree1)
-    }
-    tree2=rescaleTree(tree2)
-    tree1$edge.length[iibad1]=mastertree$edge.length[iibad1]
-    tree2$edge.length[iibad2]=mastertree$edge.length[iibad2]
-    if(!Tree1Bin){
-      e1=residfun(t(tree1$edge.length), mastertree$edge.length, plot=F)
-    }
-    else{
-      e1=tree1$edge.length
-    }
-    e2=residfun(t(tree2$edge.length), mastertree$edge.length, plot=F)
-    cc=cor((e1), (e2))
-    nn=character(length(e1))
-    iim=match(1:length(tree1$tip.label), tree1$edge[,2])
-
-    nn[iim]=tree1$tip.label
-
-    if(plot){
-
-
-      plotWtext(e1, e2, nn)
-      title(paste("R=", round(cc,2)))
-    }
-
-    return(list(l1=tree1$edge.length, l2=tree2$edge.length,e1=e1, e2=e2, cor=cc, names=nn, tree1=tree1, tree2=tree2))
-
-  }
-
-
-
-  correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F, cutoff=-1, usePaths=T, tree1Bin=F, useIndex=F, species.list=NULL){
-    if(is.character(treeIn1)){
-      tree1=treesObj$trees[[treeIn1]]
-    }
-    else{
-      tree1=treeIn1
-    }
-    if(is.character(treeIn2)){
-      tree2=treesObj$trees[[treeIn2]]
-    }
-    else{
-      tree2=treeIn2
-    }
-    both=intersect(tree1$tip.label, tree2$tip.label)
-    if(!is.null(species.list)){
-      both=intersect(both, species.list)
-    }
-
-
-    torm=setdiff(treesObj$masterTree$tip.label, both)
-    tree1=pruneTree(tree1, both)
-    tree1=unroot(tree1)
-    if(tree1Bin){ #fix any edges that were created through pruning
-      tree1$edge.length[tree1$edge.length>1]=1
-    }
-    tree2=pruneTree(tree2, both)
-    tree2=unroot(tree2)
-    allreport=treesObj$report[,both]
-    ss=rowSums(allreport)
-    iiboth=which(ss==length(both))
-    if (! usePaths){
+    if (is.na(corout[i,1])){
+      tree1=treesObj$trees[[i]]
+      if(! is.null(species.list)){
+        tree1=unroot(pruneTree(tree1, species.list))
+      }
+      both=tree1$tip.label
+      bothIndex=match(both, colnames(treesObj$report))
+      allreport=treesObj$report[,bothIndex]
+      ss=rowSums(allreport)
+      iiboth=which(ss==length(both))
+      #  torm=setdiff(treesObj$masterTree$tip.label, both)
+      binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
       allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-      for ( i in 1:length(iiboth)){
-        tmptree=rescaleTree(drop.tip(treesObj$trees[[iiboth[i]]], torm))
-        allbranch[i, ]=tmptree$edge.length
+      if(length(both)<10){
+        next
       }
 
-    }
-    else{
-      if(! useIndex){
-        ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
-        ii= match(namePaths(ee,T), colnames(treesObj$paths))
-        allbranch=treesObj$paths[iiboth,ii]
-        show(sum(is.na(allbranch)))
-        allbranch=scaleMat(allbranch)
-
-        nv=projection(t(allbranch), method="AVE", returnNV = T)
-        mastertree=treesObj$master
-        mastertree$edge.length=nv
-        res=correlateTrees(tree1, tree2, mastertree, residfun=residfun, plot=plot, cutoff=cutoff, Tree1Bin=tree1Bin)
-
-        res$nv=nv
-        res$allbranch=allbranch
+      if(! usePaths){
+        torm=setdiff(treesObj$masterTree$tip.label, both)
+        allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
+        for ( k in 1:length(iiboth)){
+          tmptree=rescaleTree(unroot(drop.tip(treesObj$trees[[iiboth[k]]], torm)))
+          allbranch[k, ]=tmptree$edge.length
+        }
       }
       else{
-        allbranch=getBranch(treesObj, bothIndex)
-        show(rownames(allbranch)[1])
-        allbranch=scaleMat(allbranch)
-        nv=projection(t(allbranch), method="AVE",returnNV = T)
-        rr=resid(allbranch, model.matrix(~0+nv))
-        rownames(rr)=rownames(allbranch)
-        show(dim(rr))
-        show(rownames(allbranch)[1])
-        plot(rr[name1,], rr[name2,])
-        res=list()
-      }
-    }
 
-    return(res)
+        ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
+        ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
+        #show(ii)
+        #show(ii2)
+        stopifnot(all(ii=ii2))
+        allbranch=treesObj$paths[iiboth,ii]
+
+        allbranch=scaleMat(allbranch)
+      }
+      # message("done")
+      nb=length(both)
+      if(!useSQ){
+        proj=t(projection(t(allbranch), method="AVE", returnNV = F))
+      }
+      else{
+        proj=projectionSQ(allbranch)
+      }
+      # i1=match(i, iiboth)
+      #j1=match(j,iiboth)
+      #corout[i,j]=cor(proj[i1, ], proj[j1,])
+      #  tmpcor=cor(t(proj))
+      ai=which(maxn[iiboth, 1]==nb)
+      # show(iiboth[1])
+
+
+      tmp=simpleAUCmat(binTreeUse$edge.length, (proj[ai, ,drop=F]))
+
+      corout[iiboth[ai]]=tmp$auc
+
+      pout[iiboth[ai]]=tmp$pp
+      done=done+length(ai)
+      show(length(ai))
+      #  message(paste("Done with",done, "out of", todo))
+      #  message(paste(sum(is.na(corout))," left"), appendLF = T)
+      if(done>=maxDo){
+        message("DONE")
+        return(list(r=corout, p=pout))
+      }
+      #generate the projection
+    }
+  }
+
+  return(list(r=corout, p=pout))
+}
+
+
+plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
+  maxT=treesObj$numTrees
+
+  binReport=as.vector(as.numeric(binTree$tip.label %in% colnames(treesObj$report)))
+
+  names(binReport)=colnames(treesObj$report)
+  maxn=treesObj$report[, species.list]%*%(binReport[species.list])
+
+
+
+
+  tree1=treesObj$trees[[index]]
+  if(! is.null(species.list)){
+    tree1=unroot(pruneTree(tree1, species.list))
+  }
+  both=tree1$tip.label
+  bothIndex=match(both, colnames(treesObj$report))
+  allreport=treesObj$report[,bothIndex]
+  ss=rowSums(allreport)
+  iiboth=which(ss==length(both))
+  #  torm=setdiff(treesObj$masterTree$tip.label, both)
+  binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
+  allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
+
+  ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
+  ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
+  plot(tree1,use.edge.length = F)
+  plot(binTreeUse,use.edge.length = F)
+  show(cbind(ii,ii2))
+  stopifnot(all(ii==ii2))
+  allbranch=treesObj$paths[iiboth,ii]
+  thisgene=which(iiboth==index)
+  allbranch=scaleMat(allbranch)
+
+  nb=length(both)
+
+  proj=t(projection(t(allbranch), method="AVE", returnNV = F))
+  nv=t(projection(t(allbranch), method="AVE", returnNV = T))
+
+  plot(nv,proj[thisgene,], col=binTreeUse$edge.length+1)
+
+}
+
+
+
+correlateTrees=function(tree1, tree2, mastertree, residfun=residLN, plot=F, cutoff=0.00001, Tree1Bin=F){
+  both=intersect(tree1$tip.label, tree2$tip.label)
+  if(length(both)<10){
+    return(0)
+  }
+  iibad1=which(tree1$edge.length<cutoff)
+  iibad2=which(tree2$edge.length<cutoff)
+  show(c(length(iibad1), length(iibad2)))
+  show(tree1$edge.length)
+  if (!Tree1Bin){
+    tree1=rescaleTree(tree1)
+  }
+  tree2=rescaleTree(tree2)
+  tree1$edge.length[iibad1]=mastertree$edge.length[iibad1]
+  tree2$edge.length[iibad2]=mastertree$edge.length[iibad2]
+  if(!Tree1Bin){
+    e1=residfun(t(tree1$edge.length), mastertree$edge.length, plot=F)
+  }
+  else{
+    e1=tree1$edge.length
+  }
+  e2=residfun(t(tree2$edge.length), mastertree$edge.length, plot=F)
+  cc=cor((e1), (e2))
+  nn=character(length(e1))
+  iim=match(1:length(tree1$tip.label), tree1$edge[,2])
+
+  nn[iim]=tree1$tip.label
+
+  if(plot){
+
+
+    plotWtext(e1, e2, nn)
+    title(paste("R=", round(cc,2)))
+  }
+
+  return(list(l1=tree1$edge.length, l2=tree2$edge.length,e1=e1, e2=e2, cor=cc, names=nn, tree1=tree1, tree2=tree2))
+
+}
+
+
+
+correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F, cutoff=-1, usePaths=T, tree1Bin=F, useIndex=F, species.list=NULL){
+  if(is.character(treeIn1)){
+    tree1=treesObj$trees[[treeIn1]]
+  }
+  else{
+    tree1=treeIn1
+  }
+  if(is.character(treeIn2)){
+    tree2=treesObj$trees[[treeIn2]]
+  }
+  else{
+    tree2=treeIn2
+  }
+  both=intersect(tree1$tip.label, tree2$tip.label)
+  if(!is.null(species.list)){
+    both=intersect(both, species.list)
   }
 
 
+  torm=setdiff(treesObj$masterTree$tip.label, both)
+  tree1=pruneTree(tree1, both)
+  tree1=unroot(tree1)
+  if(tree1Bin){ #fix any edges that were created through pruning
+    tree1$edge.length[tree1$edge.length>1]=1
+  }
+  tree2=pruneTree(tree2, both)
+  tree2=unroot(tree2)
+  allreport=treesObj$report[,both]
+  ss=rowSums(allreport)
+  iiboth=which(ss==length(both))
+  if (! usePaths){
+    allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
+    for ( i in 1:length(iiboth)){
+      tmptree=rescaleTree(drop.tip(treesObj$trees[[iiboth[i]]], torm))
+      allbranch[i, ]=tmptree$edge.length
+    }
 
-  correlateTreesAll1=function(name1, name2, treesObj, residfun=residLN, plot=F, cutoff=-1, usePaths=F){
-    tree1=treesObj$trees[[name1]]
-    tree2=treesObj$trees[[name2]]
-    both=intersect(tree1$tip.label, tree2$tip.label)
-    torm=setdiff(treesObj$mastertree$tip.lables, both)
-    tree1=pruneTree(tree1, both)
-    tree2=pruneTree(tree2, both)
-    allreport=treesObj$report[,both]
-    ss=rowSums(allreport)
+  }
+  else{
+    if(! useIndex){
+      ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+      ii= match(namePaths(ee,T), colnames(treesObj$paths))
+      allbranch=treesObj$paths[iiboth,ii]
+      show(sum(is.na(allbranch)))
+      allbranch=scaleMat(allbranch)
 
-    iiboth=which(ss==length(both))
-    if (! usePaths){
-      allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-      for ( i in 1:length(iiboth)){
-        # tmptree=rescaleTree(pruneTree(treesObj$trees[[iiboth[i]]], both))
-        tmptree=rescaleTree(drop.tip(treesObj$trees[[iiboth[i]]], torm))
-        #  show(c(length(tmptree$edge.lenght), ncol(allbranch)))
-        allbranch[i, ]=tmptree$edge.length
-      }
+      nv=projection(t(allbranch), method="AVE", returnNV = T)
+      mastertree=treesObj$master
+      mastertree$edge.length=nv
+      res=correlateTrees(tree1, tree2, mastertree, residfun=residfun, plot=plot, cutoff=cutoff, Tree1Bin=tree1Bin)
+
+      res$nv=nv
+      res$allbranch=allbranch
     }
     else{
-      allbranch=treesObj$paths[iiboth,getEdgeIndex(tree1, treesObj$masterTree)]
-      #allbranch=scaleMat(allbranch)
+      allbranch=getBranch(treesObj, bothIndex)
+      show(rownames(allbranch)[1])
+      allbranch=scaleMat(allbranch)
+      nv=projection(t(allbranch), method="AVE",returnNV = T)
+      rr=resid(allbranch, model.matrix(~0+nv))
+      rownames(rr)=rownames(allbranch)
+      show(dim(rr))
+      show(rownames(allbranch)[1])
+      plot(rr[name1,], rr[name2,])
+      res=list()
     }
-    #nv=projection(t(allbranch), method="AVE", returnNV = T)
-    nv=colMeans(allbranch)
-    nn=names(iiboth)
-    rownames(allbranch)=names(iiboth)
-    allbranch=resid(allbranch, model.matrix(~1+nv))
-    cc=cor(t(allbranch))
-    show(dim(cc))
-    show(length(nn))
-    ii=which(trees$inter[nn,nn]==length(both))
-    return(list(cc,ii))
   }
 
+  return(res)
+}
 
 
 
-  mapEdge=function(tree1, tree2){
-    map=matchNodes(tree1,tree2, method = "descendant")
-    n=length(tree1$tip)
-    im=match(tree1$tip, tree2$tip)
-    map=rbind(map, cbind(1:n, im))
-    map=map[order(map[,1]),]
-    #show(n)
-    #show(map)
-    edge1remap=tree1$edge
-    #show(nrow(edge1remap))
-    #show(nrow(tree2$edge))
+correlateTreesAll1=function(name1, name2, treesObj, residfun=residLN, plot=F, cutoff=-1, usePaths=F){
+  tree1=treesObj$trees[[name1]]
+  tree2=treesObj$trees[[name2]]
+  both=intersect(tree1$tip.label, tree2$tip.label)
+  torm=setdiff(treesObj$mastertree$tip.lables, both)
+  tree1=pruneTree(tree1, both)
+  tree2=pruneTree(tree2, both)
+  allreport=treesObj$report[,both]
+  ss=rowSums(allreport)
 
-    edge1remap[,1]=map[edge1remap[,1],2]
-    edge1remap[,2]=map[edge1remap[,2],2]
-    edge1remap
-
-  }
-
-
-  plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, useDiff=T, xlab){
-    #get the tree projection
-    tip.vals=tip.vals[!is.na(tip.vals)]
-
-    stopifnot(gene %in% names(treesObj$trees))
-    tree=treesObj$trees[[gene]]
-    stopifnot(!is.null(names(tip.vals)))
-    both=intersect(tree$tip.label, names(tip.vals))
-
-    stopifnot(length(both)>10)
-
-
-    torm=setdiff(treesObj$masterTree$tip.label, both)
-    tree=pruneTree(tree, both)
-    tip.vals=tip.vals[both]
-    allreport=treesObj$report[,both]
-    ss=rowSums(allreport)
-    iiboth=which(ss==length(both))
-
-
-    ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
-    ii= match(namePaths(ee,T), colnames(treesObj$paths))
-
-    allbranch=treesObj$paths[iiboth,ii]
-
-    allbranch=scaleMat(allbranch)
-    show(sum(is.na(allbranch)))
-    nv=projection(t(allbranch), method="AVE", returnNV = T)
-
-    proj=residfun(tree$edge.length, nv)
-    show(length(tree$edge.length))
-    treeChar=edgeVarsDiff(tree, tip.vals)
-    show(length(treeChar))
-    show(length(proj))
-    nn=nameEdges(tree)
-    nn[nn!=""]=speciesNames[nn[nn!=""], ]
-    #par(mfrow=c(2,2), mai=rep(0.7,4))
-    #plotWtext(sqrt(nv), sqrt(tree$edge.length), xlab="char", ylab="Gene branch length", labels = nn)
-
-    plotWtext(treeChar$edge.length, proj, xlab=xlab, ylab="relative gene branch length", labels = nn)
-    stat=cor.test(treeChar$edge.length, proj, method="s")
-    mtext(gene,side = 3, line=2, font=2)
-    mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
-
-    if(!is.null(tip.vals.ref)){
-      treeCharRef=edgeVars(tree, tip.vals.ref, useDiff=useDiff)
-      proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
+  iiboth=which(ss==length(both))
+  if (! usePaths){
+    allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
+    for ( i in 1:length(iiboth)){
+      # tmptree=rescaleTree(pruneTree(treesObj$trees[[iiboth[i]]], both))
+      tmptree=rescaleTree(drop.tip(treesObj$trees[[iiboth[i]]], torm))
+      #  show(c(length(tmptree$edge.lenght), ncol(allbranch)))
+      allbranch[i, ]=tmptree$edge.length
     }
+  }
+  else{
+    allbranch=treesObj$paths[iiboth,getEdgeIndex(tree1, treesObj$masterTree)]
+    #allbranch=scaleMat(allbranch)
+  }
+  #nv=projection(t(allbranch), method="AVE", returnNV = T)
+  nv=colMeans(allbranch)
+  nn=names(iiboth)
+  rownames(allbranch)=names(iiboth)
+  allbranch=resid(allbranch, model.matrix(~1+nv))
+  cc=cor(t(allbranch))
+  show(dim(cc))
+  show(length(nn))
+  ii=which(trees$inter[nn,nn]==length(both))
+  return(list(cc,ii))
+}
 
 
 
 
+mapEdge=function(tree1, tree2){
+  map=matchNodes(tree1,tree2, method = "descendant")
+  n=length(tree1$tip)
+  im=match(tree1$tip, tree2$tip)
+  map=rbind(map, cbind(1:n, im))
+  map=map[order(map[,1]),]
+  #show(n)
+  #show(map)
+  edge1remap=tree1$edge
+  #show(nrow(edge1remap))
+  #show(nrow(tree2$edge))
+
+  edge1remap[,1]=map[edge1remap[,1],2]
+  edge1remap[,2]=map[edge1remap[,2],2]
+  edge1remap
+
+}
+
+
+plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, useDiff=T, xlab){
+  #get the tree projection
+  tip.vals=tip.vals[!is.na(tip.vals)]
+
+  stopifnot(gene %in% names(treesObj$trees))
+  tree=treesObj$trees[[gene]]
+  stopifnot(!is.null(names(tip.vals)))
+  both=intersect(tree$tip.label, names(tip.vals))
+
+  stopifnot(length(both)>10)
+
+
+  torm=setdiff(treesObj$masterTree$tip.label, both)
+  tree=pruneTree(tree, both)
+  tip.vals=tip.vals[both]
+  allreport=treesObj$report[,both]
+  ss=rowSums(allreport)
+  iiboth=which(ss==length(both))
+
+
+  ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
+  ii= match(namePaths(ee,T), colnames(treesObj$paths))
+
+  allbranch=treesObj$paths[iiboth,ii]
+
+  allbranch=scaleMat(allbranch)
+  show(sum(is.na(allbranch)))
+  nv=projection(t(allbranch), method="AVE", returnNV = T)
+
+  proj=residfun(tree$edge.length, nv)
+  show(length(tree$edge.length))
+  treeChar=edgeVarsDiff(tree, tip.vals)
+  show(length(treeChar))
+  show(length(proj))
+  nn=nameEdges(tree)
+  nn[nn!=""]=speciesNames[nn[nn!=""], ]
+  #par(mfrow=c(2,2), mai=rep(0.7,4))
+  #plotWtext(sqrt(nv), sqrt(tree$edge.length), xlab="char", ylab="Gene branch length", labels = nn)
+
+  plotWtext(treeChar$edge.length, proj, xlab=xlab, ylab="relative gene branch length", labels = nn)
+  stat=cor.test(treeChar$edge.length, proj, method="s")
+  mtext(gene,side = 3, line=2, font=2)
+  mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
+
+  if(!is.null(tip.vals.ref)){
+    treeCharRef=edgeVars(tree, tip.vals.ref, useDiff=useDiff)
+    proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
   }
 
-  plotWtext=function(x,y, labels, text.cex=0.7, ...){plot(x,y, pch=19, col="#00008844", xlim=range(x)+c(0,0.7),...); textplot(x,y, words=labels, cex=text.cex)}
 
 
-  plotResidsVsChar=function(x,y, labels, text.cex=0.7, names=T,...){
-    ii=which(!is.na(x)&!is.na(y))
-    show(range(x[ii]))
-    nn=names(x)[ii]
-    nn=speciesNames[nn,1]
-    nn[is.na(nn)]=""
 
-    plot(x[ii], y[ii], col="#0000AAAA",xlab="RER", ...);
-    if(names)
-      textplot(x[ii],y[ii], words=nn, cex=text.cex,new = F)
+}
+
+plotWtext=function(x,y, labels, text.cex=0.7, ...){plot(x,y, pch=19, col="#00008844", xlim=range(x)+c(0,0.7),...); textplot(x,y, words=labels, cex=text.cex)}
+
+
+plotResidsVsChar=function(x,y, labels, text.cex=0.7, names=T,...){
+  ii=which(!is.na(x)&!is.na(y))
+  show(range(x[ii]))
+  nn=names(x)[ii]
+  nn=speciesNames[nn,1]
+  nn[is.na(nn)]=""
+
+  plot(x[ii], y[ii], col="#0000AAAA",xlab="RER", ...);
+  if(names)
+    textplot(x[ii],y[ii], words=nn, cex=text.cex,new = F)
+}
+
+
+#' Calculates Rho-signed negative log-base-ten p-value for use in enrichment functions
+
+#' @param res The output from RERconverge correlation functions (correlateWithContinuousPhenotype, correlateWithBinaryPhenotype, getAllCor)
+#' @return A dataframe of Rho-signed negative log-base-ten p-values for all genes, NAs removed
+#' @export
+
+getStat=function(res){
+  stat=sign(res$Rho)*(-log10(res$P))
+  names(stat)=rownames(res)
+  #deal with duplicated genes
+  genenames=sub("\\..*", "",names(stat))
+  multname=names(which(table(genenames)>1))
+  for(n in multname){
+    ii=which(genenames==n)
+    iimax=which(max(stat[ii])==max(abs(stat[ii])))
+    stat[ii[-iimax]]=NA
   }
+  sum(is.na(stat))
+  stat=stat[!is.na(stat)]
+
+  stat
+}
 
 
-  #' Calculates Rho-signed negative log-base-ten p-value for use in enrichment functions
 
-  #' @param res The output from RERconverge correlation functions (correlateWithContinuousPhenotype, correlateWithBinaryPhenotype, getAllCor)
-  #' @return A dataframe of Rho-signed negative log-base-ten p-values for all genes, NAs removed
-  #' @export
+varExplainedWithNA=function (dat, val, adjust=T)
+{
 
-  getStat=function(res){
-    stat=sign(res$Rho)*(-log10(res$P))
-    names(stat)=rownames(res)
-    #deal with duplicated genes
-    genenames=sub("\\..*", "",names(stat))
-    multname=names(which(table(genenames)>1))
-    for(n in multname){
-      ii=which(genenames==n)
-      iimax=which(max(stat[ii])==max(abs(stat[ii])))
-      stat[ii[-iimax]]=NA
-    }
-    sum(is.na(stat))
-    stat=stat[!is.na(stat)]
+  adje=vare=double(nrow(dat))
+  names(vare)=rownames(dat)
+  for(i in 1:nrow(dat)){
+    ii=which(!is.na(dat[i,])&!is.na(val))
+    if(length(ii)>10){
+      mod0 = cbind(rep(1, length(ii)))
+      mod=model.matrix(~1+val[ii])
+      n=length(ii)
 
-    stat
+      adj=(n-1)/(n-ncol(mod))
+
+      evince
+      resid = resid(dat[i,ii, drop=F], mod)
+      resid0 = resid(dat[i,ii,drop=F], mod0)
+      rss1 = resid^2 %*% rep(1, n)
+      rss0 = resid0^2 %*% rep(1, n)
+
+      vare[i]=1-rss1/rss0*adj
+      adje[i]=adj        }
   }
+  return(cbind(vare, adje))
+}
 
 
 
-  varExplainedWithNA=function (dat, val, adjust=T)
-  {
 
-    adje=vare=double(nrow(dat))
-    names(vare)=rownames(dat)
-    for(i in 1:nrow(dat)){
-      ii=which(!is.na(dat[i,])&!is.na(val))
-      if(length(ii)>10){
-        mod0 = cbind(rep(1, length(ii)))
-        mod=model.matrix(~1+val[ii])
-        n=length(ii)
 
-        adj=(n-1)/(n-ncol(mod))
 
-        evince
-        resid = resid(dat[i,ii, drop=F], mod)
-        resid0 = resid(dat[i,ii,drop=F], mod0)
-        rss1 = resid^2 %*% rep(1, n)
-        rss0 = resid0^2 %*% rep(1, n)
 
-        vare[i]=1-rss1/rss0*adj
-        adje[i]=adj        }
-    }
-    return(cbind(vare, adje))
+
+findJoining=function(matIndex, speciesIndex){
+  ss=colSums(matIndex[speciesIndex,])
+  ssi=which(ss==2)
+  ii=ssi[which(colSums(matIndex[ssi,ssi, drop=F])==0)]
+  res=matrix(nrow=length(ii), ncol=5)
+  count=0
+  for (i in ii){
+    tmpi=which(matIndex[speciesIndex,i]==1)
+    count=count+1
+    res[count,]=c(i, speciesIndex[tmpi],tmpi)
   }
-
-
-
-
-
-
-
-
-  findJoining=function(matIndex, speciesIndex){
+  res
+}
+findAllPaths=function(matIndex, speciesIndex, key.species=1, tri.node=NULL){
+  if(is.null(tri.node)){
+    tri.node=which(colSums(matIndex)%%2==1)
+  }
+  speciesIndex=speciesIndex[-which(speciesIndex==key.species)]
+  count=0
+  paths=matrix(ncol=2, nrow=0)
+  while(length(speciesIndex)>1 &&count<200){
+    count=count+1
     ss=colSums(matIndex[speciesIndex,])
-    ssi=which(ss==2)
-    ii=ssi[which(colSums(matIndex[ssi,ssi, drop=F])==0)]
-    res=matrix(nrow=length(ii), ncol=5)
-    count=0
-    for (i in ii){
-      tmpi=which(matIndex[speciesIndex,i]==1)
-      count=count+1
-      res[count,]=c(i, speciesIndex[tmpi],tmpi)
+    res=findJoining(matIndex, speciesIndex)
+    toRm=integer()
+    for ( i in 1:nrow(res)){
+      ti=speciesIndex[tmpti<-which(matIndex[speciesIndex, i]==1)]
+
+      paths=rbind(paths, c(res[i,1], res[i,2]))
+      paths=rbind(paths, c(res[i,1], res[i,3]))
     }
-    res
+    toRm=as.vector(res[, 4:5])
+    speciesIndex=speciesIndex[-toRm]
+    speciesIndex=c(speciesIndex, res[,1])
   }
-  findAllPaths=function(matIndex, speciesIndex, key.species=1, tri.node=NULL){
-    if(is.null(tri.node)){
-      tri.node=which(colSums(matIndex)%%2==1)
-    }
-    speciesIndex=speciesIndex[-which(speciesIndex==key.species)]
-    count=0
-    paths=matrix(ncol=2, nrow=0)
-    while(length(speciesIndex)>1 &&count<200){
-      count=count+1
-      ss=colSums(matIndex[speciesIndex,])
-      res=findJoining(matIndex, speciesIndex)
-      toRm=integer()
-      for ( i in 1:nrow(res)){
-        ti=speciesIndex[tmpti<-which(matIndex[speciesIndex, i]==1)]
+  paths=rbind(paths, c(tri.node, key.species))
+  paths
+}
 
-        paths=rbind(paths, c(res[i,1], res[i,2]))
-        paths=rbind(paths, c(res[i,1], res[i,3]))
-      }
-      toRm=as.vector(res[, 4:5])
-      speciesIndex=speciesIndex[-toRm]
-      speciesIndex=c(speciesIndex, res[,1])
-    }
-    paths=rbind(paths, c(tri.node, key.species))
-    paths
+getBranch=function(treesObj, speciesIndex,key.species=1, tri.node=NULL){
+  res=findAllPaths(treesObj$matAnc, speciesIndex)
+  ii=which(rowSums(treesObj$report[,speciesIndex])>=length(speciesIndex))
+  allBranch=treesObj$paths[ii,treesObj$matIndex[res[,c(2:1)]]]
+
+}
+
+
+
+
+
+
+
+
+
+getAncestor=function(tree, nodeN){
+  if(is.character(nodeN)){
+    nodeN=which(tree$tip.label==nodeN)
   }
-
-  getBranch=function(treesObj, speciesIndex,key.species=1, tri.node=NULL){
-    res=findAllPaths(treesObj$matAnc, speciesIndex)
-    ii=which(rowSums(treesObj$report[,speciesIndex])>=length(speciesIndex))
-    allBranch=treesObj$paths[ii,treesObj$matIndex[res[,c(2:1)]]]
-
-  }
-
-
-
-
-
-
-
-
-
-  getAncestor=function(tree, nodeN){
-    if(is.character(nodeN)){
-      nodeN=which(tree$tip.label==nodeN)
-    }
-    im=which(tree$edge[,2]==nodeN)
-    return(tree$edge[im,1])
-  }
+  im=which(tree$edge[,2]==nodeN)
+  return(tree$edge[im,1])
+}
 
 
 

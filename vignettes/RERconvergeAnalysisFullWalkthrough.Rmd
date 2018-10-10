@@ -345,10 +345,10 @@ Finally, we can perform our ultimate analysis to find correlations between the r
 This function uses the following input variables (all the options set here are also the defaults):
 
 * `min.sp`: the minimum number of species in the gene tree for that gene to be included in the analysis. The default is 10, but you may wish to modify it depending upon the number of species in your master tree.
-* `winsorize`: pulls the outermost three (or whatever number you set) points in all four directions to the center of the data before calculating correlations to mitigate the effects of outlier points.
+* `winsorizeRER`/`winsorizetrait`: pulls the outermost three (or whatever number you set) points in all directions to the center of the data before calculating correlations to mitigate the effects of outlier points.
 
 ```{r}
-res=correlateWithContinuousPhenotype(mamRERw, charpaths, min.sp = 10, winsorize = 3)
+res=correlateWithContinuousPhenotype(mamRERw, charpaths, min.sp = 10, winsorizeRER = 3, winsorizetrait = 3)
 head(res[order(res$P),])
 ```
 
