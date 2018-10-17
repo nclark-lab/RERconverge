@@ -3,10 +3,10 @@ title: "RERconverge Analysis Walkthrough"
 bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     css: custom.css
+    toc: yes
+  pdf_document:
     toc: yes
 authors: Amanda Kowalczyk and Wynn Meyer
 ---
