@@ -1,19 +1,24 @@
 ---
-title: "SUPPLEMENTARY INFORMATION/nRERconverge: an R package for associating evolutionary rates with convergent traits"
+title:  | 
+  | SUPPLEMENTARY INFORMATION 
+  | RERconverge: an R package for associating evolutionary rates with convergent traits 
 bibliography: RERConverge.bib
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   pdf_document:
     toc: yes
   html_document:
     css: custom.css
     toc: yes
-authors: Amanda Kowalczyk, Wynn K Meyer, Raghavendran Partha, Weiguang Mau, Nathan L Clark, and Maria Chikina
+authors: Amanda Kowalczyk, Wynn K Meyer, Raghavendran Partha, Weiguang Mao, Nathan
+  L Clark, and Maria Chikina
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+\newpage
 
 <!-- Remaining troubleshooting/cleaning up: 
 - Reduce figure size and margins. 
@@ -51,7 +56,7 @@ When choosing a dataset to work with, consider the availability and accuracy of 
   
 For a more detailed description of data formatting requirements and examples, please see the relevant sections of the walkthrough.
 
-# Detailed Walkthrough
+# Analysis Walkthrough
 
 ## Installing and loading RERconverge
 
@@ -142,7 +147,7 @@ The left plot is a tree with branch lengths representing the average rates acros
 ```{r fig2, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
 #plot RERs
 par(mfrow=c(1,1))
-phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees)
+phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
 plotRers(mamRERw,"BEND3",phenv=phenvExample) #plot RERs
 ```
 
@@ -184,7 +189,8 @@ We can visualize how several possible choices influence the output binary phenot
 
 ```{r fig4, fig.height=8,fig.width=10, cache = TRUE}
 marineextantforeground = c("Walrus","Seal","Killer_whale","Dolphin","Manatee")
-marineb2a = foreground2Tree(marineextantforeground, toyTrees, clade="ancestral", useSpecies=names(logAdultWeightcm))
+marineb2a = foreground2Tree(marineextantforeground, toyTrees, clade="ancestral",
+                            useSpecies=names(logAdultWeightcm))
 ```
 
 Here the branch leading to the common ancestor of killer whale and dolphin, as well as the branch leading to the common ancestor of walrus and seal, are foreground, along with the terminal branch leading to the manatee.
@@ -192,7 +198,8 @@ Here the branch leading to the common ancestor of killer whale and dolphin, as w
 2b) `clade = "terminal"`: Set only terminal lineages leading to foreground species as foreground.
 
 ```{r fig5, fig.height=8,fig.width=10, cache = TRUE}
-marineb2b = foreground2Tree(marineextantforeground, toyTrees, clade="terminal", useSpecies=names(logAdultWeightcm))
+marineb2b = foreground2Tree(marineextantforeground, toyTrees, clade="terminal",
+                            useSpecies=names(logAdultWeightcm))
 ```
 
 Here the each terminal branch leading to a marine species is foreground, but no internal branches are foreground.
@@ -200,7 +207,8 @@ Here the each terminal branch leading to a marine species is foreground, but no 
 2c) `clade = "all"`: Use maximum parsimony to infer where transitions from background to foreground occurred in the tree, and set those transition lineages, along with all daughter lineages, to foreground.
 
 ```{r fig6, fig.height=8,fig.width=10, cache = TRUE}
-marineb2c = foreground2Tree(marineextantforeground, toyTrees, clade="all", useSpecies=names(logAdultWeightcm))
+marineb2c = foreground2Tree(marineextantforeground, toyTrees, clade="all",
+                            useSpecies=names(logAdultWeightcm))
 ```
 
 Here the foreground branches are all those inferred to be transitional from 2a, as well as the terminal branches. If we had a case in which some branches daughter to the transition branches were not terminal, those would be included in the foreground as well.
@@ -208,7 +216,8 @@ Here the foreground branches are all those inferred to be transitional from 2a, 
 2d) `clade = "all"` and `weighted = TRUE`: Infer transition and daughter branches as in 2c, but spread a weight of 1 evenly across all branches within each independent foreground clade.
 
 ```{r fig7, fig.height=8,fig.width=10, cache = TRUE}
-marineb2d = foreground2Tree(marineextantforeground, toyTrees, clade="all", weighted = TRUE useSpecies=names(logAdultWeightcm))
+marineb2d = foreground2Tree(marineextantforeground, toyTrees, clade="all", weighted = TRUE,
+                            useSpecies=names(logAdultWeightcm))
 ```
 
 Here all branches in the cetacean and pinniped clades have length 1/3, whereas the terminal branch leading to the manatee has length 1. This is a way of distributing the weight given to each independent convergence event evenly across clades, rather than across lineages.
@@ -217,13 +226,13 @@ If you plot all the resulting trees, you can see how the different choices for `
 
 ```{r fig8, fig.height=8,fig.width=10, cache = TRUE}
 par(mfrow=c(2,2))
-plot(marineb2a,main="ancestral")
-plot(marineb2b,main="terminal")
-plot(marineb2c,main="all unweighted", x.lim=c(0,2.5))
+plot(marineb2a,cex=0.6,main="ancestral")
+plot(marineb2b,cex=0.6,main="terminal")
+plot(marineb2c,cex=0.6,main="all unweighted", x.lim=c(0,2.5))
 labs2c = round(marineb2c$edge.length,3)
 labs2c[labs2c==0] = NA
 edgelabels(labs2c, col = 'black', bg = 'transparent', adj = c(0.5,-0.5),cex = 0.4,frame='n')
-plot(marineb2d,main="all weighted", x.lim=c(0,2.5))
+plot(marineb2d,cex=0.6,main="all weighted", x.lim=c(0,2.5))
 labs2d = round(marineb2d$edge.length,3)
 labs2d[labs2d==0] = NA
 edgelabels(labs2d, col = 'black', bg = 'transparent', adj = c(0.5,-0.5),cex = 0.4,frame='n')
@@ -240,7 +249,7 @@ Note that, in this tree, the branch representing the ancestor of the killer whal
 <!-- Determine whether to include the following. It is based on the implementation
  of the interactive tool to select foreground branches. -->
 
-3) Use the interactive branch selection tool (not currently a part of the main RERconverge package; email the developers if you wish to use it). *If you have it installed*, the following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
+3) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
 
 ```{r, eval = FALSE}
 marineb3=click_select_foreground_branches(toyTrees$masterTree)
@@ -251,8 +260,9 @@ marineb3=click_select_foreground_branches(toyTrees$masterTree)
 You can double check that the tree you created by manual selection (3) matches the binary tree you provided in (1) (it should) using the following code: 
 
 ```{r, eval = FALSE}
-#marineb3=click_select_foreground_branches(toyTrees$masterTree)
 marineb3rooted=root(marineb3,outgroup=c("Platypus", "Wallaby","Tasmanian_devil","Opossum"))
+par(mfrow=c(1,2))
+plot(marinebrooted, main = "Provided binary tree (1)")
 plot(marineb3rooted, main = "Trait tree from manual selection (3)")
 ```
 
@@ -267,8 +277,8 @@ have the same topology as the **master tree** or a subset of the **master tree**
 
 ```{r, cache = TRUE}
 phenvMarine=tree2Paths(marineb, toyTrees)
-#phenvMarine2=foreground2Paths(marineextantforeground, toyTrees, clade="all")
-phenvMarine2=tree2Paths(marineb2b, toyTrees)
+phenvMarine2=foreground2Paths(marineextantforeground, toyTrees, clade="all")
+phenvMarine2b=tree2Paths(marineb2b, toyTrees)
 ```
 
 ## Correlating gene evolution with binary trait evolution using `correlateWithBinaryPhenotype`
@@ -282,7 +292,8 @@ This uses the following input variables (all the options set here are also the d
 * `weighted`: whether to perform a weighted correlation where branch lengths represent weights. This can be used with the `weighted=TRUE` option in `foreground2Tree` or `foreground2Paths` to distribute phenotype weights across multiple lineages in a clade. The default is "auto", which will use weighted correlation if any branch lengths are between 0 and 1, and will use standard correlation otherwise.
 
 ```{r, warning = FALSE, cache = TRUE}
-corMarine=correlateWithBinaryPhenotype(mamRERw, phenvMarine, min.sp=10, min.pos=2, weighted="auto")
+corMarine=correlateWithBinaryPhenotype(mamRERw, phenvMarine, min.sp=10, min.pos=2,
+                                       weighted="auto")
 ```
 
 The text displayed shows which correlation method is used to test for association. Here it uses the default for binary traits: the Kendall rank correlation coefficient, or Tau. 
@@ -353,10 +364,11 @@ Finally, we can perform our ultimate analysis to find correlations between the r
 This function uses the following input variables (all the options set here are also the defaults):
 
 * `min.sp`: the minimum number of species in the gene tree for that gene to be included in the analysis. The default is 10, but you may wish to modify it depending upon the number of species in your master tree.
-* `winsorize`: pulls the outermost three (or whatever number you set) points in all four directions to the center of the data before calculating correlations to mitigate the effects of outlier points.
+* `winsorizeRER`/`winsorizetrait`: pulls the outermost three (or whatever number you set) points in all directions to the center of the data before calculating correlations to mitigate the effects of outlier points.
 
 ```{r}
-res=correlateWithContinuousPhenotype(mamRERw, charpaths, min.sp = 10, winsorize = 3)
+res=correlateWithContinuousPhenotype(mamRERw, charpaths, min.sp = 10, 
+                                     winsorizeRER = 3, winsorizetrait = 3)
 head(res[order(res$P),])
 ```
 
@@ -374,7 +386,9 @@ x=charpaths
 y=mamRERw['TTN',]
 pathnames=namePathsWSpecies(toyTrees$masterTree) 
 names(y)=pathnames
-plot(x,y, cex.axis=1, cex.lab=1, cex.main=1, xlab="Weight Change", ylab="Evolutionary Rate", main="Gene ADSS Pearson Correlation",pch=19, cex=1, xlim=c(-2,2))
+plot(x,y, cex.axis=1, cex.lab=1, cex.main=1, xlab="Weight Change", 
+     ylab="Evolutionary Rate", main="Gene ADSS Pearson Correlation",
+     pch=19, cex=1, xlim=c(-2,2))
 text(x,y, labels=names(y), pos=4)
 abline(lm(y~x), col='red',lwd=3)
 ```
@@ -384,12 +398,81 @@ In this case, we see that the positive correlation is driven by all species and 
   
 Further analyses could include using functional enrichment detection methods to find functionally-related genomic elements that are experiencing convergent evolutionary rates as a group and using branch-site models to determine if fast-evolving genes are experiencing relaxation of constraint or undergoing directional selection.
 
+This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).  A detailed walkthrough to produce the data used for this example is provided in the [full walkthrough vignette](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html).
 
-## Conclusion
+# Enrichment Walkthrough
+
+This document describes how to run pathway enrichment analysis using RERconverge output and functions included with the RERconverge package.  Enrichment analysis detects groups of genes that are evolving faster or slower with a phenotype of interest.  In the RERconverge package, the enrichment function is implemented as a Wilcoxon Rank-Sum Test on a list of genes ranked based on their correlation statistics.  It detects distribution shifts in groups of genes compared to all genes, and it thereby bypasses the need to set a foreground significance cutoff like some other enrichment methods. 
+ 
+**Input** to the enrichment function is the output from RERconverge correlation functions and pathways of interest with gene symbols (gene names). 
+ 
+**Output** is enrichment statistics for each pathway, including genes in the pathways and their ranks.
+
+## Extract Results from RERconverge Correlation Analysis
+
+Enrichment analysis starts with the results from the *correlateWithContinuousPhenotype*, *correlateWithBinaryPhenotype*, or *getAllCor* functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  These statistics are used to calculate enrichments. 
+ 
+In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
+
+```{r results='hide', message = FALSE, warning = FALSE, cache=T}
+library(RERconverge)
+data("RERresults")
+```
+
+## Deriving a ranked gene list
+
+We will perform our enrichment on Rho-signed negative log p-values from our correlation results.  The *getStat* function converts our correlation results to these values and removes NA values.
+
+```{r cache=T}
+library(RERconverge)
+stats=getStat(res)
+```
+
+## Import Pathway Annotations
+
+Now that we have our gene statistics, we need pathway annotations.  Download all curated gene sets, gene symbols (c2.all.v6.2.symbols.gmt) from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt.  You must register for an account prior to downloading.  The rest of the vignette expects "gmtfile.gmt" to be in the current working directory. 
+ 
+With the file in the appropriate place, simply use the *read.gmt* function to read in the annotation data.
+
+```{r results='hide', message = FALSE, warning = FALSE, cache=T}
+annots=read.gmt("gmtfile.gmt")
+```
+
+
+## Format Pathway Annotations
+
+RERconverge enrichment functions expect pathways to be in named pathway-group lists contained within a list.   A pathway-group is a group of similar pathways stored together (for example KEGG pathways might be one pathway-group and MGI pathways might be another pathway-group).  Each pathway-group list contains a named list called *genesets* with each element of the list a list of gene names in a particular pathway, and the names of the elements the names of the pathways.  The names of the genesets are also contained as a character vector in the second element of the pathway-group list named *geneset.names*.  As an example of correctly-formatted annotations, you would have a list called *annotations* that contains another list called *canonicalpathways*.  The *canonicalpathways* list contains a list named *genesets* and a vector named *geneset.names*.  Each element of the *genesets* list is a list of gene names corresponding to a particular pathways, and the names of the elements in *genesets* are the names of the pathways.  The *geneset.names* vector contains the names of the elements in *genesets*. 
+ 
+To convert our gmt file to the correct format, we simply need to put it inside another list; the *read.gmt* function automatically reads in gmt files in the format described above.
+
+
+```{r cache=T}
+annotlist=list(annots)
+names(annotlist)="MSigDBpathways"
+```
+
+## Calculate Enrichment Using *fastwilcoxGMTAll*
+
+We can now use *annotlist* and *stats* to calculate pathway enrichment.  We will use the function *fastwilcoxGMTAll*, which calculates the estimated Wilcoxon Rank-Sum statistics based on the ranks of the genes in *stats*.  The test essentially measures the distribution shift in ranks of genes of interest (each pathway) compared to the background rank distribution (ranks of all other genes included in the pathway-group annotations that are not part of the pathway of interest).  We set *outputGeneVals* to true so the function returns names of the genes in the pathway and their ranks.  *num.g* specifies the minimum number of genes required to be present to run the enrichment (10 by default).
+
+```{r cache=T}
+enrichment=fastwilcoxGMTall(stats, annotlist, outputGeneVals=T, num.g=10)
+```
+Note that these results contain statistics for all pathways with the minimum number of genes specified. Very few pathways have a sufficient number of genes because we only calculated correlation statistics for 200 total genes. 
+
+## Further Analysis and Visualization
+
+You may visualize your pathway results in a variety of ways, including using **PathView** to overlay correlation colors on KEGG pathways and **igraph** to make pathway networks based on gene similarity among networks. 
+  
+You may also calculate permutation p-values based on permuting the phenotype vector and rerunning the correlation and enrichment analyses many times to filter pathways that always tend to have significant enrichment values regardless of the phenotype input.
+
+
+# Conclusion
 
 We've now walked through the basic workflow for RERConverge. For more information about these methods and some results relevant to marine and subterranean adaptation, see [@Chikina2016] and [@Partha2017].
 
 
 # References
+
 
 

@@ -142,7 +142,7 @@ The left plot is a tree with branch lengths representing the average rates acros
 ```{r fig2, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
 #plot RERs
 par(mfrow=c(1,1))
-phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees)
+phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
 plotRers(mamRERw,"BEND3",phenv=phenvExample) #plot RERs
 ```
 
@@ -208,7 +208,7 @@ Here the foreground branches are all those inferred to be transitional from 2a, 
 2d) `clade = "all"` and `weighted = TRUE`: Infer transition and daughter branches as in 2c, but spread a weight of 1 evenly across all branches within each independent foreground clade.
 
 ```{r fig7, fig.height=8,fig.width=10, cache = TRUE}
-marineb2d = foreground2Tree(marineextantforeground, toyTrees, clade="all", weighted = TRUE useSpecies=names(logAdultWeightcm))
+marineb2d = foreground2Tree(marineextantforeground, toyTrees, clade="all", weighted = TRUE, useSpecies=names(logAdultWeightcm))
 ```
 
 Here all branches in the cetacean and pinniped clades have length 1/3, whereas the terminal branch leading to the manatee has length 1. This is a way of distributing the weight given to each independent convergence event evenly across clades, rather than across lineages.
