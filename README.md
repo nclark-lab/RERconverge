@@ -28,7 +28,7 @@ For a *continuous trait analysis*, this should be:
 ### Output
 
 Running RERconverge will produce the following outputs:
-1) an object containing, for each gene, the correlation between its relative evolutionary rate and the trait of interest, along with the estimateed p-value
+1) an object containing, for each gene, the correlation between its relative evolutionary rate and the trait of interest, along with the estimated p-value and FDR
 2) an object containing, for each gene, its relative evolutionary rate for each branch of the phylogeny, which can be used in the included visualization scripts (e.g., to illustrate the difference in relative evolutionary rate between foreground and background branches)
 
 
