@@ -16,10 +16,12 @@ To run an analysis you will need:
 Tree topologies must be the same for all genes, and at least one tree must contain all species in the dataset.
 We provide trees files for several clades [here](bit.ly/2J2QBnj).
 
-2) information about phenotypes for species included in the dataset.
+2) information about phenotypes for species included in the dataset. 
+ 
 For a *binary trait analysis*, this can either be in the form of:
 * a vector (in R) of species to include in the foreground.
 * a tree object (made in R from a Newick tree) where branches are non-zero only for foreground lineages.
+* a tree topology and phenotype information to use for interactive foreground selection
 
 For a *continuous trait analysis*, this should be:
 * a named vector (in R) of quantitative phenotype values, where the names represent the species to which the phenotypes correspond.
