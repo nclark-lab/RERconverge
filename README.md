@@ -22,7 +22,7 @@ For a *binary trait analysis*, this can either be in the form of:
     * a tree object (made in R from a Newick tree) where branches are non-zero only for foreground lineages.
 
 For a *continuous trait analysis*, this should be:
-    * a named vector (in R) of quantitative phenotype values, where the names represent the species to which the phenotypes correspond.
+   * a named vector (in R) of quantitative phenotype values, where the names represent the species to which the phenotypes correspond.
 
 
 ### Output
