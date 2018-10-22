@@ -1,10 +1,10 @@
-# RERConverge
+# RERconverge
 
-RERConverge is a set of software written in R that estimates the correlation between relative evolutionary rates of genes and the evolution of a convergent binary or continuous trait across a phylogeny.
+RERconverge is a set of software written in R that estimates the correlation between relative evolutionary rates of genes and the evolution of a convergent binary or continuous trait across a phylogeny.
 
 ## Getting Started
 
-Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for detailed instructions to **install** RERConverge from scratch. For more information on running RERConverge, please see the full documentation ***(Link to R documentation)*** and R vignettes. ***(Link to R vignettes)***
+Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for detailed instructions to **install** RERconverge from scratch. For more information on running RERconverge, please see the full documentation ***(Link to R documentation)*** and R vignettes. ***(Link to R vignettes)***
 
 ### Quick Start
 ```
@@ -28,7 +28,7 @@ For a *continuous trait analysis*, this should be:
 
 ### Output
 
-Running RERConverge will produce the following outputs:
+Running RERconverge will produce the following outputs:
 1) an object containing, for each gene, the correlation between its relative evolutionary rate and the trait of interest, along with the estimateed p-value
 2) an object containing, for each gene, its relative evolutionary rate for each branch of the phylogeny, which can be used in the included visualization scripts (e.g., to illustrate the difference in relative evolutionary rate between foreground and background branches)
 
@@ -46,7 +46,7 @@ See also the list of [contributors](https://github.com/nclark-lab/RERconverge/co
 
 ## Citation
 
-RERConverge can be cited as follows:
+RERconverge can be cited as follows:
 
 ```
 For coding sequences:
