@@ -772,7 +772,7 @@ foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral"
 #' of the strings "ancestral", "terminal", "all".
 #' @param transition A character string indicating whether transitions between background and foreground branches
 #' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
-#' @param weighted if set to TRUE weights foreground edges belonging to the same clade such that their branch lengths sum upto 1 (only done for clade options "all" and "terminal").
+#' @param weighted if set to TRUE weights foreground edges belonging to the same clade such that their branch lengths sum up to 1 (only done for clade options "all" and "terminal").
 #' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A tree with edge.lengths representing phenotypic states
