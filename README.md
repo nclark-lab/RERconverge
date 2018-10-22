@@ -4,7 +4,7 @@ RERconverge is a set of software written in R that estimates the correlation bet
 
 ## Getting Started
 
-Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for detailed instructions to **install** RERconverge from scratch. For more information on running RERconverge, please see the full documentation ***(Link to R documentation)*** and [R vignettes](https://github.com/nclark-lab/RERconverge/wiki/Vignettes).
+Please refer to the [wiki](https://github.com/nclark-lab/RERconverge/wiki/Getting-Started) for detailed instructions to **install** RERconverge from scratch. For more information on running RERconverge, please see the [full documentation] (https://github.com/nclark-lab/RERconverge/blob/master/RERconverge-master.pdf) and [R vignettes](https://github.com/nclark-lab/RERconverge/wiki/Vignettes).
 
 ### Quick Start
 ```
