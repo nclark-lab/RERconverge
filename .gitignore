@@ -12,6 +12,5 @@ RERconverge.Rproj
 vignettes/*/*/*chunk*
 *.o
 *.so
-*.pdf
 .DS_Store
 */.DS_Store
