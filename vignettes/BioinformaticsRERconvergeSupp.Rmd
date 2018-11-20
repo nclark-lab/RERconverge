@@ -471,6 +471,13 @@ You may also calculate permutation p-values based on permuting the phenotype vec
 
 We've now walked through the basic workflow for RERConverge. For more information about these methods and some results relevant to marine and subterranean adaptation, see [@Chikina2016] and [@Partha2017].
 
+# Case Study
+
+We demonstrate the features of RERconverge using gene trees derived from the coding sequences of 19,149 genes for 62 mammal species, along with foreground branches that represent lineages of the mammalian phylogeny whose members live predominantly in marine aquatic environments ([@Chikina2016]; [@Meyer2018]; [@ParthaRobustRER]). For this dataset, RERconverge ran in 1 hour and 18 minutes on RStudio with R version 3.3.0 installed on a computer running Windows 10 with 16 GB of RAM and an Intel Core i7-6500U 2.50GHz CPU. Top categories of functional enrichment included olfactory transduction (FDR=7.2e-90), GPCR signaling (FDR=1.4e-38), and immune functions (FDR=5.4e-7), as in Chikina et al., 2016 [@Benjamini1995].  We show the RERconverge workflow and visualization of RERs for a top olfactory receptor, OR9Q2, in Figure 1.
+
+# RER Computation Details
+
+Using a combination of statistical approaches including data transformation and weighted linear regression, RERconverge provides estimates of relative evolutionary rates that are robust to several factors introducing outliers in the dataset, such as the presence of distantly related species in the phylogeny [@ParthaRobustRER]. To accelerate the computations underlying RER calculations, key functions are written in C++ and integrated with the R code through the Rcpp package [@Rcpp].
 
 # References
 
