@@ -346,6 +346,13 @@ We must convert the trait vector to paths comparable to the paths in the RER mat
 
 <!-- The following chunk prevents knitting, although it runs fine on its own. When knitting, it produces the following error (despite char2Paths being set to export and listed in NAMESPACE):
 Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
+```{r chunk_name, include=FALSE}
+#Modify this for a local machine
+repopath = '~/Documents/GitHub/RERConverge'
+if (!exists("char2Paths",mode="function")) {
+  source(paste(repopath,"/R/RERfuncs.R",sep=""))
+}
+```
 
 ```{r}
 charpaths=char2Paths(logAdultWeightcm, toyTrees)
