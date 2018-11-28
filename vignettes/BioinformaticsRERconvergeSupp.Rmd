@@ -315,7 +315,7 @@ Let's take a look at some of the top genes within this set.
 head(corMarine[order(corMarine$P),])
 ```
 
-ANO2 and BMP10 are two of the top genes.
+*ANO2* and *BMP10* are two of the top genes.
 ```{r fig10, fig.height=9, fig.width=10, warning = FALSE, cache = TRUE}
 plotRers(mamRERw,"ANO2",phenv=phenvMarine) 
 plotRers(mamRERw,"BMP10",phenv=phenvMarine) 
@@ -323,7 +323,7 @@ plotRers(mamRERw,"BMP10",phenv=phenvMarine)
 
 In these RER plots, the marine lineages specified in the foreground are highlighted in red. The terminal branches are listed in alphabetical order, and internal branches are displayed at the bottom; note the red point at the bottom of each plot indicating the RER for killer whale-dolphin ancestral branch.
 
-In the ANO2 tree, marine lineages have high RER, leading to a positive Rho and a low p-value. In contrast, in the BMP10 tree, marine lineages have low RER. This also yields a low p-value, but with a negative Rho.
+In the *ANO2* tree, marine lineages have high RER, leading to a positive Rho and a low p-value. In contrast, in the *BMP10* tree, marine lineages have low RER. This also yields a low p-value, but with a negative Rho.
 
 To see what the overall pattern of association is across all genes in the set, we can plot a p-value histogram.
 ```{r fig11, fig.height=5, fig.width=10}
@@ -343,7 +343,11 @@ head(logAdultWeightcm)
 
 
 We must convert the trait vector to paths comparable to the paths in the RER matrix.  To do that, we can use the function 'char2Paths' as shown here:
-
+```{r, include=FALSE}
+#This is a workaround for the subsequent knitting issue. Please do not delete.
+repopath = '~/repos/RERconverge' #replace with your local installation.
+source(paste(repopath,'/R/RERfuncs.R',sep=''))
+```
 <!-- The following chunk prevents knitting, although it runs fine on its own. When knitting, it produces the following error (despite char2Paths being set to export and listed in NAMESPACE):
 Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
 
@@ -473,7 +477,7 @@ We've now walked through the basic workflow for RERConverge. For more informatio
 
 # Case Study
 
-We demonstrate the features of RERconverge using gene trees derived from the coding sequences of 19,149 genes for 62 mammal species, along with foreground branches that represent lineages of the mammalian phylogeny whose members live predominantly in marine aquatic environments ([@Chikina2016]; [@Meyer2018]; [@ParthaRobustRER]). For this dataset, RERconverge ran in 1 hour and 18 minutes on RStudio with R version 3.3.0 installed on a computer running Windows 10 with 16 GB of RAM and an Intel Core i7-6500U 2.50GHz CPU. Top categories of functional enrichment included olfactory transduction (FDR=7.2e-90), GPCR signaling (FDR=1.4e-38), and immune functions (FDR=5.4e-7), as in Chikina et al., 2016 [@Benjamini1995].  We show the RERconverge workflow and visualization of RERs for a top olfactory receptor, OR9Q2, in Figure 1.
+We demonstrate the features of RERconverge using gene trees derived from the coding sequences of 19,149 genes for 62 mammal species, along with foreground branches that represent lineages of the mammalian phylogeny whose members live predominantly in marine aquatic environments [@Chikina2016; @Meyer2018; @ParthaRobustRER]. For this dataset, RERconverge ran in 1 hour and 18 minutes on RStudio with R version 3.3.0 installed on a computer running Windows 10 with 16 GB of RAM and an Intel Core i7-6500U 2.50GHz CPU. Top categories of functional enrichment included olfactory transduction (FDR=7.2e-90), GPCR signaling (FDR=1.4e-38), and immune functions (FDR=5.4e-7), as in Chikina et al., 2016 [@Benjamini1995].  We show the RERconverge workflow and visualization of RERs for a top olfactory receptor, *OR9Q2*, in Figure 1.
 
 # References
 
