@@ -477,7 +477,7 @@ We've now walked through the basic workflow for RERConverge. For more informatio
 
 # Case Study
 
-We demonstrate the features of RERconverge using gene trees derived from the coding sequences of 19,149 genes for 62 mammal species, along with foreground branches that represent lineages of the mammalian phylogeny whose members live predominantly in marine aquatic environments [@Chikina2016; @Meyer2018; @ParthaRobustRER]. For this dataset, RERconverge ran in 1 hour and 18 minutes on RStudio with R version 3.3.0 installed on a computer running Windows 10 with 16 GB of RAM and an Intel Core i7-6500U 2.50GHz CPU. Top categories of functional enrichment included olfactory transduction (FDR=10e-10), GPCR signaling (FDR<10e-10), and immune functions (FDR=5.4e-7), as in Chikina et al., 2016 [@Benjamini1995].  We show the RERconverge workflow and visualization of RERs for a top olfactory receptor, *OR9Q2*, in Figure 1.
+We demonstrate the features of RERconverge using gene trees derived from the coding sequences of 19,149 genes for 62 mammal species, along with foreground branches that represent lineages of the mammalian phylogeny whose members live predominantly in marine aquatic environments [@Chikina2016; @Meyer2018; @ParthaRobustRER]. For this dataset, RERconverge ran in 1 hour and 18 minutes on RStudio with R version 3.3.0 installed on a computer running Windows 10 with 16 GB of RAM and an Intel Core i7-6500U 2.50GHz CPU. Top categories of functional enrichment included olfactory transduction (FDR<10e-10), GPCR signaling (FDR<10e-10), and immune functions (FDR=5.4e-7), as in Chikina et al., 2016 [@Benjamini1995].  We show the RERconverge workflow and visualization of RERs for a top olfactory receptor, *OR9Q2*, in Figure 1.
 
 # References
 
