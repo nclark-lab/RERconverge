@@ -493,11 +493,13 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
         indstouse=which(!is.na(x) & !is.na(charP))
         if(!is.null(winsorizeRER)){
           x=win(x[indstouse], winsorizeRER)
+        }else{
+          x=x[indstouse]
         }
         if(!is.null(winsorizetrait)){
           y=win(charP[indstouse], winsorizetrait)
         }else{
-          y=charP
+          y=charP[indstouse]
         }
 
         cres=cor.test(x, y, method=method, exact=F)
