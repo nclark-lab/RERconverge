@@ -22,21 +22,26 @@ require(weights)
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
 
 #' @param file The path to the tree file
-#' @param  max.read this function takes a while for  a whole genome so max.read is useful for testing
+#' @param  max.read This function takes a while for a whole genome, so max.read is useful for testing
+#' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA){
+readTrees=function(file, max.read=NA, masterTree=NULL){
   tmp=scan(file, sep="\t", what="character")
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   treenames=character()
   maxsp=0; # maximum number of species
-
+  #create trees object, get species names and max number of species
   for ( i in 1:min(length(tmp),max.read*2, na.rm = T)){
     if (i %% 2==1){
       treenames=c(treenames, tmp[i])
     }
     else{
       trees[[i/2]]=unroot(read.tree(text=tmp[i]))
+      #reduce to species present in master tree
+      if (!is.null(masterTree)) {
+        trees[[i/2]] = pruneTree(trees[[i/2]],intersect(trees[[i/2]]$tip.label,masterTree$tip.label))
+      }
       #check if it has more species
       if(length(trees[[i/2]]$tip.label)>maxsp){
         maxsp=length(trees[[i/2]]$tip.label)
@@ -69,9 +74,16 @@ readTrees=function(file, max.read=NA){
   ii=which(rowSums(report)==maxsp)
 
   #Create a master tree with no edge lengths
-  master=trees[[ii[1]]]
-  master$edge.length[]=1
-  treesObj$masterTree=master
+  if (is.null(masterTree)) {
+    master=trees[[ii[1]]]
+    master$edge.length[]=1
+    treesObj$masterTree=master
+  } else {
+    master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
+    #prune tree to just the species names in the largest gene tree
+    master$edge.length[]=1
+    treesObj$masterTree=master
+  }
 
 
 
@@ -98,7 +110,9 @@ readTrees=function(file, max.read=NA){
 
   paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
   for( i in 1:treesObj$numTrees){
-    paths[i,]=allPathMasterRelative(treesObj$trees[[i]], master, ap)
+    #Make paths all NA if tree topology is discordant
+    paths[i,]=tryCatch(allPathMasterRelative(treesObj$trees[[i]], master, ap), error=function(err) NA)
+                       #calls matchAllNodes -> matchNodesInject
   }
   paths=paths+min(paths[paths>0], na.rm=T)
   treesObj$paths=paths
@@ -106,7 +120,9 @@ readTrees=function(file, max.read=NA){
   treesObj$matIndex=ap$matIndex
   treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
 
-  ii=which(rowSums(report)==maxsp)
+  #require all species and tree compatibility
+  #ii=which(rowSums(report)==maxsp)
+  ii=which(rowSums(report)==maxsp && which(is.na(paths[,1]))==FALSE)
   if(length(ii)>20){
     message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
     tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
