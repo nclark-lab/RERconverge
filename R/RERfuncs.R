@@ -79,7 +79,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL){
     master$edge.length[]=1
     treesObj$masterTree=master
   } else {
-    master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
+    master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
     #prune tree to just the species names in the largest gene tree
     master$edge.length[]=1
     treesObj$masterTree=master
@@ -111,8 +111,12 @@ readTrees=function(file, max.read=NA, masterTree=NULL){
   paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
   for( i in 1:treesObj$numTrees){
     #Make paths all NA if tree topology is discordant
-    paths[i,]=tryCatch(allPathMasterRelative(treesObj$trees[[i]], master, ap), error=function(err) NA)
-                       #calls matchAllNodes -> matchNodesInject
+    #allPathMasterRelative calls matchAllNodes -> matchNodesInject
+    paths[i,]=tryCatch({allPathMasterRelative(treesObj$trees[[i]], master, ap)
+                        }, error=function(err) {
+                          #print(err)
+                          return(NA)
+                        })
   }
   paths=paths+min(paths[paths>0], na.rm=T)
   treesObj$paths=paths
