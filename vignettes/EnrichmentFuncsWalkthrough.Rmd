@@ -3,10 +3,10 @@ title: "RERconverge Enrichment Functions Walkthrough"
 author: "Amanda Kowalczyk"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     css: custom.css
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
@@ -82,9 +82,53 @@ You may visualize your pathway results in a variety of ways, including using **P
   
 You may also calculate permutation p-values based on permuting the phenotype vector and rerunning the correlation and enrichment analyses many times to filter pathways that always tend to have significant enrichment values regardless of the phenotype input.
 
+# Permulations
 
+In order to calculate empirical p-values for pathway enrichment that account for possible phylogenetic groupings of pathway genes, we developed a permulation-based strategy that is a combination of phylogenetic simulations and permulations of phenotype values.  Currently, permulations are only implemented for *continuous traits*.  **It is important to note** that pathways may show significant theoretical enrichment p-values and non-signficant empirical p-values; these pathways are most likely *not* significantly enriched and the significant theoretical p-value was likely an artifact of the data structure. 
+ 
+First, we will reload our previously-calculated RER matrix, our trees preiously read in using *readTrees*, and our phenotype vector.
 
+```{r}
+library(RERconverge)
+data("logAdultWeightcm") 
+data("mamRERw.RData")
+data("toyTrees.RData")
+```
 
+We must also create a tree toplogy based on our master tree created by `readTrees` that is rooted, fully dicotomous, and does not contain species that are not in our phenotype vector.  In this case, all of the species in our trees are in our phenotype vector, so we will not remove any species.  (If you need to remove species when using your own data, do so using the `drop.tip` function).  We will root our tree on our outgroup, the platypus.
 
+```{r}
+treetop=root.phylo(toyTrees$masterTree, "Platypus", resolve.root=T)
+```
+
+The following function performs trait permulations and calculates correlation and enrichment statistics on permulated data.  Briefly, simulated trait values are first created using a phylogenetic model assuming Brownian motion.  Real trait values are then reassigned based on the ranks of the simulated values.  In doing so, we both preserve the range of the original data and the phylogenetic relationships among the speices.
+
+We may then calculate permulation correlations for each gene and permulation enrichment statistics for each pathway using `getPerms`.  The funtion requires the following input:
+
+* `numperms`: The number of permulations to perform.  Bear in mind that the lowest permulation p-value possible is 1/numperms.
+* `traitvec`: Phenotype vector
+* `RERmat`: RER matrix calculated using `getAllResiduals`
+* `annotlist`: Pathway annotations formatted as described above
+* `treetop`: Rooted, fully-dichotomous tree topology
+* `trees`: treesObj created by `readTrees`
+* `type`: "simperm" for permulations, "perm" for permutations, "sim" for phylogenetic simulations
+* `winR`/`winT`: winsorization parameter for RERs and trait values, respectively
+**Note that this analysis will always perform Pearson correlation**
+
+The function will return a list of:
+* `correlationpvals`: a data frame of Pearson correlation p-values from correlations between gene RERs and trait values with genes as rows and permulations as columns.  
+* `signedenrichmentstats`: a list of signed statistics from rank-sum enrichment statistic calculations.  Each list element is a data frame that corresponds to a set of pathway annotations from `annotlist`.  Data frame rows are pathways, columns are permulations, and each element is a signed p-value.
+* `rhos`: a data frame of Pearson correlation rho values from correlations between gene RERs and trait values with genes as rows and permulations as columns. 
+* `correlationeffectsize`: exactly equal to element-wise sign(`rhos`)*-log(`correlationpvals`)
+
+```{r message=F, warning = FALSE, results=F, results=F, echo=F, comment=F}
+perms=getPerms(numperms = 25, traitvec=logAdultWeightcm, RERmat = mamRERw, annotlist = annotlist, treetop = treetop, trees = toyTrees, type="simperm", winR=3, winT=3)
+```
+
+We can then use the output from our permulation enrichments to calculate permulation p-values as the proportion of permulation enrichment statistics that are greater than the real enrichment statistics.  Output is a list corresponding to groups of pathways from `annotlist` with each element a named vector with permulation p-values.  These can be used to filter pathways for true statistical significance.
+
+```{r, message=F, warning = FALSE, results='hide'}
+permpvals=permpvalenrich(realenrich=enrichment, permenrich=perms$signedenrichmentstats)
+```
 
 
