@@ -18,7 +18,7 @@ correlateWithBinaryPhenotype(RERmat, charP, min.sp = 10, min.pos = 2,
 
 \item{weighted}{perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.}
 
-\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override}
+\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override}
 }
 \description{
 Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}

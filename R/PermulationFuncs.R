@@ -25,8 +25,20 @@ combinePermData=function(permdat1, permdat2){
 
 
 
-#this function actually calculates permuted correlation and enrichment statistics
-#returns enrichment p-values, correlation p-val, rho, and signneglogpval for enrichment
+
+#'Calculates permuted correlation and enrichment statistics
+#' @param numperms An integer number of permulations
+#' @param traitvec A named phenotype vector
+#' @param RERmat An RER matrix calculated using \code{\link{getAllResiduals}}
+#' @param annotlist Pathway annotations
+#' @param treetop A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param type One of "simperm", "sim", or "perm" for permulations, simulations, or permutations, respectively
+#' @param winR Integer winzorization value for RERs
+#' @param winT Integer winzorization value for trait
+#' @note  winsorize is in terms of number of observations at each end, NOT quantiles
+#' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
+#' @export
 getPerms=function(numperms, traitvec, RERmat, annotlist, treetop, trees, type="simperm", winR=NULL, winT=NULL){
   #get real enrich and cors
   vec=traitvec
@@ -106,7 +118,12 @@ getPerms=function(numperms, traitvec, RERmat, annotlist, treetop, trees, type="s
   data
 }
 
-#calculates permutation pvals from output of getPerms
+
+#'Calculates permutation pvals from output of \code{\link{getPerms}}
+#' @param realenrich Real enrichment statistics from \code{\link{fastwilcoxGMTall}}
+#' @param permenrich signedenrichmentstats from \code{\link{getPerms}}
+#' @return A list object with permulation p-values
+#' @export
 permpvalenrich=function(realenrich, permenrich){
   #takes real and perm enrich with rows in the same order
   enrichpvals=vector("list", length(realenrich))

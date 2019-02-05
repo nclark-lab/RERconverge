@@ -5,7 +5,7 @@
 \title{Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a continuous phenotype made with \code{\link{char2Paths}}}
 \usage{
 correlateWithContinuousPhenotype(RERmat, charP, min.sp = 10,
-  winsorize = 3)
+  winsorizeRER = 3, winsorizetrait = 3)
 }
 \arguments{
 \item{RERmat}{RER matrix returned by \code{\link{getAllResiduals}}}
@@ -14,9 +14,11 @@ correlateWithContinuousPhenotype(RERmat, charP, min.sp = 10,
 
 \item{min.sp}{Minimum number of species that must be present for a gene}
 
-\item{winsorize}{Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.}
+\item{winsorizeRER}{Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.}
 
-\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override}
+\item{winsorizetrait}{Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.}
+
+\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override}
 }
 \description{
 Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a continuous phenotype made with \code{\link{char2Paths}}
