@@ -121,7 +121,7 @@ The function will return a list of:
 * `rhos`: a data frame of Pearson correlation rho values from correlations between gene RERs and trait values with genes as rows and permulations as columns. 
 * `correlationeffectsize`: exactly equal to element-wise sign(`rhos`)*-log(`correlationpvals`)
 
-```{r message=F, warning = FALSE, results=F, results=F, echo=F, comment=F}
+```{r message=F, warning = FALSE, results=F, results=F, echo=T, comment=F}
 perms=getPerms(numperms = 25, traitvec=logAdultWeightcm, RERmat = mamRERw, annotlist = annotlist, treetop = treetop, trees = toyTrees, type="simperm", winR=3, winT=3)
 ```
 
