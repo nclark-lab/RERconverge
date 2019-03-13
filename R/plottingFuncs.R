@@ -450,7 +450,7 @@ treePlotRers <- function(treesObj, rermat=NULL, index=NULL, rerlab=T, rercol=F,.
 
 #Plotting function using ggtree, with branch colors (currently) from edge lengths
 #Demonstrates how to map edge order in R object to edge order in ggtree
-plotTreeGG = function(traittree, tiplabels = FALSE, title=NULL) {
+treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
   #use ggtree to make a pretty circular tree with branch lengths colored
   #currently bases colors on edge lengths in trait tree
   require(ggtree)
@@ -482,6 +482,7 @@ plotTreeGG = function(traittree, tiplabels = FALSE, title=NULL) {
   if (tiplabels) {
     treeplot = treeplot + geom_tiplab(aes(angle=angle),size=1.5)
   }
+  return(treeplot)
 }
 
 #' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
