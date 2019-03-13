@@ -448,6 +448,41 @@ treePlotRers <- function(treesObj, rermat=NULL, index=NULL, rerlab=T, rercol=F,.
   rerrow = rermat[gen,]
 }
 
+#Plotting function using ggtree, with branch colors (currently) from edge lengths
+#Demonstrates how to map edge order in R object to edge order in ggtree
+plotTreeGG = function(traittree, tiplabels = FALSE, title=NULL) {
+  #use ggtree to make a pretty circular tree with branch lengths colored
+  #currently bases colors on edge lengths in trait tree
+  require(ggtree)
+  forcol = c(rep("black",length(traittree$edge.length)))
+  forcol[which(traittree$edge.length == -1)] = "turquoise"
+  forcol[which(traittree$edge.length == 1)] = "red"
+  forcol[which(is.na(traittree$edge.length))] = "gray"
+  forcol = c(forcol,"goldenrod") #check to make sure the extra color is not included
+  
+  #Colors appear to be assigned in the following order:
+  #1) terminal branches (in order of tip labels)
+  #2) internal branches (by number of child node)
+  #This means there may be a number skipped, and that they need to be mapped to edges somehow.
+  #Make a vector of which color index corresponds to which edge index
+  forcolgg = c(rep("black",max(traittree$edge)))
+  for (g in c(1:length(forcolgg))) {
+    #get the color based on the original forcol
+    wgg = which(traittree$edge[,2] == g) 
+    if (length(wgg) > 0) {
+      forcolgg[g] = forcol[wgg]
+    }
+  }
+  
+  #Title plots using ggtitle (optionally)
+  treeplot = ggtree(traittree,layout='circular',branch.length='none',color=forcolgg)
+  if (!is.null(title)) {
+    treeplot = treeplot + ggtitle(title)
+  }
+  if (tiplabels) {
+    treeplot = treeplot + geom_tiplab(aes(angle=angle),size=1.5)
+  }
+}
 
 #' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
 #'
