@@ -441,6 +441,8 @@ treePlotRers <- function(treesObj, rermat=NULL, index=NULL, rerlab=T, rercol=F,.
   if (rercol) {
     #use treePlotNew with edges colored by RER
   }
+  tree = treesObj$trees[[gen]]
+  rerrow = rermat[gen,]
 }
 
 

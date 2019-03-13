@@ -6,10 +6,11 @@ if (!require("RERconverge", character.only=T, quietly=T)) {
                  ref="AddressReviewerComments") #can be modified to specify a particular branch
 }
 library(RERconverge)
-rerpath = find.package('RERconverge')
-toytreefile = "subsetMammalGeneTrees.txt" 
-toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
-data("logAdultWeightcm") 
-mamRERw = getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), 
-                          transform = "sqrt", weighted = T, scale = T)
+#Source the functions locally for testing
+repodir='~/repos/RERconverge' #replace with local directory
+source(paste(repodir,'/R/plottingFuncs.R',sep=''))
+data("toyTrees")
+data("mamRERw")
 phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
+relGene = "BEND3"
+#Find a way to map RERs to tree edges in order to use treePlotNew
