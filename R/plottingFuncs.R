@@ -303,11 +303,13 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #Version of tree plotting function with more options for colors and tip labels
 #Used for plotting trees for PON1 manuscript
 #To add: option for edge labels (edgelabels())
+#Issue with invalid graphics state after running
 treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
                      maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, 
                      species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
                     colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,
-                    edgetype=NULL,textsize=0.6,colbarlab="",splist2sym="psi"){
+                    edgetype=NULL,textsize=0.6,colbarlab="",splist2sym="psi",
+                    dolegend=T){
  #bold speclist1, star speclist2
  #reroot before plotting to match up vals
   require(gplots)
@@ -393,36 +395,37 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
                        align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
                        tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
   #add option for edge labels using edgelabels()
+  #use recordPlot() to store the plot and then add edge labels
   #par(mar=oldpar)
-
-  min.raw <- min(vals, na.rm = TRUE)
-  max.raw <- max(vals, na.rm = TRUE)
-  z <- seq(min.raw, max.raw, length = length(col))
-  #z <- quantile(vals, probs = seq(0,1,length = length(col)))
-
-  par(mai=c(1,0.5,0,0.5))
-  #par(mai=c(0.5,0.5,0,0.5))
-  #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
-  #      xaxt = "n", yaxt = "n")
-  image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
-        xaxt = "n", yaxt = "n")
-  #image(z = matrix(z, ncol = 1), col = col, breaks = quantile(vals, probs = seq(0, 1, length.out=nlevels+1)),
-  #      xaxt = "n", yaxt = "n")
-  #par(usr = c(0, 1, 0, 1))
-  lv <- pretty(seq(min.raw, max.raw, length.out=nlevels+1))
-  lv1 <- seq(min.raw, max.raw, length.out=nlevels+1)
-  print(lv)
-  lv2 <- quantile(vals, probs = seq(0,1, length.out = nlevels+1))
-  print(lv2)
-  scale01 <- function(x, low = min(x), high = max(x)) {
-    x <- (x - low)/(high - low)
-    x
+  if (dolegend) {
+    min.raw <- min(vals, na.rm = TRUE)
+    max.raw <- max(vals, na.rm = TRUE)
+    z <- seq(min.raw, max.raw, length = length(col))
+    #z <- quantile(vals, probs = seq(0,1,length = length(col)))
+    #par(mai=c(1,0.5,0,0.5))
+    par(mai=c(0.5,0.5,0,0.5))
+    #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
+    #      xaxt = "n", yaxt = "n")
+    image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
+          xaxt = "n", yaxt = "n")
+    #image(z = matrix(z, ncol = 1), col = col, breaks = quantile(vals, probs = seq(0, 1, length.out=nlevels+1)),
+    #      xaxt = "n", yaxt = "n")
+    #par(usr = c(0, 1, 0, 1))
+    lv <- pretty(seq(min.raw, max.raw, length.out=nlevels+1))
+    lv1 <- seq(min.raw, max.raw, length.out=nlevels+1)
+    print(lv)
+    lv2 <- quantile(vals, probs = seq(0,1, length.out = nlevels+1))
+    print(lv2)
+    scale01 <- function(x, low = min(x), high = max(x)) {
+      x <- (x - low)/(high - low)
+      x
+    }
+    xv <- scale01(as.numeric(lv), min.raw, max.raw)
+    xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)
+    axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
+    #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
+    mtext(colbarlab,at=0.5)
   }
-  xv <- scale01(as.numeric(lv), min.raw, max.raw)
-  xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)
-  axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
-  #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
-  mtext(colbarlab,at=0.5)
   return(plotobj)
 }
 
