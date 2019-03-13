@@ -14,6 +14,7 @@ data("mamRERw")
 phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
 relGene = "BEND3"
 #Find a way to map RERs to tree edges in order to use treePlotNew
+#Perhaps using nvmaster?
 #These examples just color/label based on edge lengths
 #Basic treePlot:
 treePlot(toyTrees$trees[[relGene]],vals=toyTrees$trees[[relGene]]$edge.length)
@@ -25,4 +26,4 @@ savet = treePlotNew(toyTrees$trees[[relGene]],vals=toyTrees$trees[[relGene]]$edg
 #treePlotGG:
 sampt = toyTrees$trees[[relGene]]
 sampt$edge.length = sample(c(-1,0,1),length(sampt$edge.length),replace=T)
-plotTreeGG(sampt,tiplabels=T)
+treePlotGG(sampt,tiplabels=T)
