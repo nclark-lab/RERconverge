@@ -299,12 +299,18 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
   xv <- scale01(as.numeric(lv), min.raw, max.raw)
   axis(1, at = xv, labels = lv)
 }
-treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="c", col=NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
- colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,edgetype=NULL,textsize=0.6,
- colbarlab="",splist2sym="psi"){
+
+#Version of tree plotting function with more options for colors and tip labels
+#Used for plotting trees for PON1 manuscript
+#To add: option for edge labels (edgelabels())
+treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
+                     maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, 
+                     species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
+                    colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,
+                    edgetype=NULL,textsize=0.6,colbarlab="",splist2sym="psi"){
  #bold speclist1, star speclist2
  #reroot before plotting to match up vals
-  library(gplots)
+  require(gplots)
   if(is.null(vals)){
     vals=tree$edge.length
   }
@@ -381,8 +387,12 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
   par(omi=c(0,0,0,0.0001))
   #plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, nlevels)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
   #tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
-  plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1)), include.lowest = T, right = T)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
-  tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
+  plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,
+                       edge.color=col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1)), include.lowest = T, right = T)], 
+                       edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, 
+                       align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
+                       tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
+  #add option for edge labels using edgelabels()
   #par(mar=oldpar)
 
   min.raw <- min(vals, na.rm = TRUE)
@@ -414,6 +424,23 @@ treePlotNew=function(tree, maintitle= NULL, vals=NULL, rank=F, nlevels=5, type="
   #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
   mtext(colbarlab,at=0.5)
   return(plotobj)
+}
+
+#Plotting function wrapper to produce tree plot with RERs as either labels (rerlab)
+#or colors (rercol) for tree branches (or both)
+#Also want to be able to pass other variables to treePlotNew
+treePlotRers <- function(treesObj, rermat=NULL, index=NULL, rerlab=T, rercol=F,...) {
+  if(is.numeric(index)){
+    gen = rownames(rermat)[index]
+  }else{
+    gen = index
+  }
+  if (rerlab) {
+    #use treePlotNew with edge labels
+  }
+  if (rercol) {
+    #use treePlotNew with edges colored by RER
+  }
 }
 
 
