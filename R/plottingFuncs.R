@@ -485,6 +485,20 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
   return(treeplot)
 }
 
+
+plotRersAsTree <- function(treesObj, gene, rerMat, rer.cex = 0.7, tip.cex = 0.7){
+  trgene <- treesObj$trees[[gene]]
+  trgene$edge.length <- rep(2,nrow(trgene$edge))
+  ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
+  ii= treesObj$matIndex[ee[, c(2,1)]]
+  rertree=mamRERw[gene,ii]
+  par(mar = c(1,1,1,0))
+  plot.phylo(trgene, font = 2, cex = tip.cex)
+  rerlab <- round(rertree,3)
+  rerlab[is.na(rerlab)] <- ''
+  edgelabels(rerlab, bg = NULL, adj = c(0.5,0.9), frame = 'none',cex = rer.cex, font =2)
+}
+
 #' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
 #'
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
