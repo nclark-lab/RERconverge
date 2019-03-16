@@ -8,7 +8,6 @@ if (!require("RERconverge", character.only=T, quietly=T)) {
 library(RERconverge)
 #Source the functions locally for testing
 repodir='~/repos/RERconverge' #replace with local directory
-repodir = '..'
 source(paste(repodir,'/R/plottingFuncs.R',sep=''))
 source(paste(repodir,'/R/RERfuncs.R',sep=''))
 data("toyTrees")
