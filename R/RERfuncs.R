@@ -88,7 +88,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     treesObj$masterTree=master
   } else {
     master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
-    #prune tree to just the species names in the gene trees
+    #prune tree to just the species names in the largest gene tree
     #master$edge.length[]=1
     treesObj$masterTree=master
   }
