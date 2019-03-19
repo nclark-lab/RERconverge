@@ -23,10 +23,12 @@ require(weights)
 
 #' @param file The path to the tree file
 #' @param  max.read This function takes a while for a whole genome, so max.read is useful for testing
-#' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
+#' @param  masterTree (optional) User can specify a master tree.
+#' @param  minTreesAll The minimum number of trees with all species present in order to estimate
+#' master tree edge lengths.
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA, masterTree=NULL){
+readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   tmp=scan(file, sep="\t", what="character")
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   treenames=character()
@@ -81,7 +83,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL){
   } else {
     master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
     #prune tree to just the species names in the largest gene tree
-    master$edge.length[]=1
+    #master$edge.length[]=1
     treesObj$masterTree=master
   }
 
@@ -127,7 +129,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL){
   #require all species and tree compatibility
   #ii=which(rowSums(report)==maxsp)
   ii=which(rowSums(report)==maxsp && which(is.na(paths[,1]))==FALSE)
-  if(length(ii)>20){
+  if(length(ii)>minTreesAll && is.null(masterTree)){
     message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
     tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
 
