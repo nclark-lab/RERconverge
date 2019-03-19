@@ -114,11 +114,12 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   for( i in 1:treesObj$numTrees){
     #Make paths all NA if tree topology is discordant
     #allPathMasterRelative calls matchAllNodes -> matchNodesInject
-    paths[i,]=tryCatch({allPathMasterRelative(treesObj$trees[[i]], master, ap)
-                        }, error=function(err) {
+    #paths[i,]=tryCatch({allPathMasterRelative(treesObj$trees[[i]], master, ap)
+    #                    }, error=function(err) {
                           #print(err)
-                          return(NA)
-                        })
+    #                      return(NA)
+    #                    })
+    paths[i,]=allPathMasterRelative(treesObj$trees[[i]], master, ap)
   }
   paths=paths+min(paths[paths>0], na.rm=T)
   treesObj$paths=paths
@@ -129,17 +130,21 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   #require all species and tree compatibility
   #ii=which(rowSums(report)==maxsp)
   ii=which(rowSums(report)==maxsp && which(is.na(paths[,1]))==FALSE)
-  if(length(ii)>minTreesAll && is.null(masterTree)){
-    message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-    tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
+  if (is.null(masterTree)) {
+    if(length(ii)>minTreesAll){
+      message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+      tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
 
-    allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-    allEdge=scaleMat(allEdge)
-    allEdgeM=apply(allEdge,2,mean)
-    treesObj$masterTree$edge.length=allEdgeM
-  }
-  else{
-    message("Not enough genes with all species present: master tree has no edge.lengths")
+      allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+      allEdge=scaleMat(allEdge)
+      allEdgeM=apply(allEdge,2,mean)
+      treesObj$masterTree$edge.length=allEdgeM
+    }
+    else {
+      message("Not enough genes with all species present: master tree has no edge.lengths")
+    }
+  } else {
+    message("Using user-specified master tree")
   }
   colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
   class(treesObj)=append(class(treesObj), "treesObj")
@@ -305,7 +310,7 @@ matchNodesInject=function (tr1, tr2){
   }
   commontiplabels <- intersect(tr1$tip,tr2$tip)
   if(RF.dist(pruneTree(tr1,commontiplabels),pruneTree(tr2,commontiplabels))>0){
-    stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
+    stop("Discordant tree topology detected - gene/trait tree and treesObj$masterTree have irreconcilable topologies")
   }
   #if(RF.dist(tr1,tr2)>0){
   #  stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
