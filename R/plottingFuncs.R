@@ -305,7 +305,7 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #To add: option for edge labels (edgelabels())
 #Issue with invalid graphics state after running
 treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
-                     maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL, 
+                     maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL,
                      species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
                     colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,
                     edgetype=NULL,textsize=0.6,colbarlab="",splist2sym="psi",
@@ -390,8 +390,8 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
   #plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, nlevels)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
   #tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
   plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,
-                       edge.color=col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1)), include.lowest = T, right = T)], 
-                       edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, 
+                       edge.color=col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1)), include.lowest = T, right = T)],
+                       edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize,
                        align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
                        tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
   #add option for edge labels using edgelabels()
@@ -459,7 +459,7 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
   forcol[which(traittree$edge.length == 1)] = "red"
   forcol[which(is.na(traittree$edge.length))] = "gray"
   forcol = c(forcol,"goldenrod") #check to make sure the extra color is not included
-  
+
   #Colors appear to be assigned in the following order:
   #1) terminal branches (in order of tip labels)
   #2) internal branches (by number of child node)
@@ -468,12 +468,12 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
   forcolgg = c(rep("black",max(traittree$edge)))
   for (g in c(1:length(forcolgg))) {
     #get the color based on the original forcol
-    wgg = which(traittree$edge[,2] == g) 
+    wgg = which(traittree$edge[,2] == g)
     if (length(wgg) > 0) {
       forcolgg[g] = forcol[wgg]
     }
   }
-  
+
   #Title plots using ggtitle (optionally)
   treeplot = ggtree(traittree,layout='circular',branch.length='none',color=forcolgg)
   if (!is.null(title)) {
@@ -486,16 +486,16 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 }
 
 
-plotRersAsTree <- function(treesObj, gene, rerMat, rer.cex = 0.7, tip.cex = 0.7){
+plotRersAsTree <- function(treesObj, gene, rerMat, rer.cex = 0.7, tip.cex = 0.7, nalab = ''){
   trgene <- treesObj$trees[[gene]]
   trgene$edge.length <- rep(2,nrow(trgene$edge))
   ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
   ii= treesObj$matIndex[ee[, c(2,1)]]
-  rertree=mamRERw[gene,ii]
+  rertree=rerMat[gene,ii]
   par(mar = c(1,1,1,0))
   plot.phylo(trgene, font = 2, cex = tip.cex)
   rerlab <- round(rertree,3)
-  rerlab[is.na(rerlab)] <- ''
+  rerlab[is.na(rerlab)] <- nalab
   edgelabels(rerlab, bg = NULL, adj = c(0.5,0.9), frame = 'none',cex = rer.cex, font =2)
 }
 
@@ -625,7 +625,7 @@ nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
 
 
 #' Plot the provided tree, (optionally) rerooted, with specified branches highlighted
-#'  
+#'
 #' @param tree. A tree object.
 #' @param outgroup. A vector of species to use to root the tree. If not provided, the tree remains unrooted.
 #' @param hlspecies. A vector of species whose terminal branches to highlight, or a vector of branch numbers within the tree.

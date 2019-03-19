@@ -7,9 +7,10 @@ if (!require("RERconverge", character.only=T, quietly=T)) {
 }
 library(RERconverge)
 #Source the functions locally for testing
-repodir='~/repos/RERconverge' #replace with local directory
-source(paste(repodir,'/R/plottingFuncs.R',sep=''))
-source(paste(repodir,'/R/RERfuncs.R',sep=''))
+#Run from vignettes directory
+#repodir='~/repos/RERconverge' #replace with local directory
+source('../R/plottingFuncs.R')
+source('../R/RERfuncs.R')
 data("toyTrees")
 data("mamRERw")
 phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
@@ -30,4 +31,4 @@ sampt$edge.length = sample(c(-1,0,1),length(sampt$edge.length),replace=T)
 treePlotGG(sampt,tiplabels=T)
 
 #plot RERs as labels on phylogeny
-plotRersAsTree(treesObj = toyTrees, gene = relGene, rerMat = mamRERw, tip.cex = 0.8) 
+plotRersAsTree(treesObj = toyTrees, gene = relGene, rerMat = mamRERw, tip.cex = 0.8)
