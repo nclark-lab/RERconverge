@@ -109,6 +109,8 @@ We will use the `getAllResiduals` function to calculate RERs. This uses the foll
 * `weighted`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data. 
 * `scale`: whether to scale the individual branches of the gene trees to account for variance across trees. This scales the variance, though not the mean, of each branch length, using the R function `scale`.
 
+The `useSpecies` input variable can be provided to most RERconverge functions. Excluding one or more species from this vector will exclude them from the analyses.
+
 Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
@@ -151,13 +153,13 @@ phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
 plotRers(mamRERw,"BEND3",phenv=phenvExample) #plot RERs
 ```
 
-This plot represents the estimated RERs for terminal branches. The foreground branches (set here using `foreground2Paths`) are highlighted in red. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
+This plot represents the estimated RERs for terminal branches (labeled with species names along the y-axis) and internal branches (plotted in a single row at the base of the y-axis). The foreground branches (set here using `foreground2Paths`) are highlighted in red; these are currently only terminal branches, but if any internal branches were included, there would be a red point or points among the RER points at the base of the y-axis. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
 
 ## Binary Trait Analysis
 
 Now we will associate variation in these RERs with variation in a **binary trait** across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are several possible ways to do this:
 
-1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one (or weights between zero and one) for foreground branches. An example is provided in *extdata/MarineTreeBinCommonNames.txt*. This tree must have the same topology as the master tree or a subset of the master tree.
+1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one (or weights between zero and one) for foreground branches. Setting any branches to NA will exclude these branches from the analysis. An example binary tree file is provided in *extdata/MarineTreeBinCommonNames.txt*. This tree must have the same topology as the master tree or a subset of the master tree.
 
 ```{r fig3, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE}
 marineb=read.tree(paste(rerpath,"/extdata/MarineTreeBinCommonNames_noCGM.txt",sep=""))
@@ -193,7 +195,9 @@ marineb2a = foreground2Tree(marineextantforeground, toyTrees, clade="ancestral",
                             useSpecies=names(logAdultWeightcm))
 ```
 
-Here the branch leading to the common ancestor of killer whale and dolphin, as well as the branch leading to the common ancestor of walrus and seal, are foreground, along with the terminal branch leading to the manatee.
+The output first indicates that there is one species in the master tree that is not in the list of species we requested to be included using `useSpecies`: the cape golden mole. This species will be excluded from our analysis.
+
+The plot shows that the branch leading to the common ancestor of killer whale and dolphin, as well as the branch leading to the common ancestor of walrus and seal, are foreground, along with the terminal branch leading to the manatee.
 
 2b) `clade = "terminal"`: Set only terminal lineages leading to foreground species as foreground.
 
@@ -308,7 +312,7 @@ The `correlateWithBinaryPhenotype` function generates a table with the following
 
 3) P: an estimate of the P-value for association between relative evolutionary rate and trait.
 
-4) p.adj: an estimate of the P-value adjusted for multiple comparisons using the Benjamini-Hochberg procedure (i.e., an estimate of the FDR).
+4) p.adj: an estimate of the P-value adjusted for multiple comparisons using the Benjamini-Hochberg procedure (i.e., an estimate of the false discovery rate, or FDR).
 
 Let's take a look at some of the top genes within this set.
 ```{r, message = FALSE, cache = TRUE}
