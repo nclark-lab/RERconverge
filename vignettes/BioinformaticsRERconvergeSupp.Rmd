@@ -155,6 +155,23 @@ plotRers(mamRERw,"BEND3",phenv=phenvExample) #plot RERs
 
 This plot represents the estimated RERs for terminal branches (labeled with species names along the y-axis) and internal branches (plotted in a single row at the base of the y-axis). The foreground branches (set here using `foreground2Paths`) are highlighted in red; these are currently only terminal branches, but if any internal branches were included, there would be a red point or points among the RER points at the base of the y-axis. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
 
+We can also save all RERs for a given gene using the `returnRersAsTree` function. If we include `plot=TRUE`, this function will also generate a cladogram for the gene tree with branches labeled with their RERs.
+
+```{r fig2b, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
+#plot RERs as tree
+par(mfrow=c(1,1))
+bend3rers = returnRersAsTree(toyTrees, mamRERw, "BEND3", plot = TRUE) #plot RERs
+```
+
+Here we can see by inspecting the branch labels that the RER for the terminal branch leading to squirrel is a large positive value (5.68), and the RER for the terminal branch leading to vole is a large negative value (-2.364).
+
+This function also returns a tree whose branch lengths represent the RERs for this gene. We can print or save the tree using the *ape* package function `write.tree`:
+
+```{r, message = FALSE, cache = TRUE}
+write.tree(bend3rers)
+write.tree(bend3rers, file='BEND3RER.nwk')
+```
+
 ## Binary Trait Analysis
 
 Now we will associate variation in these RERs with variation in a **binary trait** across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are several possible ways to do this:

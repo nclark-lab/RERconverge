@@ -485,18 +485,35 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
   return(treeplot)
 }
 
+#' Produce a gene tree with branch lengths representing RERs and (optionally)
+#' display these RERs as branch labels
+#'
+#' @param treesObj. A treesObj created by \code{\link{readTrees}}
+#' @param rermat. A residual matrix, output of the getAllResiduals() function
+#' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
+#' @param rer.cex. Numeric expansion for RER labels
+#' @param tip.cex. Numeric expansion for tip labels
+#' @param nalab. Label given to any NA RERs
+#' @param plot. Whether to produce a plot displaying the RERs on the gene tree
+#' @return An object of class "phylo" with edge lengths representing RERs for the given gene
+#' @return If plot = TRUE, also displays a plot of the gene tree with edges labeled with RERs
+#' @export
 
-plotRersAsTree <- function(treesObj, gene, rerMat, rer.cex = 0.7, tip.cex = 0.7, nalab = ''){
-  trgene <- treesObj$trees[[gene]]
+returnRersAsTree <- function(treesObj, rermat, index, rer.cex = 0.7, tip.cex = 0.7, nalab = 'NA', plot = T){
+  trgene <- treesObj$trees[[index]]
   trgene$edge.length <- rep(2,nrow(trgene$edge))
   ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
   ii= treesObj$matIndex[ee[, c(2,1)]]
-  rertree=rerMat[gene,ii]
-  par(mar = c(1,1,1,0))
-  plot.phylo(trgene, font = 2, cex = tip.cex)
-  rerlab <- round(rertree,3)
-  rerlab[is.na(rerlab)] <- nalab
-  edgelabels(rerlab, bg = NULL, adj = c(0.5,0.9), frame = 'none',cex = rer.cex, font =2)
+  rertree=rermat[index,ii]
+  if (plot) {
+    par(mar = c(1,1,1,0))
+    plot.phylo(trgene, font = 2, cex = tip.cex)
+    rerlab <- round(rertree,3)
+    rerlab[is.na(rerlab)] <- nalab
+    edgelabels(rerlab, bg = NULL, adj = c(0.5,0.9), frame = 'none',cex = rer.cex, font =2)
+  }
+  trgene$edge.length <- rertree
+  return(trgene)
 }
 
 #' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree

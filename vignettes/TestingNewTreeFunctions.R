@@ -31,4 +31,6 @@ sampt$edge.length = sample(c(-1,0,1),length(sampt$edge.length),replace=T)
 treePlotGG(sampt,tiplabels=T)
 
 #plot RERs as labels on phylogeny
-plotRersAsTree(treesObj = toyTrees, gene = relGene, rerMat = mamRERw, tip.cex = 0.8)
+testrers = returnRersAsTree(treesObj = toyTrees, rermat = mamRERw, index = relGene, tip.cex = 0.8)
+#display as newick string
+write.tree(testrers)
