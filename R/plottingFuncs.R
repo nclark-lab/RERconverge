@@ -507,6 +507,8 @@ returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.
   rertree=rermat[index,ii]
   if (plot) {
     par(mar = c(1,1,1,0))
+    edgcols <- rep('black', nrow(trgene$edge))
+    edgwds <- rep(1, nrow(trgene$edge))
     if(!is.null(phenv)){
       edgcols <- rep('black', nrow(trgene$edge))
       edgwds <- rep(1, nrow(trgene$edge))
