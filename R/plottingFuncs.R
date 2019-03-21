@@ -491,6 +491,7 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 #' @param treesObj. A treesObj created by \code{\link{readTrees}}
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
 #' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
+#' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}
 #' @param rer.cex. Numeric expansion for RER labels
 #' @param tip.cex. Numeric expansion for tip labels
 #' @param nalab. Label given to any NA RERs
