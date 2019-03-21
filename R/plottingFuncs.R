@@ -499,7 +499,7 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 #' @return If plot = TRUE, also displays a plot of the gene tree with edges labeled with RERs
 #' @export
 
-returnRersAsTree <- function(treesObj, rermat, index, rer.cex = 0.7, tip.cex = 0.7, nalab = 'NA', plot = T){
+returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7, tip.cex = 0.7, nalab = 'NA', plot = T){
   trgene <- treesObj$trees[[index]]
   trgene$edge.length <- rep(2,nrow(trgene$edge))
   ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
@@ -507,10 +507,16 @@ returnRersAsTree <- function(treesObj, rermat, index, rer.cex = 0.7, tip.cex = 0
   rertree=rermat[index,ii]
   if (plot) {
     par(mar = c(1,1,1,0))
-    plot.phylo(trgene, font = 2, cex = tip.cex)
+    if(!is.null(phenv)){
+      edgcols <- rep('black', nrow(trgene$edge))
+      edgwds <- rep(1, nrow(trgene$edge))
+      edgcols[phenv[ii]==1] <- 'red'
+      edgwds[phenv[ii]==1] <- 2
+    }
+    plot.phylo(trgene, font = 2, edge.color = edgcols, edge.width = edgwds, cex = tip.cex)
     rerlab <- round(rertree,3)
     rerlab[is.na(rerlab)] <- nalab
-    edgelabels(rerlab, bg = NULL, adj = c(0.5,0.9), frame = 'none',cex = rer.cex, font =2)
+    edgelabels(rerlab, bg = NULL, adj = c(0.5,0.9), col = edgcols, frame = 'none',cex = rer.cex, font =2)
   }
   trgene$edge.length <- rertree
   return(trgene)
