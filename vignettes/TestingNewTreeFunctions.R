@@ -6,11 +6,7 @@ if (!require("RERconverge", character.only=T, quietly=T)) {
                  ref="AddressReviewerComments") #can be modified to specify a particular branch
 }
 library(RERconverge)
-#Source the functions locally for testing
 #Run from vignettes directory
-#repodir='~/repos/RERconverge' #replace with local directory
-source('../R/plottingFuncs.R')
-source('../R/RERfuncs.R')
 data("toyTrees")
 data("mamRERw")
 phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
