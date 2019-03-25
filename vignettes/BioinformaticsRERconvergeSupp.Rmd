@@ -168,7 +168,8 @@ Here we can see by inspecting the branch labels that the RER for the terminal br
 This function also returns a tree whose branch lengths represent the RERs for this gene. We can print or save the tree using the *ape* package function `write.tree`:
 
 ```{r, message = FALSE, cache = TRUE}
-write.tree(bend3rers)
+require('stringr')
+strwrap(str_replace_all(write.tree(bend3rers),":",": "))
 write.tree(bend3rers, file='BEND3RER.nwk')
 ```
 
