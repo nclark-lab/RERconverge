@@ -525,6 +525,24 @@ returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.
   return(trgene)
 }
 
+#' Produce a vector of newick strings representing gene trees where the edge lengths correspond to RERs
+#'
+#' @param treesObj. A treesObj created by \code{\link{readTrees}}
+#' @param rermat. A residual matrix, output of the getAllResiduals() function
+#' @return A named character vector of newick strings, one per gene, representing RERs as edge lengths'
+#' @export
+#'
+returnRersAsNewickStrings <- function(treesObj, rermat){
+  rerNwkstrings <- sapply(names(treesObj$trees), function(index){
+    trgene <- treesObj$trees[[index]]
+    ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
+    ii= treesObj$matIndex[ee[, c(2,1)]]
+    rertree=rermat[index,ii]
+    trgene$edge.length <- rertree
+    write.tree(trgene)
+  })
+}
+
 #' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
 #'
 #' @param rermat. A residual matrix, output of the getAllResiduals() function

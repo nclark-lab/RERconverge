@@ -30,4 +30,5 @@ treePlotGG(sampt,tiplabels=T)
 testrers = returnRersAsTree(treesObj = toyTrees, rermat = mamRERw, index = relGene, phenv = phenvExample, tip.cex = 0.8)
 
 #display as newick string
+rersnwk <- returnRersAsNewickStrings(toyTrees, mamRERw)
 write.tree(testrers)
