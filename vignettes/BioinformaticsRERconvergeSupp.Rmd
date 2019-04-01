@@ -180,6 +180,17 @@ multirers = returnRersAsTreesAll(toyTrees,mamRERw)
 write.tree(multirers, file='toyRERs.nwk', tree.names=TRUE)
 ```
 
+Another useful function for visualizing RERs for a givent tree is `treePlotRers`. When called with `type = label`, it will produce the same plot as shown above, i.e., a cladogram with the branches labeled by RER. Alternatively, when called with `type = color`, it will produce a cladogram with RERs displayed as a color heatmap on the branches.
+
+```{r fig2c, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
+#plot RERs as tree
+par(mfrow=c(1,1))
+newbend3rers = treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3", type="c", nlevels=9)
+```
+
+The heatmap has 9 colors, corresponding to `nlevels=9`. The breaks are determined by quantiles of the RER distribution. For more information on options that can be passed to this function, see the documentation for `treePlotNew`.
+
+
 ## Binary Trait Analysis
 
 Now we will associate variation in these RERs with variation in a **binary trait** across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are several possible ways to do this:

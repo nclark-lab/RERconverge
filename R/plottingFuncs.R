@@ -307,6 +307,38 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #margins are not too large (how to test?)
 #use color blind friendly colors
 #center on 0 if both negative and positive values present
+#also use ... to include pass-on arguments to plot.phylo
+
+#' Plot `tree` with branch labels colored in a heatmap based on values in `vals`
+#'
+#' @param tree. A phylo object, used for topology
+#' @param vals. Values to use for heatmap to color branches, in same order as edges of tree
+#' @param rank.
+#' @param nlevels. How many colors to use in the heatmap
+#' @param type. Type for plot.phylo
+#' @param col.
+#' @param maintitle. Main title label
+#' @param useedge.
+#' @param doreroot. Whether to re-root the tree before  plotting
+#' @param rerootby. If re-rooting, what to use to root the tree
+#' @param species.list.
+#' @param species.names.
+#' @param speclist1.
+#' @param speclist2.
+#' @param aligntip. Whether to align tip labels (default FALSE)
+#' @param colpan1. Color for lowest value in heatmap (default blue)
+#' @param colpan2. Color for highest value in heatmap (default rose)
+#' @param colpanmid. Color for middle value in heatmap (default gray)
+#' @param plotspecies.
+#' @param edgetype. Vector of line type for edges.
+#' @param textsize. cex value for tip labels (default 0.6)
+#' @param colbarlab.
+#' @param splist2sym. A value within species names to display as a symbol
+#' @param dolegend. Whether to display the heatmap legend.
+#' @param nacol. Color to display for any edges with length NA
+#' @return Plots a cladogram of the master tree with RERs displayed as branch labels or colors
+#' @export
+
 treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
                      maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL,
                      species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
@@ -440,25 +472,34 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
   return(plotobj)
 }
 
-#Plotting function wrapper to produce tree plot with RERs as either labels (rerlab)
-#or colors (rercol) for tree branches (or both)
-#Also want to be able to pass other variables to treePlotNew
-treePlotRers <- function(treesObj, rermat=NULL, index=NULL, rerlab=T, rercol=F,...) {
-  if(is.numeric(index)){
-    gen = rownames(rermat)[index]
-  }else{
-    gen = index
+#' Plot a cladogram with RERs shown as either labels (type="label") or a color
+#' heatmap along the branches (type="color")
+#' Wraps around \code{\link{returnRersAsTree}} or \code{\link{treePlotNew}}, respectively
+#'
+#' @param treesObj. A treesObj created by \code{\link{readTrees}}
+#' @param rermat. A residual matrix, output of the getAllResiduals() function
+#' @param index. A character denoting the name of gene, or a numeric value
+#' corresponding to the gene's row index in the residuals matrix
+#' @param type. Whether to display RERs as branch labels ('label') or a heatmap ('color')
+#' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}
+#' @param .... Additional parameters to be passed to \code{\link{returnRersAsTree}}
+#' or \code{\link{treePlotNew}}
+#' @return Plots a cladogram of the master tree with RERs displayed as branch labels or colors
+#' @export
+
+treePlotRers <- function(treesObj, rermat=NULL, index=NULL, type=c("label","color"),
+                         phenv=NULL, ...) {
+  type = match.arg(type)
+  if (type=="label") {
+    #use returnRersAsTree with plot = TRUE
+    tmpout = returnRersAsTree(treesObj, rermat, index, phenv, plot = T, ...)
   }
-  #necessary?
-  tree = treesObj$trees[[gen]]
-  rerrow = rermat[gen,]
-  if (rerlab) {
-    #use treePlotNew with edge labels
-  }
-  if (rercol) {
+  if (type=="color") {
     #use treePlotNew with edges colored by RER
-    tmpout = treePlotNew(tree, rervals)
+    rerstoplot = returnRersAsTree(treesObj, rermat, index, phenv, plot = F)
+    tmpout = treePlotNew(treesObj$trees[[index]], rerstoplot$edge.length, ...)
   }
+  #return(tmpout)
 }
 
 #Plotting function using ggtree, with branch colors (currently) from edge lengths
