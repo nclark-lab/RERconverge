@@ -303,13 +303,18 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #Version of tree plotting function with more options for colors and tip labels
 #Used for plotting trees for PON1 manuscript
 #To add: option for edge labels (edgelabels())
-#Issue with invalid graphics state after running
-treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
+#Issue with invalid graphics state after running: Solve by only plotting legend if
+#margins are not too large (how to test?)
+#use color blind friendly colors
+#center on 0 if both negative and positive values present
+treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
                      maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL,
                      species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
-                    colpan1="blue",colpan2="red",colpanmid=NULL,plotspecies=NULL,
+                    colpan1=rgb(0,119,187,maxColorValue=255),
+                    colpan2=rgb(204,51,17,maxColorValue=255),
+                    colpanmid=rgb(187,187,187,maxColorValue=255),plotspecies=NULL,
                     edgetype=NULL,textsize=0.6,colbarlab="",splist2sym="psi",
-                    dolegend=T){
+                    dolegend=T,nacol=rgb(0,0,0)){
  #bold speclist1, star speclist2
  #reroot before plotting to match up vals
   require(gplots)
@@ -319,7 +324,8 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
   vals=as.numeric(vals)
   faketree=tree
   faketree$edge.length=vals
-  layout(matrix(c(1,2), ncol=1),heights=c(10,2))
+  #layout(matrix(c(1,2), ncol=1),heights=c(10,2))
+  layout(matrix(c(1,2), ncol=1),heights=c(7,1))
   if(is.null(col)){
     if (is.null(colpanmid)) {
       col=colorpanel(nlevels, colpan1, colpan2)
@@ -382,15 +388,18 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
   if (is.null(edgetype)) {
     edgetype = c(rep(1,length(vals))) #does not play well with rerootby
   }
-  calcoff <- quantile(tree$edge.length[tree$edge.length>0],0.25)
+  calcoff <- quantile(tree$edge.length[tree$edge.length>0],0.25,na.rm=T)
   par(mar=c(2,1,0,0.2)+0.1)
   oldpar = par()
   #par(mar=c(0,0,0,0))
   par(omi=c(0,0,0,0.0001))
   #plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, nlevels)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
   #tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
+  eccalc = col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1), na.rm=T), include.lowest = T, right = T)]
+  edgetype[which(is.na(eccalc))] = 3 #set na branches to dashed
+  eccalc[which(is.na(eccalc))] = nacol #set na branches to some other color (black?)
   plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,
-                       edge.color=col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1)), include.lowest = T, right = T)],
+                       edge.color=eccalc,
                        edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize,
                        align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
                        tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
@@ -402,26 +411,28 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=5, type="c", col=NULL,
     max.raw <- max(vals, na.rm = TRUE)
     z <- seq(min.raw, max.raw, length = length(col))
     #z <- quantile(vals, probs = seq(0,1,length = length(col)))
-    #par(mai=c(1,0.5,0,0.5))
-    par(mai=c(0.5,0.5,0,0.5))
+    par(mai=c(1,0.5,0,0.5))
+    #Optimal margins depend upon graphics window
+    #Try to exit if the plot cannot be produced, so that the device does not remain open
     #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
     #      xaxt = "n", yaxt = "n")
-    image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
-          xaxt = "n", yaxt = "n")
     #image(z = matrix(z, ncol = 1), col = col, breaks = quantile(vals, probs = seq(0, 1, length.out=nlevels+1)),
     #      xaxt = "n", yaxt = "n")
     #par(usr = c(0, 1, 0, 1))
     lv <- pretty(seq(min.raw, max.raw, length.out=nlevels+1))
     lv1 <- seq(min.raw, max.raw, length.out=nlevels+1)
-    print(lv)
-    lv2 <- quantile(vals, probs = seq(0,1, length.out = nlevels+1))
-    print(lv2)
+    #print(lv)
+    lv2 <- quantile(vals, probs = seq(0,1, length.out = nlevels+1), na.rm = T)
+    #print(lv2)
     scale01 <- function(x, low = min(x), high = max(x)) {
       x <- (x - low)/(high - low)
       x
     }
     xv <- scale01(as.numeric(lv), min.raw, max.raw)
     xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)
+    image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
+          xaxt = "n", yaxt = "n")
+    #margins are different for image and axis somehow... fix?
     axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
     #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
     mtext(colbarlab,at=0.5)
@@ -438,14 +449,16 @@ treePlotRers <- function(treesObj, rermat=NULL, index=NULL, rerlab=T, rercol=F,.
   }else{
     gen = index
   }
+  #necessary?
+  tree = treesObj$trees[[gen]]
+  rerrow = rermat[gen,]
   if (rerlab) {
     #use treePlotNew with edge labels
   }
   if (rercol) {
     #use treePlotNew with edges colored by RER
+    tmpout = treePlotNew(tree, rervals)
   }
-  tree = treesObj$trees[[gen]]
-  rerrow = rermat[gen,]
 }
 
 #Plotting function using ggtree, with branch colors (currently) from edge lengths

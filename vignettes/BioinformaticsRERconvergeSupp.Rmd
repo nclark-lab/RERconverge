@@ -173,7 +173,7 @@ strwrap(gsub(":",write.tree(bend3rers),replacement=": "))
 write.tree(bend3rers, file='BEND3RER.nwk')
 ```
 
-The function `returnRersAsTreesAll` will produce an object of class "multiPhylo", with each element containing a named gene tree with branch lengths representing RERs for that gene. This can then be saved to a file using `write.tree` for further analysis or customized plotting.
+The function `returnRersAsTreesAll` will produce an object of class "multiPhylo", with each element containing a named gene tree with branch lengths representing RERs for that gene. This can then be used for further analysis or customized plotting, and it can be saved to a file using `write.tree`.
 
 ```{r, message = FALSE, cache = TRUE}
 multirers = returnRersAsTreesAll(toyTrees,mamRERw)
