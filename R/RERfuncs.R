@@ -2097,3 +2097,20 @@ matchNodesInjectUpdate=function (tr1, tr2){
   #ii=ii[order(ii[,1]),]
 }
 
+#' @keywords  internal
+
+autoReroot = function(tree) {
+  lbranch = which(tree$edge.length==max(tree$edge.length))
+  if (length(lbranch) != 1) {
+    stop(paste("Cannot auto-reroot; # of branches with max length:",length(lbranch)))
+  } else {
+    #Re-root on this branch
+    if (is.rooted(tree)) {
+      tree = unroot(tree)
+    }
+    rnode = tree$edge[lbranch,1]
+    tree = root(tree, outgroup = rnode)
+  }
+  #Also pseudo-root on this branch?
+  return(tree)
+}
