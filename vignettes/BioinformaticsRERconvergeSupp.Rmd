@@ -160,7 +160,8 @@ We can also save all RERs for a given gene using the `returnRersAsTree` function
 ```{r fig2b, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
 #plot RERs as tree
 par(mfrow=c(1,1))
-bend3rers = returnRersAsTree(toyTrees, mamRERw, "BEND3", plot = TRUE) #plot RERs
+bend3rers = returnRersAsTree(toyTrees, mamRERw, "BEND3", plot = TRUE,
+                             phenv=phenvExample) #plot RERs
 ```
 
 Here we can see by inspecting the branch labels that the RER for the terminal branch leading to squirrel is a large positive value (5.68), and the RER for the terminal branch leading to vole is a large negative value (-2.364).
@@ -168,9 +169,15 @@ Here we can see by inspecting the branch labels that the RER for the terminal br
 This function also returns a tree whose branch lengths represent the RERs for this gene. We can print or save the tree using the *ape* package function `write.tree`:
 
 ```{r, message = FALSE, cache = TRUE}
-require('stringr')
-strwrap(str_replace_all(write.tree(bend3rers),":",": "))
+strwrap(gsub(":",write.tree(bend3rers),replacement=": "))
 write.tree(bend3rers, file='BEND3RER.nwk')
+```
+
+The function `returnRersAsTreesAll` will produce an object of class "multiPhylo", with each element containing a named gene tree with branch lengths representing RERs for that gene. This can then be saved to a file using `write.tree` for further analysis or customized plotting.
+
+```{r, message = FALSE, cache = TRUE}
+multirers = returnRersAsTreesAll(toyTrees,mamRERw)
+write.tree(multirers, file='toyRERs.nwk', tree.names=TRUE)
 ```
 
 ## Binary Trait Analysis

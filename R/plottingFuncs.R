@@ -500,12 +500,14 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 #' @return If plot = TRUE, also displays a plot of the gene tree with edges labeled with RERs
 #' @export
 
-returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7, tip.cex = 0.7, nalab = 'NA', plot = T){
+returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7,
+                             tip.cex = 0.7, nalab = 'NA', plot = T){
   trgene <- treesObj$trees[[index]]
   trgene$edge.length <- rep(2,nrow(trgene$edge))
   ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
   ii= treesObj$matIndex[ee[, c(2,1)]]
   rertree=rermat[index,ii]
+  rertree[is.nan(rertree)]=NA #replace NaNs from C functions
   if (plot) {
     par(mar = c(1,1,1,0))
     edgcols <- rep('black', nrow(trgene$edge))
@@ -525,7 +527,8 @@ returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.
   return(trgene)
 }
 
-#' Produce a vector of newick strings representing gene trees where the edge lengths correspond to RERs
+#' Produce a vector of newick strings representing gene trees where the edge lengths
+#' correspond to RERs
 #'
 #' @param treesObj. A treesObj created by \code{\link{readTrees}}
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
@@ -538,9 +541,27 @@ returnRersAsNewickStrings <- function(treesObj, rermat){
     ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
     ii= treesObj$matIndex[ee[, c(2,1)]]
     rertree=rermat[index,ii]
+    rertree[is.nan(rertree)]=NA
     trgene$edge.length <- rertree
     write.tree(trgene)
   })
+}
+
+#' Produce a multiPhylo object of all gene trees with branch lengths representing RERs
+#' for each gene
+#'
+#' @param treesObj. A treesObj created by \code{\link{readTrees}}
+#' @param rermat. A residual matrix, output of the getAllResiduals() function
+#' @return An object of class "multiPhylo" of named gene trees with edge lengths
+#' representing RERs for the given gene
+#' @export
+
+returnRersAsTreesAll <- function(treesObj, rermat){
+  allrers = lapply(names(treesObj$trees),returnRersAsTree,treesObj=treesObj,
+                   rermat=rermat,plot=F)
+  names(allrers)=names(treesObj$trees)
+  class(allrers)<-"multiPhylo"
+  return(allrers)
 }
 
 #' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
