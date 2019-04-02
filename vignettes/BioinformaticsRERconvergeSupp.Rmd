@@ -12,6 +12,7 @@ output:
     toc: yes
 authors: Amanda Kowalczyk, Wynn K Meyer, Raghavendran Partha, Weiguang Mao, Nathan
   L Clark, and Maria Chikina
+urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
@@ -67,7 +68,7 @@ In R, load the RERConverge library.
 ```{r results='hide', message = FALSE, warning = FALSE, cache = TRUE}
 if (!require("RERconverge", character.only=T, quietly=T)) {
     require(devtools)
-    install_github("nclark-lab/RERconverge") #can be modified to specify a particular branch
+    install_github("nclark-lab/RERconverge", ref="AddressReviewerComments") #can be modified to specify a particular branch
 }
 library(RERconverge)
 ```
@@ -91,7 +92,7 @@ Now in R, read in the gene trees. The `readTrees` function takes quite a while t
 
 ```{r, cache = TRUE}
 toytreefile = "subsetMammalGeneTrees.txt" 
-toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+toyTrees=readTrees(paste(rerpath,"/ext/",toytreefile,sep=""), max.read = 200)
 ```
 
 First, the code tells us that there are 1000 items, or gene trees, in the file. Since we have set `max.read = 200`, it will only read the first 200 of these. Then it says that the maximum number of tips in the gene trees is 62 and, later, it reports that it will use the 32 genes in this set that have data for all 62 species to estimate a **master tree**. The master tree will be used for subsequent analyses.
@@ -198,7 +199,7 @@ Now we will associate variation in these RERs with variation in a **binary trait
 1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one (or weights between zero and one) for foreground branches. Setting any branches to NA will exclude these branches from the analysis. An example binary tree file is provided in *extdata/MarineTreeBinCommonNames.txt*. This tree must have the same topology as the master tree or a subset of the master tree.
 
 ```{r fig3, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE}
-marineb=read.tree(paste(rerpath,"/extdata/MarineTreeBinCommonNames_noCGM.txt",sep=""))
+marineb=read.tree(paste(rerpath,"/ext/MarineTreeBinCommonNames_noCGM.txt",sep=""))
 marinebrooted = root(marineb,outgroup=noneutherians)
 mb1 = marineb
 mb1$edge.length = c(rep(1,length(mb1$edge.length)))

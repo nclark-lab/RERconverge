@@ -1,3 +1,12 @@
+#' RERconverge
+#'
+#'
+#' @docType package
+#' @author
+#' @import Rcpp
+#' @importFrom Rcpp evalCpp
+#' @useDynLib RERconverge
+#' @name RERconverge
 #comment everything out
 
 require(dplyr)
@@ -302,27 +311,25 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 
 #Version of tree plotting function with more options for colors and tip labels
 #Used for plotting trees for PON1 manuscript
-#To add: option for edge labels (edgelabels())
 #Issue with invalid graphics state after running: Solve by only plotting legend if
 #margins are not too large (how to test?)
-#use color blind friendly colors
-#center on 0 if both negative and positive values present
-#also use ... to include pass-on arguments to plot.phylo
 
 #' Plot `tree` with branch labels colored in a heatmap based on values in `vals`
 #'
 #' @param tree. A phylo object, used for topology
 #' @param vals. Values to use for heatmap to color branches, in same order as edges of tree
-#' @param rank.
+#' @param rank. Whether to plot ranks instead of values
 #' @param nlevels. How many colors to use in the heatmap
 #' @param type. Type for plot.phylo
-#' @param col.
+#' @param col. Vector of user-defined colors
 #' @param maintitle. Main title label
-#' @param useedge.
+#' @param useedge. Whether to use edge lengths in `tree` for plotting
 #' @param doreroot. Whether to re-root the tree before  plotting
 #' @param rerootby. If re-rooting, what to use to root the tree
 #' @param useSpecies. A vector of species to include in the plot
-#' @param species.names.
+#' @param species.names. Data fram for converting names in `tree` to names to be plotted
+#' (row names should be tip labels of tree, and first column should contain the
+#' corresponding desired tip labels)
 #' @param speclist1. A vector of tip labels to highlight in bold, blue text
 #' @param speclist2. A vector of tip labels to which to add an asterisk
 #' @param aligntip. Whether to align tip labels (default FALSE)
@@ -333,12 +340,12 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #' but the corresponding tips will be plotted on the tree)
 #' @param edgetype. Vector of line type for edges.
 #' @param textsize. cex value for tip labels (default 0.6)
-#' @param colbarlab.
+#' @param colbarlab. Label for the color bar legend
 #' @param splist2sym. A value within species names to display as a symbol
 #' @param dolegend. Whether to display the heatmap legend.
 #' @param nacol. Color to display for any edges with length NA
 #' @param .... further arguments to be passed to `plot` or to `plot.phylo`
-#' @return Plots a cladogram of the master tree with RERs displayed as branch labels or colors
+#' @return Plots a cladogram of `tree` with branch colors determined by `vals`
 #' @export
 
 treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
@@ -356,6 +363,9 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
     vals=tree$edge.length
   }
   vals=as.numeric(vals)
+  if (rank) {
+    vals = rank(vals)
+  }
   faketree=tree
   faketree$edge.length=vals
   #layout(matrix(c(1,2), ncol=1),heights=c(10,2))
@@ -407,7 +417,19 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
     edgetype = c(rep(1,length(vals))) #does not play well with rerootby
   }
   calcoff <- quantile(tree$edge.length[tree$edge.length>0],0.25,na.rm=T)
-  eccalc = col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1), na.rm=T), include.lowest = T, right = T)]
+  if (min(vals,na.rm=T)>=0) {
+    forbreaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1), na.rm=T)
+  } else {
+    #separately estimate quantiles below and above 0
+    negvals = vals[vals < 0]
+    posvals = vals[vals >= 0]
+    negbreaks = quantile(negvals, probs = seq(0,1, length.out = nlevels+1),
+                         na.rm=T)[seq(1,nlevels+1,2)]
+    posbreaks = quantile(posvals, probs = seq(0,1, length.out = nlevels+1),
+                         na.rm=T)[seq(nlevels %% 2 + 1,nlevels+1,2)]
+    forbreaks = unique(c(negbreaks,posbreaks))
+  }
+  eccalc = col[cut(vals, breaks = forbreaks, include.lowest = T, right = T)]
   edgetype[which(is.na(eccalc))] = 3 #set na branches to dashed
   eccalc[which(is.na(eccalc))] = nacol #set na branches to some other color (black?)
 
@@ -436,9 +458,6 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
                        edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize,
                        align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
                        tip.color=tipcol,no.margin=T,plot=T, x.lim=forx$x.lim*.75,main = maintitle,...)
-  #plot(c(1,1))
-  #add option for edge labels using edgelabels()
-  #use recordPlot() to store the plot and then add edge labels
   #par(mar=oldpar)
   if (dolegend) {
     min.raw <- min(vals, na.rm = TRUE)
@@ -464,14 +483,14 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
     }
     xv <- scale01(as.numeric(lv), min.raw, max.raw)
     xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)
-    #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
-    #      xaxt = "n", yaxt = "n")
     image(z = matrix(z, nrow = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
           xaxt = "n", yaxt = "n")
-    #margins are different for image and axis somehow... fix?
     xvadj = 1/(2*nlevels)
     #axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
-    axis(4, at = seq(0-xvadj,1+xvadj,length.out=(nlevels+1)), labels = round(lv2,3), cex.axis=0.8, las=1)
+    #axis(4, at = seq(0-xvadj,1+xvadj,length.out=(nlevels+1)), labels = round(lv2,3), cex.axis=0.8,
+    #     las=1)
+    axis(4, at = seq(0-xvadj,1+xvadj,length.out=(nlevels+1)), labels = round(forbreaks,3),
+         cex.axis=0.8, las=1)
     #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
     mtext(colbarlab,at=0.5)
   }
@@ -503,7 +522,8 @@ treePlotRers <- function(treesObj, rermat=NULL, index=NULL, type=c("label","colo
   if (type=="color") {
     #use treePlotNew with edges colored by RER
     rerstoplot = returnRersAsTree(treesObj, rermat, index, phenv, plot = F)
-    tmpout = treePlotNew(treesObj$trees[[index]], rerstoplot$edge.length, ...)
+    tmpout = treePlotNew(treesObj$trees[[index]], rerstoplot$edge.length,
+                         colbarlab="RER",...)
   }
   #return(tmpout)
 }
@@ -609,7 +629,6 @@ returnRersAsNewickStrings <- function(treesObj, rermat){
 
 #' Produce a multiPhylo object of all gene trees with branch lengths representing RERs
 #' for each gene
-#'
 #' @param treesObj. A treesObj created by \code{\link{readTrees}}
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
 #' @return An object of class "multiPhylo" of named gene trees with edge lengths
@@ -624,8 +643,8 @@ returnRersAsTreesAll <- function(treesObj, rermat){
   return(allrers)
 }
 
-#' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across species present in the gene tree
-#'
+#' Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across
+#' species present in the gene tree
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
 #' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
 #' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}

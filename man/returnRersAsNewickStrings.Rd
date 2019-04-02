@@ -2,7 +2,8 @@
 % Please edit documentation in R/plottingFuncs.R
 \name{returnRersAsNewickStrings}
 \alias{returnRersAsNewickStrings}
-\title{Produce a vector of newick strings representing gene trees where the edge lengths correspond to RERs}
+\title{Produce a vector of newick strings representing gene trees where the edge lengths
+correspond to RERs}
 \usage{
 returnRersAsNewickStrings(treesObj, rermat)
 }
@@ -15,5 +16,6 @@ returnRersAsNewickStrings(treesObj, rermat)
 A named character vector of newick strings, one per gene, representing RERs as edge lengths'
 }
 \description{
-Produce a vector of newick strings representing gene trees where the edge lengths correspond to RERs
+Produce a vector of newick strings representing gene trees where the edge lengths
+correspond to RERs
 }
