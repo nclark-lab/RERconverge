@@ -321,32 +321,34 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #' @param useedge.
 #' @param doreroot. Whether to re-root the tree before  plotting
 #' @param rerootby. If re-rooting, what to use to root the tree
-#' @param species.list.
+#' @param useSpecies. A vector of species to include in the plot
 #' @param species.names.
-#' @param speclist1.
-#' @param speclist2.
+#' @param speclist1. A vector of tip labels to highlight in bold, blue text
+#' @param speclist2. A vector of tip labels to which to add an asterisk
 #' @param aligntip. Whether to align tip labels (default FALSE)
 #' @param colpan1. Color for lowest value in heatmap (default blue)
 #' @param colpan2. Color for highest value in heatmap (default rose)
 #' @param colpanmid. Color for middle value in heatmap (default gray)
-#' @param plotspecies.
+#' @param plotspecies. A vector of tip labels to display on the tree (the remainder will be masked,
+#' but the corresponding tips will be plotted on the tree)
 #' @param edgetype. Vector of line type for edges.
 #' @param textsize. cex value for tip labels (default 0.6)
 #' @param colbarlab.
 #' @param splist2sym. A value within species names to display as a symbol
 #' @param dolegend. Whether to display the heatmap legend.
 #' @param nacol. Color to display for any edges with length NA
+#' @param .... further arguments to be passed to `plot` or to `plot.phylo`
 #' @return Plots a cladogram of the master tree with RERs displayed as branch labels or colors
 #' @export
 
 treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
-                     maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, species.list=NULL,
+                     maintitle= NULL, useedge=F, doreroot=F, rerootby=NULL, useSpecies=NULL,
                      species.names=NULL, speclist1=NULL, speclist2=NULL, aligntip=F,
                     colpan1=rgb(0,119,187,maxColorValue=255),
                     colpan2=rgb(204,51,17,maxColorValue=255),
                     colpanmid=rgb(187,187,187,maxColorValue=255),plotspecies=NULL,
                     edgetype=NULL,textsize=0.6,colbarlab="",splist2sym="psi",
-                    dolegend=T,nacol=rgb(0,0,0)){
+                    dolegend=T,nacol=rgb(0,0,0),...){
  #bold speclist1, star speclist2
  #reroot before plotting to match up vals
   require(gplots)
@@ -357,7 +359,7 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
   faketree=tree
   faketree$edge.length=vals
   #layout(matrix(c(1,2), ncol=1),heights=c(10,2))
-  layout(matrix(c(1,2), ncol=1),heights=c(7,1))
+  #layout(matrix(c(1,2), ncol=1),heights=c(7,1))
   if(is.null(col)){
     if (is.null(colpanmid)) {
       col=colorpanel(nlevels, colpan1, colpan2)
@@ -368,10 +370,6 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
   if (doreroot) {
     rerootby=intersect(rerootby,tree$tip.label)
     if (length(rerootby) > 0) {
-      #mrcanode=getMRCA(tree,rerootby)
-      #tree=root(tree,node=mrcanode,resolve.root=T)
-      #faketree=root(faketree,node=mrcanode,resolve.root=T)
-      #vals=faketree$edge.length
         tree=root(tree,rerootby,resolve.root=T)
         faketree=root(faketree,rerootby,resolve.root=T)
         vals=faketree$edge.length
@@ -379,9 +377,9 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
       print("No species in rerootby in tree! Leaving tree unrooted.")
     }
   }
-  if (!is.null(species.list)) {
-    tree=pruneTree(tree,species.list)
-    faketree=pruneTree(tree,species.list)
+  if (!is.null(useSpecies)) {
+    tree=pruneTree(tree,useSpecies)
+    faketree=pruneTree(tree,useSpecies)
     vals=faketree$edge.length
   }
   if (!is.null(species.names)) {
@@ -402,39 +400,43 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
   }
   if (!is.null(speclist2)) {
     toadd <- which(tree$tip.label %in% speclist2)
-
-    #tree$tip.label[toadd] <- paste(tree$tip.label[toadd],"*",sep="_")
-    #tree$tip.label[toadd] <- paste(tree$tip.label[toadd],expression(psi),sep="_")
-    #tree$tip.label[toadd] <- expression(paste(tree$tip.label[toadd], psi, sep="_"))
     tree$tip.label[toadd] <- str_replace_all(tree$tip.label[toadd]," ","~")
     tree$tip.label[toadd] <- as.expression(parse(text=paste(tree$tip.label[toadd],"~",splist2sym,sep="")))
-    #for (i in 1:length(toadd)) {
-      #tree$tip.label[toadd[i]] <- bquote(.(tree$tip.label[toadd[i]]) ~ psi)
-      #tree$tip.label[toadd[i]] <- str_replace_all(tree$tip.label[toadd[i]]," ","_")
-      #tree$tip.label[toadd[i]] <- parse(text = paste(tree$tip.label[toadd[i]], "psi"))
-      #tree$tip.label[toadd[i]] <- expression(paste(eval(tree$tip.label[toadd[i]]), psi, sep="_"))
-      #tree$tip.label[toadd[i]] <- paste(tree$tip.label[toadd[i]],expression(psi),sep="_")
-      #tree$tip.label[toadd[i]] <- substitute(paste(tt, psi), list(tt=tree$tip.label[toadd[i]]))
-    #}
   }
   if (is.null(edgetype)) {
     edgetype = c(rep(1,length(vals))) #does not play well with rerootby
   }
   calcoff <- quantile(tree$edge.length[tree$edge.length>0],0.25,na.rm=T)
-  par(mar=c(2,1,0,0.2)+0.1)
-  oldpar = par()
-  #par(mar=c(0,0,0,0))
-  par(omi=c(0,0,0,0.0001))
-  #plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, nlevels)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
-  #tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
   eccalc = col[cut(vals, breaks = quantile(vals, probs = seq(0,1, length.out = nlevels+1), na.rm=T), include.lowest = T, right = T)]
   edgetype[which(is.na(eccalc))] = 3 #set na branches to dashed
   eccalc[which(is.na(eccalc))] = nacol #set na branches to some other color (black?)
+
+  #Plotting horizontally messes up the margins, so re-set x limits *before* setting layout
+  layout(matrix(c(1,2), nrow=1),widths=c(5,1)) #switching to horizontal
+  par(mar=c(2,1,0,0.2)+0.1)
+  par(omi=c(0,0,0,0.0001))
+  forx = plot.phylo(tree, use.edge.length = useedge,type=type,
+                       edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize,
+                       align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
+                       no.margin=T,plot=F,...)
+  forx = plot.phylo(tree,use.edge.length=useedge,type=type,no.margin=T,plot=F)
+  #print(forx$x.lim)
+  dev.off()
+  layout(matrix(c(1,2), nrow=1),widths=c(5,1)) #switching to horizontal
+  par(mar=c(2,1,0,0.2)+0.1)
+  #oldpar = par()
+  #par(omi=c(0,0,0,0))
+  par(omi=c(0,0,0,0.0001))
+  #plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,edge.color=col[cut(vals, nlevels)], edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize, align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
+  #tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
+
+  #Plotting horizontally messes up the margins, so re-set x limits
   plotobj = plot.phylo(tree, use.edge.length = useedge,type=type,
                        edge.color=eccalc,
                        edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize,
                        align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
-                       tip.color=tipcol,no.margin=T,plot=T, main = maintitle)
+                       tip.color=tipcol,no.margin=T,plot=T, x.lim=forx$x.lim*.75,main = maintitle,...)
+  #plot(c(1,1))
   #add option for edge labels using edgelabels()
   #use recordPlot() to store the plot and then add edge labels
   #par(mar=oldpar)
@@ -443,7 +445,7 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
     max.raw <- max(vals, na.rm = TRUE)
     z <- seq(min.raw, max.raw, length = length(col))
     #z <- quantile(vals, probs = seq(0,1,length = length(col)))
-    par(mai=c(1,0.5,0,0.5))
+    par(mai=c(0.5,0.5,0.5,1))
     #Optimal margins depend upon graphics window
     #Try to exit if the plot cannot be produced, so that the device does not remain open
     #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
@@ -462,10 +464,14 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
     }
     xv <- scale01(as.numeric(lv), min.raw, max.raw)
     xv1 <- scale01(as.numeric(lv1), min.raw, max.raw)
-    image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
+    #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
+    #      xaxt = "n", yaxt = "n")
+    image(z = matrix(z, nrow = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
           xaxt = "n", yaxt = "n")
     #margins are different for image and axis somehow... fix?
-    axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
+    xvadj = 1/(2*nlevels)
+    #axis(1, at = round(xv1,3), labels = round(lv2,3), cex.axis=0.8)
+    axis(4, at = seq(0-xvadj,1+xvadj,length.out=(nlevels+1)), labels = round(lv2,3), cex.axis=0.8, las=1)
     #axis(1, at = xv/2, labels = lv, cex.axis=0.8)
     mtext(colbarlab,at=0.5)
   }
