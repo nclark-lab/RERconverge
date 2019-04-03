@@ -344,6 +344,8 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #' @param splist2sym. A value within species names to display as a symbol
 #' @param dolegend. Whether to display the heatmap legend.
 #' @param nacol. Color to display for any edges with length NA
+#' @param figwid. Adjust x limits of plot.phylo by 1/figwid. May be related to figure width
+#' (requires some optimization)
 #' @param .... further arguments to be passed to `plot` or to `plot.phylo`
 #' @return Plots a cladogram of `tree` with branch colors determined by `vals`
 #' @export
@@ -355,7 +357,7 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
                     colpan2=rgb(204,51,17,maxColorValue=255),
                     colpanmid=rgb(187,187,187,maxColorValue=255),plotspecies=NULL,
                     edgetype=NULL,textsize=0.6,colbarlab="",splist2sym="psi",
-                    dolegend=T,nacol=rgb(0,0,0),...){
+                    dolegend=T,nacol=rgb(0,0,0),figwid=10,...){
  #bold speclist1, star speclist2
  #reroot before plotting to match up vals
   require(gplots)
@@ -434,6 +436,9 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
   eccalc[which(is.na(eccalc))] = nacol #set na branches to some other color (black?)
 
   #Plotting horizontally messes up the margins, so re-set x limits *before* setting layout
+  #dev.new(width=10,height=9)
+  pdf()
+  dev.control('enable')
   layout(matrix(c(1,2), nrow=1),widths=c(5,1)) #switching to horizontal
   par(mar=c(2,1,0,0.2)+0.1)
   par(omi=c(0,0,0,0.0001))
@@ -441,9 +446,9 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
                        edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize,
                        align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
                        no.margin=T,plot=F,...)
-  forx = plot.phylo(tree,use.edge.length=useedge,type=type,no.margin=T,plot=F)
   #print(forx$x.lim)
   dev.off()
+  #dev.new(width=10,height=9)
   layout(matrix(c(1,2), nrow=1),widths=c(5,1)) #switching to horizontal
   par(mar=c(2,1,0,0.2)+0.1)
   #oldpar = par()
@@ -457,14 +462,14 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
                        edge.color=eccalc,
                        edge.width=4, edge.lty=edgetype,lab4ut="axial", cex=textsize,
                        align.tip.label=aligntip,font=pfonts,label.offset=calcoff,
-                       tip.color=tipcol,no.margin=T,plot=T, x.lim=forx$x.lim*.75,main = maintitle,...)
+                       tip.color=tipcol,no.margin=T,plot=T, x.lim=forx$x.lim/figwid,main = maintitle,...)
   #par(mar=oldpar)
   if (dolegend) {
     min.raw <- min(vals, na.rm = TRUE)
     max.raw <- max(vals, na.rm = TRUE)
     z <- seq(min.raw, max.raw, length = length(col))
     #z <- quantile(vals, probs = seq(0,1,length = length(col)))
-    par(mai=c(0.5,0.5,0.5,1))
+    par(mai=c(0.25,0.01,0.25,0.9))
     #Optimal margins depend upon graphics window
     #Try to exit if the plot cannot be produced, so that the device does not remain open
     #image(z = matrix(z, ncol = 1), col = col, breaks = seq(min.raw, max.raw, length.out=nlevels+1),
@@ -509,11 +514,13 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
 #' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}
 #' @param .... Additional parameters to be passed to \code{\link{returnRersAsTree}}
 #' or \code{\link{treePlotNew}}
+#' #' @param figwid. Adjust x limits of plot.phylo by 1/figwid. May be related to figure width
+#' (requires some optimization)
 #' @return Plots a cladogram of the master tree with RERs displayed as branch labels or colors
 #' @export
 
 treePlotRers <- function(treesObj, rermat=NULL, index=NULL, type=c("label","color"),
-                         phenv=NULL, ...) {
+                         phenv=NULL, figwid=10, ...) {
   type = match.arg(type)
   if (type=="label") {
     #use returnRersAsTree with plot = TRUE
@@ -523,7 +530,7 @@ treePlotRers <- function(treesObj, rermat=NULL, index=NULL, type=c("label","colo
     #use treePlotNew with edges colored by RER
     rerstoplot = returnRersAsTree(treesObj, rermat, index, phenv, plot = F)
     tmpout = treePlotNew(treesObj$trees[[index]], rerstoplot$edge.length,
-                         colbarlab="RER",...)
+                         colbarlab="RER", figwid=figwid, ...)
   }
   #return(tmpout)
 }

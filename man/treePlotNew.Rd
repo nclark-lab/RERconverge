@@ -12,7 +12,7 @@ treePlotNew(tree, vals = NULL, rank = F, nlevels = 9, type = "c",
   51, 17, maxColorValue = 255), colpanmid = rgb(187, 187, 187,
   maxColorValue = 255), plotspecies = NULL, edgetype = NULL,
   textsize = 0.6, colbarlab = "", splist2sym = "psi", dolegend = T,
-  nacol = rgb(0, 0, 0), ...)
+  nacol = rgb(0, 0, 0), figwid = 10, ...)
 }
 \arguments{
 \item{tree.}{A phylo object, used for topology}
@@ -67,6 +67,9 @@ but the corresponding tips will be plotted on the tree)}
 \item{dolegend.}{Whether to display the heatmap legend.}
 
 \item{nacol.}{Color to display for any edges with length NA}
+
+\item{figwid.}{Adjust x limits of plot.phylo by 1/figwid. May be related to figure width
+(requires some optimization)}
 
 \item{....}{further arguments to be passed to `plot` or to `plot.phylo`}
 }

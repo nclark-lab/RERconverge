@@ -1,0 +1,54 @@
+---
+title: "TestingKnit"
+author: "Wynn Meyer"
+date: "4/3/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+## My own work
+
+Attempting to load and plot RER data.
+
+```{r, message = FALSE, cache = TRUE}
+library("RERconverge")
+data("toyTrees") 
+data("mamRERw")
+repopath = "~/Documents/Github/RERconverge"
+source(paste(repopath,"/R/RERfuncs.R",sep=""))
+source(paste(repopath,"/R/plottingFuncs.R",sep="")) #for troubleshooting margins
+```
+
+Here is where I have issues with figure margins.
+
+```{r fig2c, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
+#plot RERs as tree
+#par(mfrow=c(1,1))
+newbend3rers = treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3", 
+                            type="c", nlevels=9, figwid=10)
+#treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3", type="c", nlevels=9)
+```

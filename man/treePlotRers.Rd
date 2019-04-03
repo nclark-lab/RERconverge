@@ -7,7 +7,7 @@ heatmap along the branches (type="color")
 Wraps around \code{\link{returnRersAsTree}} or \code{\link{treePlotNew}}, respectively}
 \usage{
 treePlotRers(treesObj, rermat = NULL, index = NULL, type = c("label",
-  "color"), phenv = NULL, ...)
+  "color"), phenv = NULL, figwid = 10, ...)
 }
 \arguments{
 \item{treesObj.}{A treesObj created by \code{\link{readTrees}}}
@@ -22,7 +22,9 @@ corresponding to the gene's row index in the residuals matrix}
 \item{phenv.}{A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}}
 
 \item{....}{Additional parameters to be passed to \code{\link{returnRersAsTree}}
-or \code{\link{treePlotNew}}}
+or \code{\link{treePlotNew}}
+#' @param figwid. Adjust x limits of plot.phylo by 1/figwid. May be related to figure width
+(requires some optimization)}
 }
 \value{
 Plots a cladogram of the master tree with RERs displayed as branch labels or colors
