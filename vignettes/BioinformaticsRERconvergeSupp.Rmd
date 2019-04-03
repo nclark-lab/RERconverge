@@ -92,7 +92,7 @@ Now in R, read in the gene trees. The `readTrees` function takes quite a while t
 
 ```{r, cache = TRUE}
 toytreefile = "subsetMammalGeneTrees.txt" 
-toyTrees=readTrees(paste(rerpath,"/ext/",toytreefile,sep=""), max.read = 200)
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
 ```
 
 First, the code tells us that there are 1000 items, or gene trees, in the file. Since we have set `max.read = 200`, it will only read the first 200 of these. Then it says that the maximum number of tips in the gene trees is 62 and, later, it reports that it will use the 32 genes in this set that have data for all 62 species to estimate a **master tree**. The master tree will be used for subsequent analyses.
@@ -185,7 +185,7 @@ Another useful function for visualizing RERs for a givent tree is `treePlotRers`
 
 ```{r fig2c, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
 #plot RERs as tree
-par(mfrow=c(1,1))
+#par(mfrow=c(1,1))
 newbend3rers = treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3", type="c", nlevels=9)
 ```
 
