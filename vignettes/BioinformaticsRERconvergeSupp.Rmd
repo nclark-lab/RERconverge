@@ -184,11 +184,7 @@ write.tree(multirers, file='toyRERs.nwk', tree.names=TRUE)
 Another useful function for visualizing RERs for a given tree is `treePlotRers`. When called with `type = label`, it will produce the same plot as shown above, i.e., a cladogram with the branches labeled by RER. Alternatively, when called with `type = color`, it will produce a cladogram with RERs displayed as a color heatmap on the branches.
 
 ```{r fig2c, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
-#plot RERs as tree
-#par(mfrow=c(1,1))
-#repopath = "~/Documents/Github/RERconverge"
-#source(paste(repopath,"/R/RERfuncs.R",sep=""))
-#source(paste(repopath,"/R/plottingFuncs.R",sep="")) #for troubleshooting margins
+#visualize RERs along branches as a heatmap
 newbend3rers = treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3", 
                             type="c", nlevels=9, figwid=10)
 ```
