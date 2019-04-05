@@ -23,9 +23,13 @@ require(weights)
 
 #' @param file The path to the tree file
 #' @param  max.read this function takes a while for  a whole genome so max.read is useful for testing
+#' @param reorient Whether to re-orient the master tree so that it is pseudo-rooted
+#' on an outgroup. If unspecified in `outgroup`, this will use `midpoint.root`.
+#' @param outgroup A user-specified outgroup for re-rooting with `root`
+#' (only used if reorient=TRUE)
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA){
+readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   tmp=scan(file, sep="\t", what="character")
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   treenames=character()
@@ -79,13 +83,43 @@ readTrees=function(file, max.read=NA){
   treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
   #this gets the abolute alphabetically constrained order when all branches
   #are present
+  
+  #add re-rooting if specified
+  if (reorient) {
+    #root the master tree
+    if (is.null(outgroup)) {
+      mytreeFull.rooted=midpoint.root(treesObj$masterTree)
+    } else {
+      mytreeFull.rooted=root(treesObj$masterTree,outgroup)
+    }
+    mytreeFull.reoriented = unroot(mytreeFull)
+    treesObj$masterTree=mytreeFull.reoriented
+  }
+  
   tiporder=treeTraverse(treesObj$masterTree)
 
   #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
 
   for ( i in 1:treesObj$numTrees){
+    
+    if (reorient) {
+      
+      #prune the rooted masterTree to the correct species
+      prunedTree=pruneTree(treesObj$masterTree, treesObj$trees[[i]]$tip.label)
+      #find the new root node
+      rootNode=setdiff(prunedTree$edge[,1], prunedTree$edge[,2])
+      #find the first child or the root node
+      rootNode1down=prunedTree$edge[prunedTree$edge[,1]==rootNode,2][1]
+      #get the corresponding outgroup
+      goutgroup=treeTraverse(prunedTree, rootNode1down)
+      #root the tree with missing species on the outgroup
+      mytreeMissing.rooted=root(mytreeMissing, outgroup = goutgroup)
+      treesObj$trees[[i]]=unroot(mytreeMissing.rooted)
+      
+    } else {
 
-    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
+      treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
+    }
 
   }
 
@@ -2095,22 +2129,4 @@ matchNodesInjectUpdate=function (tr1, tr2){
   }
   ii
   #ii=ii[order(ii[,1]),]
-}
-
-#' @keywords  internal
-
-autoReroot = function(tree) {
-  lbranch = which(tree$edge.length==max(tree$edge.length))
-  if (length(lbranch) != 1) {
-    stop(paste("Cannot auto-reroot; # of branches with max length:",length(lbranch)))
-  } else {
-    #Re-root on this branch
-    if (is.rooted(tree)) {
-      tree = unroot(tree)
-    }
-    rnode = tree$edge[lbranch,1]
-    tree = root(tree, outgroup = rnode)
-  }
-  #Also pseudo-root on this branch?
-  return(tree)
 }
