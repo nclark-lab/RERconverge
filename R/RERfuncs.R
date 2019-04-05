@@ -563,7 +563,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.
+#' @param cutoff a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.
 #' @param transform The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, sqrt is recommended.
 #' @param weighted Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data.
 #' @param useSpecies Give only a subset of the species to use for RER calculation. Some times excluding unusually long branches can provide more stable results
@@ -2129,4 +2129,21 @@ matchNodesInjectUpdate=function (tr1, tr2){
   }
   ii
   #ii=ii[order(ii[,1]),]
+}
+
+#' @keywords internal
+diffBranches=function(tree){
+  #set branch lengths to differences in branch lengths
+  #perform on RER trees and convert back to paths
+  difftree=tree
+  for (i in 1:nrow(difftree$edge)) {
+    upperNode = difftree$edge[i,1]
+    upperEdge = which(difftree$edge[,2]==upperNode) #check whether length is 1?
+    if (length(upperEdge)==1) {
+      difftree$edge.length[i] = tree$edge.length[i] - tree$edge.length[upperEdge]
+    } else {
+      stop(paste("Multiple upstream edges exist for edge",i))
+    }
+  }
+  return(difftree)
 }
