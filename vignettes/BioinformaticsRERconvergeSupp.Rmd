@@ -4,10 +4,10 @@ title: "| SUPPLEMENTARY INFORMATION \n| RERconverge: an R package for associatin
 bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     css: custom.css
+    toc: yes
+  pdf_document:
     toc: yes
 authors: Amanda Kowalczyk, Wynn K Meyer, Raghavendran Partha, Weiguang Mao, Nathan
   L Clark, and Maria Chikina
@@ -375,7 +375,7 @@ hist(corMarine$P, breaks=15, xlab="Kendall P-value",
 
 There appears to be a slight enrichment of low p-values, but since we have only evaluated the first 200 genes from our ~19,000 gene genome-wide set, we should hold off on drawing conclusions from this.
 
-## Continuous Trait Analysis
+## Continuous Trait Analysis {#ContinuousTrait}
   
 In addition to supporting binary trait analyses, RERconverge can also calculate correlations between rates of evolution of genes and the change in a *continuous* trait.  To perform a continuous trait analysis, start with a named vector in R.  Vector names must match the names in the trees read in previously. Here are the first few entries in the vector we will use for continuous trait analysis:
 
@@ -449,13 +449,12 @@ abline(lm(y~x), col='red',lwd=3)
 In this case, we see that the positive correlation is driven by all species and not just a single clade.  Note that labelled points are terminal nodes in the phylogeny and unlabelled points are internal nodes.  
   
   
-Further analyses could include using functional enrichment detection methods to find functionally-related genomic elements that are experiencing convergent evolutionary rates as a group and using branch-site models to determine if fast-evolving genes are experiencing relaxation of constraint or undergoing directional selection.
+Further analyses could include using functional enrichment detection methods to find functionally-related genomic elements that are experiencing convergent evolutionary rates as a group (see walkthrough below) and using branch-site models to determine if fast-evolving genes are experiencing relaxation of constraint or undergoing directional selection.
 
-This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).  A detailed walkthrough to produce the data used for this example is provided in the [full walkthrough vignette](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html).
 
 # Enrichment Walkthrough
 
-This document describes how to run pathway enrichment analysis using RERconverge output and functions included with the RERconverge package.  Enrichment analysis detects groups of genes that are evolving faster or slower with a phenotype of interest.  In the RERconverge package, the enrichment function is implemented as a Wilcoxon Rank-Sum Test on a list of genes ranked based on their correlation statistics.  It detects distribution shifts in groups of genes compared to all genes, and it thereby bypasses the need to set a foreground significance cutoff like some other enrichment methods. 
+This section describes how to run pathway enrichment analysis using RERconverge output and functions included with the RERconverge package.  Enrichment analysis detects groups of genes that are evolving faster or slower with a phenotype of interest.  In the RERconverge package, the enrichment function is implemented as a Wilcoxon Rank-Sum Test on a list of genes ranked based on their correlation statistics.  It detects distribution shifts in groups of genes compared to all genes, and it thereby bypasses the need to set a foreground significance cutoff like some other enrichment methods. 
  
 **Input** to the enrichment function is the output from RERconverge correlation functions and pathways of interest with gene symbols (gene names). 
  
@@ -465,7 +464,7 @@ This document describes how to run pathway enrichment analysis using RERconverge
 
 Enrichment analysis starts with the results from the *correlateWithContinuousPhenotype*, *correlateWithBinaryPhenotype*, or *getAllCor* functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  These statistics are used to calculate enrichments. 
  
-In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
+In this case, we will start with the data from the continuous trait analysis described  [above](#ContinuousTrait) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
 
 ```{r results='hide', message = FALSE, warning = FALSE, cache=T}
 library(RERconverge)
@@ -524,9 +523,6 @@ You may also calculate permutation p-values based on permuting the phenotype vec
 
 We've now walked through the basic workflow for RERConverge. For more information about these methods and some results relevant to marine and subterranean adaptation, see [@Chikina2016] and [@Partha2017].
 
-# Case Study
-
-We demonstrate the features of RERconverge using gene trees derived from the coding sequences of 19,149 genes for 62 mammal species, along with foreground branches that represent lineages of the mammalian phylogeny whose members live predominantly in marine aquatic environments [@Chikina2016; @Meyer2018; @ParthaRobustRER]. For this dataset, RERconverge ran in 1 hour and 18 minutes on RStudio with R version 3.3.0 installed on a computer running Windows 10 with 16 GB of RAM and an Intel Core i7-6500U 2.50GHz CPU. Top categories of functional enrichment included olfactory transduction (FDR<10e-10), GPCR signaling (FDR<10e-10), and immune functions (FDR=5.4e-7), as in Chikina et al., 2016 [@Benjamini1995].  We show the RERconverge workflow and visualization of RERs for a top olfactory receptor, *OR9Q2*, in Figure 1.
 
 # References
 
