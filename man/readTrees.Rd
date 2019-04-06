@@ -5,12 +5,18 @@
 \title{reads trees from a 2 column , tab seperated, file
 The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format}
 \usage{
-readTrees(file, max.read = NA)
+readTrees(file, max.read = NA, masterTree = NULL, minTreesAll = 20)
 }
 \arguments{
 \item{file}{The path to the tree file}
 
-\item{max.read}{this function takes a while for  a whole genome so max.read is useful for testing}
+\item{max.read}{This function takes a while for a whole genome, so max.read is useful for testing}
+
+\item{masterTree}{(optional) User can specify a master tree. Recommended only when
+the number of available gene trees with all species is small.}
+
+\item{minTreesAll}{The minimum number of trees with all species present in order to estimate
+master tree edge lengths (default 20).}
 }
 \value{
 A trees object of class "treeObj"
