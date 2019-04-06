@@ -1,17 +1,17 @@
 ---
-title:  | 
-  | SUPPLEMENTARY INFORMATION 
-  | RERconverge: an R package for associating evolutionary rates with convergent traits 
+title: "| SUPPLEMENTARY INFORMATION \n| RERconverge: an R package for associating
+  evolutionary rates with convergent traits \n"
 bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     css: custom.css
     toc: yes
+  pdf_document:
+    toc: yes
 authors: Amanda Kowalczyk, Wynn K Meyer, Raghavendran Partha, Weiguang Mao, Nathan
   L Clark, and Maria Chikina
+urlcolor: blue
 ---
 
 ```{r setup, include=FALSE}
@@ -67,7 +67,8 @@ In R, load the RERConverge library.
 ```{r results='hide', message = FALSE, warning = FALSE, cache = TRUE}
 if (!require("RERconverge", character.only=T, quietly=T)) {
     require(devtools)
-    install_github("nclark-lab/RERconverge") #can be modified to specify a particular branch
+    install_github("nclark-lab/RERconverge", ref="master") 
+    #"ref" can be modified to specify a particular branch
 }
 library(RERconverge)
 ```
@@ -96,6 +97,8 @@ toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200
 
 First, the code tells us that there are 1000 items, or gene trees, in the file. Since we have set `max.read = 200`, it will only read the first 200 of these. Then it says that the maximum number of tips in the gene trees is 62 and, later, it reports that it will use the 32 genes in this set that have data for all 62 species to estimate a **master tree**. The master tree will be used for subsequent analyses.
 
+RERconverge is intended to be used on genome-scale datasets, containing a large number of gene trees with data present for all species. It thus has a minimum number of such gene trees required for `readTrees` to use to estimate a **master tree**; this is set with the `minTreesAll` option and is 20 by default. If your dataset is smaller, you may adjust this or supply your own master tree using the option `masterTree` (this should be a `phylo` object generated using ape's `read.tree`); however, we recommend interpreting results with caution in this case. 
+
 ## Estimating relative evolutionary rates (RER) with `getAllResiduals`
 
 The next step is to estimate **relative evolutionary rates**, or RERs, for all branches in the tree for each gene. Intuitively, a gene's RER for a given branch represents how quickly or slowly the gene is evolving on that branch relative to its overall rate of evolution throughout the tree. 
@@ -108,6 +111,8 @@ We will use the `getAllResiduals` function to calculate RERs. This uses the foll
 * `transform`: the method used to transform the raw data. By transforming the raw data, we reduce the heteroscedasticity (relationship between mean and variance) and the influence of outliers. Here we will use a square-root transform.
 * `weighted`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data. 
 * `scale`: whether to scale the individual branches of the gene trees to account for variance across trees. This scales the variance, though not the mean, of each branch length, using the R function `scale`.
+
+The `useSpecies` input variable can be provided to most RERconverge functions. Excluding one or more species from this vector will exclude them from the analyses.
 
 Here is the basic method, with the recommended settings:
 
@@ -151,13 +156,49 @@ phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTrees,clade="terminal")
 plotRers(mamRERw,"BEND3",phenv=phenvExample) #plot RERs
 ```
 
-This plot represents the estimated RERs for terminal branches. The foreground branches (set here using `foreground2Paths`) are highlighted in red. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
+This plot represents the estimated RERs for terminal branches (labeled with species names along the y-axis) and internal branches (plotted in a single row at the base of the y-axis). The foreground branches (set here using `foreground2Paths`) are highlighted in red; these are currently only terminal branches, but if any internal branches were included, there would be a red point or points among the RER points at the base of the y-axis. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
+
+We can also save all RERs for a given gene using the `returnRersAsTree` function. If we include `plot=TRUE`, this function will also generate a cladogram for the gene tree with branches labeled with their RERs.
+
+```{r fig2b, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
+#plot RERs as tree
+par(mfrow=c(1,1))
+bend3rers = returnRersAsTree(toyTrees, mamRERw, "BEND3", plot = TRUE,
+                             phenv=phenvExample) #plot RERs
+```
+
+Here we can see by inspecting the branch labels that the RER for the terminal branch leading to squirrel is a large positive value (5.68), and the RER for the terminal branch leading to vole is a large negative value (-2.364).
+
+This function also returns a tree whose branch lengths represent the RERs for this gene. We can print or save the tree using the *ape* package function `write.tree`:
+
+```{r, message = FALSE, cache = TRUE}
+strwrap(gsub(":",write.tree(bend3rers),replacement=": "))
+write.tree(bend3rers, file='BEND3RER.nwk')
+```
+
+The function `returnRersAsTreesAll` will produce an object of class "multiPhylo", with each element containing a named gene tree with branch lengths representing RERs for that gene. This can then be used for further analysis or customized plotting, and it can be saved to a file using `write.tree`.
+
+```{r, message = FALSE, cache = TRUE}
+multirers = returnRersAsTreesAll(toyTrees,mamRERw)
+write.tree(multirers, file='toyRERs.nwk', tree.names=TRUE)
+```
+
+Another useful function for visualizing RERs for a given tree is `treePlotRers`. When called with `type = label`, it will produce the same plot as shown above, i.e., a cladogram with the branches labeled by RER. Alternatively, when called with `type = color`, it will produce a cladogram with RERs displayed as a color heatmap on the branches.
+
+```{r fig2c, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
+#visualize RERs along branches as a heatmap
+newbend3rers = treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3", 
+                            type="c", nlevels=9, figwid=10)
+```
+
+The heatmap has 9 colors, corresponding to `nlevels=9`. The breaks are determined by quantiles of the RER distribution, with separate quantiles computed for values below and above zero. Dashed lines indicate lineages that have been excluded (edge.length = NA). When using a different device, you may need to adjust the `figwid` variable to display the full phylogeny with optimal aesthetics. For more information on options that can be passed to this function, see the documentation for `treePlotNew`.
+
 
 ## Binary Trait Analysis
 
 Now we will associate variation in these RERs with variation in a **binary trait** across the tree. To do so, we first need to provide information about which branches of the tree have the trait of interest (**foreground branches**). There are several possible ways to do this:
 
-1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one (or weights between zero and one) for foreground branches. An example is provided in *extdata/MarineTreeBinCommonNames.txt*. This tree must have the same topology as the master tree or a subset of the master tree.
+1) Provide a binary trait tree file. This should be a file in Newick format with branch lengths zero for background branches and one (or weights between zero and one) for foreground branches. Setting any branches to NA will exclude these branches from the analysis. An example binary tree file is provided in *extdata/MarineTreeBinCommonNames.txt*. This tree must have the same topology as the master tree or a subset of the master tree.
 
 ```{r fig3, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE}
 marineb=read.tree(paste(rerpath,"/extdata/MarineTreeBinCommonNames_noCGM.txt",sep=""))
@@ -193,7 +234,9 @@ marineb2a = foreground2Tree(marineextantforeground, toyTrees, clade="ancestral",
                             useSpecies=names(logAdultWeightcm))
 ```
 
-Here the branch leading to the common ancestor of killer whale and dolphin, as well as the branch leading to the common ancestor of walrus and seal, are foreground, along with the terminal branch leading to the manatee.
+The output first indicates that there is one species in the master tree that is not in the list of species we requested to be included using `useSpecies`: the cape golden mole. This species will be excluded from our analysis.
+
+The plot shows that the branch leading to the common ancestor of killer whale and dolphin, as well as the branch leading to the common ancestor of walrus and seal, are foreground, along with the terminal branch leading to the manatee.
 
 2b) `clade = "terminal"`: Set only terminal lineages leading to foreground species as foreground.
 
@@ -308,7 +351,7 @@ The `correlateWithBinaryPhenotype` function generates a table with the following
 
 3) P: an estimate of the P-value for association between relative evolutionary rate and trait.
 
-4) p.adj: an estimate of the P-value adjusted for multiple comparisons using the Benjamini-Hochberg procedure (i.e., an estimate of the FDR).
+4) p.adj: an estimate of the P-value adjusted for multiple comparisons using the Benjamini-Hochberg procedure (i.e., an estimate of the false discovery rate, or FDR).
 
 Let's take a look at some of the top genes within this set.
 ```{r, message = FALSE, cache = TRUE}
@@ -333,7 +376,7 @@ hist(corMarine$P, breaks=15, xlab="Kendall P-value",
 
 There appears to be a slight enrichment of low p-values, but since we have only evaluated the first 200 genes from our ~19,000 gene genome-wide set, we should hold off on drawing conclusions from this.
 
-## Continuous Trait Analysis
+## Continuous Trait Analysis {#ContinuousTrait}
   
 In addition to supporting binary trait analyses, RERconverge can also calculate correlations between rates of evolution of genes and the change in a *continuous* trait.  To perform a continuous trait analysis, start with a named vector in R.  Vector names must match the names in the trees read in previously. Here are the first few entries in the vector we will use for continuous trait analysis:
 
@@ -407,13 +450,12 @@ abline(lm(y~x), col='red',lwd=3)
 In this case, we see that the positive correlation is driven by all species and not just a single clade.  Note that labelled points are terminal nodes in the phylogeny and unlabelled points are internal nodes.  
   
   
-Further analyses could include using functional enrichment detection methods to find functionally-related genomic elements that are experiencing convergent evolutionary rates as a group and using branch-site models to determine if fast-evolving genes are experiencing relaxation of constraint or undergoing directional selection.
+Further analyses could include using functional enrichment detection methods to find functionally-related genomic elements that are experiencing convergent evolutionary rates as a group (see walkthrough below) and using branch-site models to determine if fast-evolving genes are experiencing relaxation of constraint or undergoing directional selection.
 
-This walkthrough provides instructions for implementing the RERconverge package enrichment functions to identify gene pathways or groups of genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).  A detailed walkthrough to produce the data used for this example is provided in the [full walkthrough vignette](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html).
 
 # Enrichment Walkthrough
 
-This document describes how to run pathway enrichment analysis using RERconverge output and functions included with the RERconverge package.  Enrichment analysis detects groups of genes that are evolving faster or slower with a phenotype of interest.  In the RERconverge package, the enrichment function is implemented as a Wilcoxon Rank-Sum Test on a list of genes ranked based on their correlation statistics.  It detects distribution shifts in groups of genes compared to all genes, and it thereby bypasses the need to set a foreground significance cutoff like some other enrichment methods. 
+This section describes how to run pathway enrichment analysis using RERconverge output and functions included with the RERconverge package.  Enrichment analysis detects groups of genes that are evolving faster or slower with a phenotype of interest.  In the RERconverge package, the enrichment function is implemented as a Wilcoxon Rank-Sum Test on a list of genes ranked based on their correlation statistics.  It detects distribution shifts in groups of genes compared to all genes, and it thereby bypasses the need to set a foreground significance cutoff like some other enrichment methods. 
  
 **Input** to the enrichment function is the output from RERconverge correlation functions and pathways of interest with gene symbols (gene names). 
  
@@ -423,7 +465,7 @@ This document describes how to run pathway enrichment analysis using RERconverge
 
 Enrichment analysis starts with the results from the *correlateWithContinuousPhenotype*, *correlateWithBinaryPhenotype*, or *getAllCor* functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  These statistics are used to calculate enrichments. 
  
-In this case, we will start with the data from the continuous trait analysis described in the [full walkthrough](https://cdn.rawgit.com/nclark-lab/RERconverge/master/vignettes/RERconvergeAnalysisFullWalkthrough.html) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
+In this case, we will start with the data from the continuous trait analysis described  [above](#ContinuousTrait) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
 
 ```{r results='hide', message = FALSE, warning = FALSE, cache=T}
 library(RERconverge)
@@ -482,9 +524,6 @@ You may also calculate permutation p-values based on permuting the phenotype vec
 
 We've now walked through the basic workflow for RERConverge. For more information about these methods and some results relevant to marine and subterranean adaptation, see [@Chikina2016] and [@Partha2017].
 
-# Case Study
-
-We demonstrate the features of RERconverge using gene trees derived from the coding sequences of 19,149 genes for 62 mammal species, along with foreground branches that represent lineages of the mammalian phylogeny whose members live predominantly in marine aquatic environments [@Chikina2016; @Meyer2018; @ParthaRobustRER]. For this dataset, RERconverge ran in 1 hour and 18 minutes on RStudio with R version 3.3.0 installed on a computer running Windows 10 with 16 GB of RAM and an Intel Core i7-6500U 2.50GHz CPU. Top categories of functional enrichment included olfactory transduction (FDR<10e-10), GPCR signaling (FDR<10e-10), and immune functions (FDR=5.4e-7), as in Chikina et al., 2016 [@Benjamini1995].  We show the RERconverge workflow and visualization of RERs for a top olfactory receptor, *OR9Q2*, in Figure 1.
 
 # References
 

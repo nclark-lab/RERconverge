@@ -5,20 +5,22 @@
 \title{Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
 \usage{
 getAllCor(RERmat, charP, method = "auto", min.sp = 10, min.pos = 2,
-  winsorize = NULL, weighted = F)
+  winsorizeRER = NULL, winsorizetrait = NULL, weighted = F)
 }
 \arguments{
 \item{RERmat}{RER matrix returned by \code{\link{getAllResiduals}}}
 
 \item{charP}{phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
 
-\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorize=some number to override}
+\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override}
 
 \item{min.sp}{Minimum number of species that must be present for a gene}
 
 \item{min.pos}{Minimum number of species that must be present in the foreground (non-zero phenotype values)}
 
-\item{winsorize}{Winsorize values before computing Pearson correlation. Winsorize=3, will set the 3 most extreme values at each end to the the value closest to 0.}
+\item{winsorizeRER}{Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.}
+
+\item{winsorizetrait}{Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme trait values at each end to the value closest to 0.}
 
 \item{weighted}{perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.}
 }
