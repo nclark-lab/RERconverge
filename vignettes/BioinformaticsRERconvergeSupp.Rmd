@@ -67,7 +67,8 @@ In R, load the RERConverge library.
 ```{r results='hide', message = FALSE, warning = FALSE, cache = TRUE}
 if (!require("RERconverge", character.only=T, quietly=T)) {
     require(devtools)
-    install_github("nclark-lab/RERconverge", ref="AddressReviewerComments") #can be modified to specify a particular branch
+    install_github("nclark-lab/RERconverge", ref="master") 
+    #"ref" can be modified to specify a particular branch
 }
 library(RERconverge)
 ```
