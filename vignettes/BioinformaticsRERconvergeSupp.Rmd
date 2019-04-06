@@ -4,10 +4,10 @@ title: "| SUPPLEMENTARY INFORMATION \n| RERconverge: an R package for associatin
 bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     css: custom.css
-    toc: yes
-  pdf_document:
     toc: yes
 authors: Amanda Kowalczyk, Wynn K Meyer, Raghavendran Partha, Weiguang Mao, Nathan
   L Clark, and Maria Chikina
@@ -95,6 +95,8 @@ toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200
 ```
 
 First, the code tells us that there are 1000 items, or gene trees, in the file. Since we have set `max.read = 200`, it will only read the first 200 of these. Then it says that the maximum number of tips in the gene trees is 62 and, later, it reports that it will use the 32 genes in this set that have data for all 62 species to estimate a **master tree**. The master tree will be used for subsequent analyses.
+
+RERconverge is intended to be used on genome-scale datasets, containing a large number of gene trees with data present for all species. It thus has a minimum number of such gene trees required for `readTrees` to use to estimate a **master tree**; this is set with the `minTreesAll` option and is 20 by default. If your dataset is smaller, you may adjust this or supply your own master tree using the option `masterTree` (this should be a `phylo` object generated using ape's `read.tree`); however, we recommend interpreting results with caution in this case. 
 
 ## Estimating relative evolutionary rates (RER) with `getAllResiduals`
 
@@ -188,7 +190,7 @@ newbend3rers = treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3",
                             type="c", nlevels=9, figwid=10)
 ```
 
-The heatmap has 9 colors, corresponding to `nlevels=9`. The breaks are determined by quantiles of the RER distribution, with separate quantiles computed for values below and above zero. When using a different device, you may need to adjust the `figwid` variable to display the full phylogeny with optimal aesthetics. For more information on options that can be passed to this function, see the documentation for `treePlotNew`.
+The heatmap has 9 colors, corresponding to `nlevels=9`. The breaks are determined by quantiles of the RER distribution, with separate quantiles computed for values below and above zero. Dashed lines indicate lineages that have been excluded (edge.length = NA). When using a different device, you may need to adjust the `figwid` variable to display the full phylogeny with optimal aesthetics. For more information on options that can be passed to this function, see the documentation for `treePlotNew`.
 
 
 ## Binary Trait Analysis

@@ -325,8 +325,8 @@ treePlot=function(tree, vals=NULL,rank=F, nlevels=5, type="c", col=NULL){
 #' @param maintitle. Main title label
 #' @param useedge. Whether to use edge lengths in `tree` for plotting
 #' @param doreroot. Whether to re-root the tree before  plotting
-#' @param rerootby. If re-rooting, what to use to root the tree
-#' @param useSpecies. A vector of species to include in the plot
+#' @param rerootby. If re-rooting, what to use to root the tree (verify by checking against unrooted plot)
+#' @param useSpecies. A vector of species to include in the plot (verify by checking against full set)
 #' @param species.names. Data fram for converting names in `tree` to names to be plotted
 #' (row names should be tip labels of tree, and first column should contain the
 #' corresponding desired tip labels)
@@ -379,20 +379,23 @@ treePlotNew=function(tree, vals=NULL, rank=F, nlevels=9, type="c", col=NULL,
       col=colorpanel(nlevels, colpan1, colpanmid, colpan2)
     }
   }
+  if (!is.null(useSpecies)) {
+    message("Pruning may influence color plotting; greater accuracy with branches displayed as NA")
+    tree=pruneTree(tree,useSpecies)
+    faketree=pruneTree(tree,useSpecies)
+    vals=faketree$edge.length
+  }
   if (doreroot) {
+    message("Rooting may influence color plotting; greater accuracy with original topology")
     rerootby=intersect(rerootby,tree$tip.label)
     if (length(rerootby) > 0) {
         tree=root(tree,rerootby,resolve.root=T)
+        #want to distribute vals along branches instead
         faketree=root(faketree,rerootby,resolve.root=T)
         vals=faketree$edge.length
     } else {
       print("No species in rerootby in tree! Leaving tree unrooted.")
     }
-  }
-  if (!is.null(useSpecies)) {
-    tree=pruneTree(tree,useSpecies)
-    faketree=pruneTree(tree,useSpecies)
-    vals=faketree$edge.length
   }
   if (!is.null(species.names)) {
     for(s in 1:length(tree$tip.label)) {

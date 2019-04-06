@@ -4,8 +4,8 @@
 \alias{plotTreeHighlightBranches}
 \title{Plot the provided tree, (optionally) rerooted, with specified branches highlighted}
 \usage{
-plotTreeHighlightBranches(tree, outgroup = NULL, hlspecies,
-  hlcols = NULL, main = "")
+plotTreeHighlightBranches(tree, outgroup = NULL, hlspecies, hlcols = NULL,
+  main = "")
 }
 \arguments{
 \item{tree.}{A tree object.}

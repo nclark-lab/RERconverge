@@ -7,12 +7,12 @@
 treePlotNew(tree, vals = NULL, rank = F, nlevels = 9, type = "c",
   col = NULL, maintitle = NULL, useedge = F, doreroot = F,
   rerootby = NULL, useSpecies = NULL, species.names = NULL,
-  speclist1 = NULL, speclist2 = NULL, aligntip = F,
-  colpan1 = rgb(0, 119, 187, maxColorValue = 255), colpan2 = rgb(204,
-  51, 17, maxColorValue = 255), colpanmid = rgb(187, 187, 187,
-  maxColorValue = 255), plotspecies = NULL, edgetype = NULL,
-  textsize = 0.6, colbarlab = "", splist2sym = "psi", dolegend = T,
-  nacol = rgb(0, 0, 0), figwid = 10, ...)
+  speclist1 = NULL, speclist2 = NULL, aligntip = F, colpan1 = rgb(0,
+  119, 187, maxColorValue = 255), colpan2 = rgb(204, 51, 17, maxColorValue =
+  255), colpanmid = rgb(187, 187, 187, maxColorValue = 255),
+  plotspecies = NULL, edgetype = NULL, textsize = 0.6, colbarlab = "",
+  splist2sym = "psi", dolegend = T, nacol = rgb(0, 0, 0), figwid = 10,
+  ...)
 }
 \arguments{
 \item{tree.}{A phylo object, used for topology}
@@ -33,9 +33,9 @@ treePlotNew(tree, vals = NULL, rank = F, nlevels = 9, type = "c",
 
 \item{doreroot.}{Whether to re-root the tree before  plotting}
 
-\item{rerootby.}{If re-rooting, what to use to root the tree}
+\item{rerootby.}{If re-rooting, what to use to root the tree (verify by checking against unrooted plot)}
 
-\item{useSpecies.}{A vector of species to include in the plot}
+\item{useSpecies.}{A vector of species to include in the plot (verify by checking against full set)}
 
 \item{species.names.}{Data fram for converting names in `tree` to names to be plotted
 (row names should be tip labels of tree, and first column should contain the
