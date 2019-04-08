@@ -23,12 +23,10 @@ require(weights)
 
 #' @param file The path to the tree file
 #' @param  max.read This function takes a while for a whole genome, so max.read is useful for testing
-<<<<<<< HEAD
 #' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
 #' @return A trees object of class "treeObj"
 #' @export
 readTrees=function(file, max.read=NA, masterTree=NULL){
-=======
 #' @param  masterTree (optional) User can specify a master tree. Recommended only when
 #' the number of available gene trees with all species is small.
 #' @param  minTreesAll The minimum number of trees with all species present in order to estimate
@@ -36,15 +34,12 @@ readTrees=function(file, max.read=NA, masterTree=NULL){
 #' @return A trees object of class "treeObj"
 #' @export
 readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
->>>>>>> b38d46abee0cc3043c6d3ad61b9c2223c78d9450
   tmp=scan(file, sep="\t", what="character")
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   treenames=character()
   maxsp=0; # maximum number of species
-<<<<<<< HEAD
-=======
   allnames=NA # unique tip labels in gene trees
->>>>>>> b38d46abee0cc3043c6d3ad61b9c2223c78d9450
+
   #create trees object, get species names and max number of species
   for ( i in 1:min(length(tmp),max.read*2, na.rm = T)){
     if (i %% 2==1){
@@ -56,17 +51,17 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
       if (!is.null(masterTree)) {
         trees[[i/2]] = pruneTree(trees[[i/2]],intersect(trees[[i/2]]$tip.label,masterTree$tip.label))
       }
-<<<<<<< HEAD
+
       #check if it has more species
       if(length(trees[[i/2]]$tip.label)>maxsp){
         maxsp=length(trees[[i/2]]$tip.label)
         allnames=trees[[i/2]]$tip.label
-=======
+
       #check if it has new species
       if (sum(trees[[i/2]]$tip.label %in% allnames == F) > 0) {
         allnames = unique(c(allnames,trees[[i/2]]$tip.label))
         maxsp = length(allnames) - 1
->>>>>>> b38d46abee0cc3043c6d3ad61b9c2223c78d9450
+
       }
       #if(length(trees[[i/2]]$tip.label)>maxsp){
       #  maxsp=length(trees[[i/2]]$tip.label)
@@ -105,15 +100,15 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     master$edge.length[]=1
     treesObj$masterTree=master
   } else {
-<<<<<<< HEAD
+
     master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
     #prune tree to just the species names in the largest gene tree
     master$edge.length[]=1
-=======
+
     master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
     #prune tree to just the species names in the gene trees
     #master$edge.length[]=1
->>>>>>> b38d46abee0cc3043c6d3ad61b9c2223c78d9450
+
     treesObj$masterTree=master
   }
 
@@ -156,7 +151,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   #require all species and tree compatibility
   #ii=which(rowSums(report)==maxsp)
   ii=which(rowSums(report)==maxsp && which(is.na(paths[,1]))==FALSE)
-<<<<<<< HEAD
+
   if(length(ii)>20){
     message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
     tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
@@ -168,7 +163,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   }
   else{
     message("Not enough genes with all species present: master tree has no edge.lengths")
-=======
+
   if (is.null(masterTree)) {
     if(length(ii)>minTreesAll){
       message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
@@ -184,7 +179,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     }
   } else {
     message("Using user-specified master tree")
->>>>>>> b38d46abee0cc3043c6d3ad61b9c2223c78d9450
+
   }
   message("Naming columns of paths matrix")
   colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
