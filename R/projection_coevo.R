@@ -151,9 +151,6 @@ resid
 }
 
 
-
-
-
 #' @keywords  internal
 projectRLM=function(data, nv){
   resid=matrix(nrow=nrow(data), ncol=ncol(data))
