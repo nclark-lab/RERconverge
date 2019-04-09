@@ -130,7 +130,8 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
 
   #require all species and tree compatibility
   #ii=which(rowSums(report)==maxsp)
-  ii=which(rowSums(report)==maxsp && which(is.na(paths[,1]))==FALSE)
+  ii=which(rowSums(report)==maxsp && which(is.na(paths[,1])==FALSE))
+  print(length(ii))
   if (is.null(masterTree)) {
     if(length(ii)>minTreesAll){
       message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
