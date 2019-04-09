@@ -148,36 +148,25 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     
     #require all species and tree compatibility
     #ii=which(rowSums(report)==maxsp)
-    ii=which(rowSums(report)==maxsp && which(is.na(paths[,1])==FALSE))
+    ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
     
-    if(length(ii)>20){
-      message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-      tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-      
-      allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-      allEdge=scaleMat(allEdge)
-      allEdgeM=apply(allEdge,2,mean)
-      treesObj$masterTree$edge.length=allEdgeM
-    }else{
-      message("Not enough genes with all species present: master tree has no edge.lengths")
-      
-      if (is.null(masterTree)) {
-        if(length(ii)>minTreesAll){
-          message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-          tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-          
-          allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-          allEdge=scaleMat(allEdge)
-          allEdgeM=apply(allEdge,2,mean)
-          treesObj$masterTree$edge.length=allEdgeM
-        }else {
-          message("Not enough genes with all species present: master tree has no edge.lengths")
-        }
-      } else {
-        message("Using user-specified master tree")
+    if (is.null(masterTree)) {
+      if(length(ii)>minTreesAll){
+        message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+        tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
         
+        allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+        allEdge=scaleMat(allEdge)
+        allEdgeM=apply(allEdge,2,mean)
+        treesObj$masterTree$edge.length=allEdgeM
+      }else {
+        message("Not enough genes with all species present: master tree has no edge.lengths")
       }
+    } else {
+      message("Using user-specified master tree")
+      
     }
+    
       message("Naming columns of paths matrix")
       colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
       class(treesObj)=append(class(treesObj), "treesObj")

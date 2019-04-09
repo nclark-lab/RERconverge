@@ -4,10 +4,10 @@ title: "| SUPPLEMENTARY INFORMATION \n| RERconverge: an R package for associatin
 bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     css: custom.css
-    toc: yes
-  pdf_document:
     toc: yes
 authors: Amanda Kowalczyk, Wynn K Meyer, Raghavendran Partha, Weiguang Mao, Nathan
   L Clark, and Maria Chikina
