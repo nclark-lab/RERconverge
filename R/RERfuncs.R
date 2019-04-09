@@ -37,7 +37,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   treenames=character()
   maxsp=0; # maximum number of species
   allnames=NA # unique tip labels in gene trees
-
+  
   #create trees object, get species names and max number of species
   for ( i in 1:min(length(tmp),max.read*2, na.rm = T)){
     if (i %% 2==1){
@@ -49,141 +49,145 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
       if (!is.null(masterTree)) {
         trees[[i/2]] = pruneTree(trees[[i/2]],intersect(trees[[i/2]]$tip.label,masterTree$tip.label))
       }
-
+      
       #check if it has more species
       if(length(trees[[i/2]]$tip.label)>maxsp){
         maxsp=length(trees[[i/2]]$tip.label)
         allnames=trees[[i/2]]$tip.label
-
-      #check if it has new species
-      if (sum(trees[[i/2]]$tip.label %in% allnames == F) > 0) {
-        allnames = unique(c(allnames,trees[[i/2]]$tip.label))
-        maxsp = length(allnames) - 1
-
       }
-      #if(length(trees[[i/2]]$tip.label)>maxsp){
-      #  maxsp=length(trees[[i/2]]$tip.label)
-      #  allnames=trees[[i/2]]$tip.label
-      #}
+        #check if it has new species
+        if (sum(trees[[i/2]]$tip.label %in% allnames == F) > 0) {
+          allnames = unique(c(allnames,trees[[i/2]]$tip.label))
+          maxsp = length(allnames) - 1
+          
+        }
+        #if(length(trees[[i/2]]$tip.label)>maxsp){
+        #  maxsp=length(trees[[i/2]]$tip.label)
+        #  allnames=trees[[i/2]]$tip.label
+        #}
+      }
+      
     }
-
-  }
-  allnames = allnames[!is.na(allnames)]
-  names(trees)=treenames
-  treesObj=vector(mode = "list")
-  treesObj$trees=trees
-  treesObj$numTrees=length(trees)
-  treesObj$maxSp=maxsp
-
-  message(paste("max is", maxsp))
-
-  report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
-  colnames(report)=allnames
-
-  rownames(report)=treenames
-  for ( i in 1:nrow(report)){
-    ii=match(allnames, trees[[i]]$tip.label)
-    report[i,]=1-is.na(ii)
-
-  }
-  treesObj$report=report
-
-
-
-  ii=which(rowSums(report)==maxsp)
-
-  #Create a master tree with no edge lengths
-  if (is.null(masterTree)) {
-    master=trees[[ii[1]]]
-    master$edge.length[]=1
-    treesObj$masterTree=master
-  } else {
-
-    master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
-    #prune tree to just the species names in the largest gene tree
-    master$edge.length[]=1
-
-    master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
-    #prune tree to just the species names in the gene trees
-    #master$edge.length[]=1
-
-    treesObj$masterTree=master
-  }
-
-
-
-
-  treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
-  #this gets the abolute alphabetically constrained order when all branches
-  #are present
-  tiporder=treeTraverse(treesObj$masterTree)
-
-  #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
-  message("Rotating trees")
-
-  for ( i in 1:treesObj$numTrees){
-
-    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
-
-  }
-
-
-
-  ap=allPaths(master)
-  treesObj$ap=ap
-  matAnc=(ap$matIndex>0)+1-1
-  matAnc[is.na(matAnc)]=0
-
-  paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
-  for( i in 1:treesObj$numTrees){
-    #Make paths all NA if tree topology is discordant
-    paths[i,]=tryCatch(allPathMasterRelative(treesObj$trees[[i]], master, ap), error=function(err) NA)
-                       #calls matchAllNodes -> matchNodesInject
-  }
-  paths=paths+min(paths[paths>0], na.rm=T)
-  treesObj$paths=paths
-  treesObj$matAnc=matAnc
-  treesObj$matIndex=ap$matIndex
-  treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
-
-  #require all species and tree compatibility
-  #ii=which(rowSums(report)==maxsp)
-  ii=which(rowSums(report)==maxsp && which(is.na(paths[,1]))==FALSE)
-
-  if(length(ii)>20){
-    message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-    tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-
-    allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-    allEdge=scaleMat(allEdge)
-    allEdgeM=apply(allEdge,2,mean)
-    treesObj$masterTree$edge.length=allEdgeM
-  }
-  else{
-    message("Not enough genes with all species present: master tree has no edge.lengths")
-
-  if (is.null(masterTree)) {
-    if(length(ii)>minTreesAll){
+    allnames = allnames[!is.na(allnames)]
+    names(trees)=treenames
+    treesObj=vector(mode = "list")
+    treesObj$trees=trees
+    treesObj$numTrees=length(trees)
+    treesObj$maxSp=maxsp
+    
+    message(paste("max is", maxsp))
+    
+    report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
+    colnames(report)=allnames
+    
+    rownames(report)=treenames
+    for ( i in 1:nrow(report)){
+      ii=match(allnames, trees[[i]]$tip.label)
+      report[i,]=1-is.na(ii)
+      
+    }
+    treesObj$report=report
+    
+    
+    
+    ii=which(rowSums(report)==maxsp)
+    
+    #Create a master tree with no edge lengths
+    if (is.null(masterTree)) {
+      master=trees[[ii[1]]]
+      master$edge.length[]=1
+      treesObj$masterTree=master
+    } else {
+      
+      master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
+      #prune tree to just the species names in the largest gene tree
+      master$edge.length[]=1
+      
+      master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
+      #prune tree to just the species names in the gene trees
+      #master$edge.length[]=1
+      
+      treesObj$masterTree=master
+    }
+    
+    
+    
+    
+    treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
+    #this gets the abolute alphabetically constrained order when all branches
+    #are present
+    tiporder=treeTraverse(treesObj$masterTree)
+    
+    #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
+    message("Rotating trees")
+    
+    for ( i in 1:treesObj$numTrees){
+      
+      treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
+      
+    }
+    
+    
+    
+    ap=allPaths(master)
+    treesObj$ap=ap
+    matAnc=(ap$matIndex>0)+1-1
+    matAnc[is.na(matAnc)]=0
+    
+    paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
+    for( i in 1:treesObj$numTrees){
+      #Make paths all NA if tree topology is discordant
+      paths[i,]=tryCatch(allPathMasterRelative(treesObj$trees[[i]], master, ap), error=function(err) NA)
+      #calls matchAllNodes -> matchNodesInject
+    }
+    paths=paths+min(paths[paths>0], na.rm=T)
+    treesObj$paths=paths
+    treesObj$matAnc=matAnc
+    treesObj$matIndex=ap$matIndex
+    treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
+    
+    #require all species and tree compatibility
+    #ii=which(rowSums(report)==maxsp)
+    ii=which(rowSums(report)==maxsp && which(is.na(paths[,1])==FALSE))
+    
+    if(length(ii)>20){
       message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
       tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-
+      
       allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
       allEdge=scaleMat(allEdge)
       allEdgeM=apply(allEdge,2,mean)
       treesObj$masterTree$edge.length=allEdgeM
-    }
-    else {
+    }else{
       message("Not enough genes with all species present: master tree has no edge.lengths")
+      
+      if (is.null(masterTree)) {
+        if(length(ii)>minTreesAll){
+          message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+          tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
+          
+          allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+          allEdge=scaleMat(allEdge)
+          allEdgeM=apply(allEdge,2,mean)
+          treesObj$masterTree$edge.length=allEdgeM
+        }else {
+          message("Not enough genes with all species present: master tree has no edge.lengths")
+        }
+      } else {
+        message("Using user-specified master tree")
+        
+      }
     }
-  } else {
-    message("Using user-specified master tree")
-
-  }
-  message("Naming columns of paths matrix")
-  colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
-  class(treesObj)=append(class(treesObj), "treesObj")
-  treesObj
-}
+      message("Naming columns of paths matrix")
+      colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
+      class(treesObj)=append(class(treesObj), "treesObj")
+      treesObj
+}#readTrees
+                         
+                         
+                         
+                         
+                         
 
 computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicted=T){
 
