@@ -1,7 +1,22 @@
 #Load toy data and use to test method for estimating difference in RERs
 require(phytools)
 require(RERconverge)
-data(toyTrees)
+#source RERfuncs locally
+source('../R/RERfuncs.R')
+#need to re-do readTrees to get reoriented trees
+noneutherians <- c("Platypus","Wallaby","Tasmanian_devil","Opossum")
+toyTreesNew = readTrees('../ext/subsetMammalGeneTrees.txt',reorient=T,outgroup=noneutherians)
+
+#convert to RER trees
+rertrees = returnRersAsTreesAll(toyTrees,mamRERw)
+#multiple upstream branches
+diffrertrees = list()
+for (i in 1:length(rertrees)) {
+  print(i)
+  diffrertrees[[i]] = diffBranches(rertrees[[i]])
+}
+
+
 ttree = toyTrees$masterTree
 #re-root tree
 rttree = midpoint.root(ttree)
@@ -14,7 +29,7 @@ nodelabels(cex=0.5)
 
 #map new edges to original edges
 #edge X should be edge Y - edge Z
-#worst case: human 
+#worst case: human
 wtt = which(ttree$tip.label=="Human") #62
 wte = which(ttree$edge[,2] == wtt) #121
 #want to replace this with (internal branch - terminal branch) from rooted tree

@@ -83,7 +83,7 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
   #this gets the abolute alphabetically constrained order when all branches
   #are present
-  
+
   #add re-rooting if specified
   if (reorient) {
     #root the master tree
@@ -92,18 +92,18 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
     } else {
       mytreeFull.rooted=root(treesObj$masterTree,outgroup)
     }
-    mytreeFull.reoriented = unroot(mytreeFull)
+    mytreeFull.reoriented = unroot(mytreeFull.rooted)
     treesObj$masterTree=mytreeFull.reoriented
   }
-  
+
   tiporder=treeTraverse(treesObj$masterTree)
 
   #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
 
   for ( i in 1:treesObj$numTrees){
-    
+
     if (reorient) {
-      
+
       #prune the rooted masterTree to the correct species
       prunedTree=pruneTree(treesObj$masterTree, treesObj$trees[[i]]$tip.label)
       #find the new root node
@@ -113,9 +113,25 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
       #get the corresponding outgroup
       goutgroup=treeTraverse(prunedTree, rootNode1down)
       #root the tree with missing species on the outgroup
-      mytreeMissing.rooted=root(mytreeMissing, outgroup = goutgroup)
-      treesObj$trees[[i]]=unroot(mytreeMissing.rooted)
-      
+      #this doesn't work if the "outgroup" is all other species
+      if ((length(prunedTree$tip.label)-length(goutgroup)) > 1) {
+        mytree.rooted=try(root(treesObj$trees[[i]], outgroup = goutgroup))
+        if (class(mytree.rooted) == "phylo") {
+          treesObj$trees[[i]]=unroot(mytree.rooted)
+        } else {
+          plotTreeHighlightBranches(treesObj$trees[[i]],hlspecies=goutgroup,hlcols="red")
+          #return master tree, problematic tree for re-rooting
+          treesObj$probtree = treesObj$trees[[i]]
+          treesObj$goutgroup = goutgroup
+          message(paste("Issue re-rooting for tree",i))
+          return(probtreesObj)
+        }
+      } else {
+        goutgroup = setdiff(prunedTree$tip.label,goutgroup)
+        mytree.rooted=root(treesObj$trees[[i]], outgroup = goutgroup)
+        treesObj$trees[[i]]=unroot(mytree.rooted)
+      }
+
     } else {
 
       treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
@@ -132,7 +148,15 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
 
   paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
   for( i in 1:treesObj$numTrees){
-    paths[i,]=allPathMasterRelative(treesObj$trees[[i]], master, ap)
+    #paths[i,]=allPathMasterRelative(treesObj$trees[[i]], master, ap)
+    testpaths = try(allPathMasterRelative(treesObj$trees[[i]], master, ap))
+    if (is.numeric(testpaths)) {
+      paths[i,]=testpaths
+    } else {
+      print(i)
+      return(treesObj)
+      stop("Issue with pseudorooting")
+    }
   }
   paths=paths+min(paths[paths>0], na.rm=T)
   treesObj$paths=paths
