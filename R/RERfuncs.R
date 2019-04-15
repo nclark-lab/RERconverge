@@ -129,13 +129,21 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
       } else {
         goutgroup = setdiff(prunedTree$tip.label,goutgroup)
         mytree.rooted=root(treesObj$trees[[i]], outgroup = goutgroup)
-        treesObj$trees[[i]]=unroot(mytree.rooted)
+      }
+      mytree.reunrooted=unroot(mytree.rooted)
+      mytree.fixed = try(fixPseudorootForReorient(mytree.reunrooted,unroot(prunedTree)))
+      if (class(mytree.fixed)=="phylo") {
+        treesObj$trees[[i]]=mytree.fixed
+      } else {
+        treesObj$probTree = mytree.reunrooted
+        treesObj$prunedTree = prunedTree
+        message(paste("Issue fixing pseudoroot for tree",i))
+        return(treesObj)
       }
 
-    } else {
-
-      treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
     }
+
+    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
 
   }
 
@@ -1038,6 +1046,33 @@ fixPseudoroot=function(tree, treesObj){
   tree=tr1
   plot(tree)
   message("Make sure the branch lengths for the new trait tree are correct")
+  return(tree)
+}
+
+#' @keywords internal
+fixPseudorootForReorient=function(tree, mastersub){
+  #allows using a sub-tree of the master tree (not the whole tree)
+  if(RF.dist(tree, mastersub)>0){
+    stop("The focal tree and master sub-tree are not reconcilable - they have different topologies")
+  }
+  #fix pseudorooting
+  tr1=tree
+  tr2=mastersub
+  #get species at pseudoroot
+  toroot=tr2$tip.label[tr2$edge[,2][tr2$edge[,1]==as.numeric(names(which(table(tr2$edge[,1])==3)))]]
+  toroot=toroot[!is.na(toroot)]
+  #pick one, must be in tr1
+  if(toroot[[1]] %in% tr1$tip.label){
+    toroot=toroot[[1]]
+  }else if(toroot [[2]] %in% tr1$tip.label){
+    toroot=toroot[[2]]
+  }else{
+    stop("Key species missing from trait tree")
+  }
+  tr1=root.phylo(tr1, toroot)
+  tree=tr1
+  #plot(tree)
+  #message("Make sure the branch lengths for the new trait tree are correct")
   return(tree)
 }
 
