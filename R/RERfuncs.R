@@ -78,7 +78,7 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   treesObj$masterTree=master
 
 
-
+  print("rotating master")
 
   treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
   #this gets the abolute alphabetically constrained order when all branches
@@ -86,6 +86,7 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
 
   #add re-rooting if specified
   if (reorient) {
+    print("reorienting master")
     #root the master tree
     if (is.null(outgroup)) {
       mytreeFull.rooted=midpoint.root(treesObj$masterTree)
@@ -93,12 +94,16 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
       mytreeFull.rooted=root(treesObj$masterTree,outgroup)
     }
     mytreeFull.reoriented = unroot(mytreeFull.rooted)
-    treesObj$masterTree=mytreeFull.reoriented
+    towrite=rotateConstr(mytreeFull.reoriented,
+                                     sort(treesObj$masterTree$tip.label))
+    toread=write.tree(towrite) #must be written and re-read to have nodes in the right order for matchNodesInject
+    treesObj$masterTree=read.tree(text=toread)
   }
 
   tiporder=treeTraverse(treesObj$masterTree)
 
   #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
+  print("getting gene trees")
 
   for ( i in 1:treesObj$numTrees){
 
@@ -131,14 +136,19 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
         mytree.rooted=root(treesObj$trees[[i]], outgroup = goutgroup)
       }
       mytree.reunrooted=unroot(mytree.rooted)
-      mytree.fixed = try(fixPseudorootForReorient(mytree.reunrooted,unroot(prunedTree)))
-      if (class(mytree.fixed)=="phylo") {
-        treesObj$trees[[i]]=mytree.fixed
+      #Only run fixPseudoroot if root species is in prunedTree
+      if (!is.rooted(prunedTree)) {
+        mytree.fixed = try(fixPseudorootForReorient(mytree.reunrooted,prunedTree))
+        if (class(mytree.fixed)=="phylo") {
+          treesObj$trees[[i]]=mytree.fixed
+        } else {
+          treesObj$probTree = mytree.reunrooted
+          treesObj$prunedTree = prunedTree
+          message(paste("Issue fixing pseudoroot for tree",i))
+          return(treesObj)
+        }
       } else {
-        treesObj$probTree = mytree.reunrooted
-        treesObj$prunedTree = prunedTree
-        message(paste("Issue fixing pseudoroot for tree",i))
-        return(treesObj)
+        treesObj$trees[[i]]=mytree.reunrooted
       }
 
     }
@@ -149,7 +159,9 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
 
 
 
-  ap=allPaths(master)
+  #ap=allPaths(master)
+  print("getting paths")
+  ap=allPaths(treesObj$masterTree)
   treesObj$ap=ap
   matAnc=(ap$matIndex>0)+1-1
   matAnc[is.na(matAnc)]=0
@@ -157,13 +169,12 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
   for( i in 1:treesObj$numTrees){
     #paths[i,]=allPathMasterRelative(treesObj$trees[[i]], master, ap)
-    testpaths = try(allPathMasterRelative(treesObj$trees[[i]], master, ap))
+    testpaths = try(allPathMasterRelative(treesObj$trees[[i]], treesObj$masterTree, ap))
     if (is.numeric(testpaths)) {
       paths[i,]=testpaths
     } else {
-      print(i)
+      message(paste("Issue pseudo-rooting in paths for tree",i))
       return(treesObj)
-      stop("Issue with pseudorooting")
     }
   }
   paths=paths+min(paths[paths>0], na.rm=T)
@@ -355,7 +366,7 @@ matchNodesInject=function (tr1, tr2){
   #  stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
   #}
 
-  toRm=setdiff(tr2$tip.label, tr1$tip.label)
+  toRm=setdiff(tr2$tip.label, tr1$tip.label) #unused?
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
                                                                               x)$tip.label)
   names(desc.tr1) <- 1:tr1$Nnode + length(tr1$tip)

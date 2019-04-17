@@ -6,8 +6,7 @@ source('../R/RERfuncs.R')
 #need to re-do readTrees to get reoriented trees
 noneutherians <- c("Platypus","Wallaby","Tasmanian_devil","Opossum")
 toyTreesNew = readTrees('../ext/subsetMammalGeneTrees.txt',reorient=T,outgroup=noneutherians)
-#latest pseudo-rooting problem is for a tree missing platypus
-#how will this tree/path ultimately be stored in the trees object?
+#It works?
 
 #convert to RER trees
 rertrees = returnRersAsTreesAll(toyTrees,mamRERw)
