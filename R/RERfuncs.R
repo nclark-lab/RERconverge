@@ -2205,11 +2205,15 @@ matchNodesInjectUpdate=function (tr1, tr2){
 diffBranches=function(tree){
   #set branch lengths to differences in branch lengths
   #perform on RER trees and convert back to paths
+  #how to deal with most upstream branches?
   difftree=tree
   for (i in 1:nrow(difftree$edge)) {
     upperNode = difftree$edge[i,1]
     upperEdge = which(difftree$edge[,2]==upperNode) #check whether length is 1?
-    if (length(upperEdge)==1) {
+    if (length(upperEdge)==0) {
+      difftree$edge.length[i] = NA
+    }
+    else if (length(upperEdge)==1) {
       difftree$edge.length[i] = tree$edge.length[i] - tree$edge.length[upperEdge]
     } else {
       stop(paste("Multiple upstream edges exist for edge",i))

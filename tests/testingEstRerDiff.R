@@ -3,19 +3,46 @@ require(phytools)
 require(RERconverge)
 #source RERfuncs locally
 source('../R/RERfuncs.R')
+source('../R/RcppExports.R')
 #need to re-do readTrees to get reoriented trees
 noneutherians <- c("Platypus","Wallaby","Tasmanian_devil","Opossum")
 toyTreesNew = readTrees('../ext/subsetMammalGeneTrees.txt',reorient=T,outgroup=noneutherians)
 #It works?
 
+#estimate RERs
+ttResid = getAllResiduals(toyTreesNew)
+
 #convert to RER trees
-rertrees = returnRersAsTreesAll(toyTrees,mamRERw)
-#multiple upstream branches
+rertrees = returnRersAsTreesAll(toyTreesNew,ttResid)
+
+#get delta_RER trees and convert back to RER matrix
 diffrertrees = list()
+diffrermat = matrix(data=NA,nrow=nrow(ttResid),ncol=ncol(ttResid))
+colnames(diffrermat) = colnames(ttResid)
+rownames(diffrermat) = rownames(ttResid)
 for (i in 1:length(rertrees)) {
-  print(i)
+  #print(i)
   diffrertrees[[i]] = diffBranches(rertrees[[i]])
+  ee=edgeIndexRelativeMaster(diffrertrees[[i]], toyTreesNew$masterTree)
+  #this is the columns of the  paths matrix
+  ii= toyTreesNew$matIndex[ee[, c(2,1)]]
+  diffrermat[i,ii] <- diffrertrees[[i]]$edge.length
 }
+
+#test whether this can be plotted
+phenvExample <- foreground2Paths(c("Vole","Squirrel"),toyTreesNew,clade="terminal")
+plotRers(diffrermat,"BEND3",phenv=phenvExample)
+
+#do some example genes
+treesfile <- '/Users/wynnmeyer/Downloads/mamm63nt_scnames.trees' #not common names
+boxdir <- '~/Box Sync/' #work
+lgfiledir <- paste(boxdir,'MammalDietAdaptation/ConvergentEvolutionAnalysis/SavedData',sep='')
+alltrees <- readRDS(paste(lgfiledir,'/mamm63nt.trees.rds',sep=''))
+atmp <- alltrees$trees
+class(atmp) <- "multiPhylo"
+write.tree(atmp,file=paste(lgfiledir,'mamm63nt_commonnames.trees',sep='/'),tree.names=T)
+#manual edit tree names for readTrees?
+#need to re-do readTrees
 
 
 ttree = toyTrees$masterTree
