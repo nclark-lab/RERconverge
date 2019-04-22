@@ -84,31 +84,56 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   #this gets the abolute alphabetically constrained order when all branches
   #are present
 
+  tiporder=treeTraverse(treesObj$masterTree)
+
+  #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
+  print("getting initial gene trees")
+
+  for ( i in 1:treesObj$numTrees){
+
+    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
+
+  }
+
+  #If this is independent of path estimation, can be done before reorientation
+  ii=which(rowSums(report)==maxsp)
+  if(length(ii)>20){
+    message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+    tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
+    
+    allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+    allEdge=scaleMat(allEdge)
+    allEdgeM=apply(allEdge,2,mean)
+    treesObj$masterTree$edge.length=allEdgeM
+  }
+  else{
+    message("Not enough genes with all species present: master tree has no edge.lengths")
+  }
+  
+  #Reorient *here*
   #add re-rooting if specified
   if (reorient) {
     print("reorienting master")
     #root the master tree
     if (is.null(outgroup)) {
+      #If this happens before branch lengths are estimated,
+      #it will incorrectly place the root of the tree
       mytreeFull.rooted=midpoint.root(treesObj$masterTree)
     } else {
       mytreeFull.rooted=root(treesObj$masterTree,outgroup)
     }
     mytreeFull.reoriented = unroot(mytreeFull.rooted)
     towrite=rotateConstr(mytreeFull.reoriented,
-                                     sort(treesObj$masterTree$tip.label))
+                         sort(treesObj$masterTree$tip.label))
     toread=write.tree(towrite) #must be written and re-read to have nodes in the right order for matchNodesInject
     treesObj$masterTree=read.tree(text=toread)
-  }
-
-  tiporder=treeTraverse(treesObj$masterTree)
-
-  #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
-  print("getting gene trees")
-
-  for ( i in 1:treesObj$numTrees){
-
-    if (reorient) {
-
+    tiporder=treeTraverse(treesObj$masterTree)
+    
+    #Re-orient gene trees
+    print("re-orienting gene trees")
+    for (i in 1:treesObj$numTrees) {
+      #can this be done with just fixPseudoroot?
+      #do trees need to be written and read to fix node order?
       #prune the rooted masterTree to the correct species
       prunedTree=pruneTree(treesObj$masterTree, treesObj$trees[[i]]$tip.label)
       #find the new root node
@@ -150,14 +175,8 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
       } else {
         treesObj$trees[[i]]=mytree.reunrooted
       }
-
     }
-
-    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
-
   }
-
-
 
   #ap=allPaths(master)
   print("getting paths")
@@ -182,20 +201,6 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   treesObj$matAnc=matAnc
   treesObj$matIndex=ap$matIndex
   treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
-
-  ii=which(rowSums(report)==maxsp)
-  if(length(ii)>20){
-    message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-    tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-
-    allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-    allEdge=scaleMat(allEdge)
-    allEdgeM=apply(allEdge,2,mean)
-    treesObj$masterTree$edge.length=allEdgeM
-  }
-  else{
-    message("Not enough genes with all species present: master tree has no edge.lengths")
-  }
   colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
   class(treesObj)=append(class(treesObj), "treesObj")
   treesObj
@@ -2202,16 +2207,22 @@ matchNodesInjectUpdate=function (tr1, tr2){
 }
 
 #' @keywords internal
-diffBranches=function(tree){
+diffBranches=function(tree, assumeroot=c("zero","avg","na")){
   #set branch lengths to differences in branch lengths
   #perform on RER trees and convert back to paths
-  #how to deal with most upstream branches?
+  #assumeroot sets the value one assumes for the root node:
+  #zero, an average of branches descending from the root, or NA
+  assumeroot = match.arg(assumeroot)
   difftree=tree
   for (i in 1:nrow(difftree$edge)) {
     upperNode = difftree$edge[i,1]
     upperEdge = which(difftree$edge[,2]==upperNode) #check whether length is 1?
     if (length(upperEdge)==0) {
-      difftree$edge.length[i] = NA
+      upperLength = switch(assumeroot,
+             zero = 0,
+             avg = mean(tree$edge.length[which(difftree$edge[,1]==upperNode)]),
+             na = NA)
+      difftree$edge.length[i] = tree$edge.length[i] - upperLength
     }
     else if (length(upperEdge)==1) {
       difftree$edge.length[i] = tree$edge.length[i] - tree$edge.length[upperEdge]
@@ -2220,4 +2231,23 @@ diffBranches=function(tree){
     }
   }
   return(difftree)
+}
+
+#' @keywords internal
+changeInRers=function(treesObj, rermat) {
+  #convert a RER matrix (rermat) to a matrix representing change in RERs
+  rertrees = returnRersAsTreesAll(treesObj,rermat)
+  #get delta_RER trees and convert back to RER matrix
+  diffrertrees = list()
+  diffrermat = matrix(data=NA,nrow=nrow(ttResid),ncol=ncol(ttResid))
+  colnames(diffrermat) = colnames(ttResid)
+  rownames(diffrermat) = rownames(ttResid)
+  for (i in 1:length(rertrees)) {
+    diffrertrees[[i]] = diffBranches(rertrees[[i]])
+    ee=edgeIndexRelativeMaster(diffrertrees[[i]], toyTreesNew$masterTree)
+    #this is the columns of the  paths matrix
+    ii= toyTreesNew$matIndex[ee[, c(2,1)]]
+    diffrermat[i,ii] <- diffrertrees[[i]]$edge.length
+  }
+  return(diffrermat)
 }
