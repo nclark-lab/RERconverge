@@ -643,9 +643,10 @@ returnRersAsNewickStrings <- function(treesObj, rermat){
 #' @export
 
 returnRersAsTreesAll <- function(treesObj, rermat){
-  allrers = lapply(names(treesObj$trees),returnRersAsTree,treesObj=treesObj,
+  whichgenes = intersect(names(treesObj$trees),rownames(rermat)) #allows subsetting
+  allrers = lapply(whichgenes,returnRersAsTree,treesObj=treesObj,
                    rermat=rermat,plot=F)
-  names(allrers)=names(treesObj$trees)
+  names(allrers)=whichgenes
   class(allrers)<-"multiPhylo"
   return(allrers)
 }

@@ -100,7 +100,7 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   if(length(ii)>20){
     message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
     tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-    
+
     allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
     allEdge=scaleMat(allEdge)
     allEdgeM=apply(allEdge,2,mean)
@@ -109,7 +109,7 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
   else{
     message("Not enough genes with all species present: master tree has no edge.lengths")
   }
-  
+
   #Reorient *here*
   #add re-rooting if specified
   if (reorient) {
@@ -128,7 +128,7 @@ readTrees=function(file, max.read=NA, reorient=F, outgroup=NULL){
     toread=write.tree(towrite) #must be written and re-read to have nodes in the right order for matchNodesInject
     treesObj$masterTree=read.tree(text=toread)
     tiporder=treeTraverse(treesObj$masterTree)
-    
+
     #Re-orient gene trees
     print("re-orienting gene trees")
     for (i in 1:treesObj$numTrees) {
@@ -2207,13 +2207,18 @@ matchNodesInjectUpdate=function (tr1, tr2){
 }
 
 #' @keywords internal
-diffBranches=function(tree, assumeroot=c("zero","avg","na")){
+diffBranches=function(tree, assumeroot=c("zero","avg","na"), natozero=TRUE){
   #set branch lengths to differences in branch lengths
   #perform on RER trees and convert back to paths
   #assumeroot sets the value one assumes for the root node:
   #zero, an average of branches descending from the root, or NA
+  #optionally, convert any NA branches to 0, assuming they have been filtered
+  #for being close to zero
   assumeroot = match.arg(assumeroot)
   difftree=tree
+  if (natozero) {
+    difftree$edge.length[is.na(difftree$edge.length)] <- 0
+  }
   for (i in 1:nrow(difftree$edge)) {
     upperNode = difftree$edge[i,1]
     upperEdge = which(difftree$edge[,2]==upperNode) #check whether length is 1?
@@ -2234,20 +2239,33 @@ diffBranches=function(tree, assumeroot=c("zero","avg","na")){
 }
 
 #' @keywords internal
-changeInRers=function(treesObj, rermat) {
+changeInRers=function(treesObj, rermat, preservena=TRUE) {
   #convert a RER matrix (rermat) to a matrix representing change in RERs
+  #preservena: whether to keep the same values NA as in the original rermat
   rertrees = returnRersAsTreesAll(treesObj,rermat)
   #get delta_RER trees and convert back to RER matrix
   diffrertrees = list()
-  diffrermat = matrix(data=NA,nrow=nrow(ttResid),ncol=ncol(ttResid))
-  colnames(diffrermat) = colnames(ttResid)
-  rownames(diffrermat) = rownames(ttResid)
+  diffrermat = matrix(data=NA,nrow=nrow(rermat),ncol=ncol(rermat))
+  colnames(diffrermat) = colnames(rermat)
+  rownames(diffrermat) = rownames(rermat)
   for (i in 1:length(rertrees)) {
-    diffrertrees[[i]] = diffBranches(rertrees[[i]])
-    ee=edgeIndexRelativeMaster(diffrertrees[[i]], toyTreesNew$masterTree)
-    #this is the columns of the  paths matrix
-    ii= toyTreesNew$matIndex[ee[, c(2,1)]]
-    diffrermat[i,ii] <- diffrertrees[[i]]$edge.length
+    diffrertrees[[i]] = diffBranches(rertrees[[i]], assumeroot="na", natozero=T)
+    ee=try(edgeIndexRelativeMaster(diffrertrees[[i]], treesObj$masterTree))
+    stop()
+    if (is.numeric(ee)) {
+      #this is the columns of the  paths matrix
+      ii= treesObj$matIndex[ee[, c(2,1)]]
+      diffrermat[i,ii] <- diffrertrees[[i]]$edge.length
+    } else {
+      par(mfrow=c(1,2))
+      plot(diffrertrees[[i]],cex=0.5)
+      plot(treesObj$masterTree,cex=0.5)
+      message(paste("Issue with edgeIndexRelative for tree",i))
+      return(diffrermat)
+    }
+  }
+  if (preservena) {
+    diffrermat[which(is.na(rermat))] <- NA
   }
   return(diffrermat)
 }
