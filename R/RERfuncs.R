@@ -37,7 +37,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   treenames=character()
   maxsp=0; # maximum number of species
   allnames=NA # unique tip labels in gene trees
-  
+
   #create trees object, get species names and max number of species
   for ( i in 1:min(length(tmp),max.read*2, na.rm = T)){
     if (i %% 2==1){
@@ -49,7 +49,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
       if (!is.null(masterTree)) {
         trees[[i/2]] = pruneTree(trees[[i/2]],intersect(trees[[i/2]]$tip.label,masterTree$tip.label))
       }
-      
+
       #check if it has more species
       if(length(trees[[i/2]]$tip.label)>maxsp){
         maxsp=length(trees[[i/2]]$tip.label)
@@ -59,14 +59,14 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
         if (sum(trees[[i/2]]$tip.label %in% allnames == F) > 0) {
           allnames = unique(c(allnames,trees[[i/2]]$tip.label))
           maxsp = length(allnames) - 1
-          
+
         }
         #if(length(trees[[i/2]]$tip.label)>maxsp){
         #  maxsp=length(trees[[i/2]]$tip.label)
         #  allnames=trees[[i/2]]$tip.label
         #}
       }
-      
+
     }
     allnames = allnames[!is.na(allnames)]
     names(trees)=treenames
@@ -74,66 +74,66 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     treesObj$trees=trees
     treesObj$numTrees=length(trees)
     treesObj$maxSp=maxsp
-    
+
     message(paste("max is", maxsp))
-    
+
     report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
     colnames(report)=allnames
-    
+
     rownames(report)=treenames
     for ( i in 1:nrow(report)){
       ii=match(allnames, trees[[i]]$tip.label)
       report[i,]=1-is.na(ii)
-      
+
     }
     treesObj$report=report
-    
-    
-    
+
+
+
     ii=which(rowSums(report)==maxsp)
-    
+
     #Create a master tree with no edge lengths
     if (is.null(masterTree)) {
       master=trees[[ii[1]]]
       master$edge.length[]=1
       treesObj$masterTree=master
     } else {
-      
+
       master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
       #prune tree to just the species names in the largest gene tree
       master$edge.length[]=1
-      
+
       master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
       #prune tree to just the species names in the gene trees
       #master$edge.length[]=1
-      
+
       treesObj$masterTree=master
     }
-    
-    
-    
-    
+
+
+
+
     treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
     #this gets the abolute alphabetically constrained order when all branches
     #are present
     tiporder=treeTraverse(treesObj$masterTree)
-    
+
     #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
     message("Rotating trees")
-    
+
     for ( i in 1:treesObj$numTrees){
-      
+
       treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
-      
+
     }
-    
-    
-    
+
+
+
     ap=allPaths(master)
     treesObj$ap=ap
     matAnc=(ap$matIndex>0)+1-1
     matAnc[is.na(matAnc)]=0
-    
+
     paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
     for( i in 1:treesObj$numTrees){
       #Make paths all NA if tree topology is discordant
@@ -145,16 +145,16 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     treesObj$matAnc=matAnc
     treesObj$matIndex=ap$matIndex
     treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
-    
+
     #require all species and tree compatibility
     #ii=which(rowSums(report)==maxsp)
     ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
-    
+
     if (is.null(masterTree)) {
       if(length(ii)>minTreesAll){
         message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
         tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-        
+
         allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
         allEdge=scaleMat(allEdge)
         allEdgeM=apply(allEdge,2,mean)
@@ -164,19 +164,19 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
       }
     } else {
       message("Using user-specified master tree")
-      
+
     }
-    
+
       message("Naming columns of paths matrix")
       colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
       class(treesObj)=append(class(treesObj), "treesObj")
       treesObj
 }#readTrees
-                         
-                         
-                         
-                         
-                         
+
+
+
+
+
 
 computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicted=T){
 
@@ -593,14 +593,14 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
 #' @param maxT The maximum number of trees to compute results for. Since this function takes some time this is useful for debugging.
 #' @return A numer of trees by number of paths matrix of relative evolutionary rates. Only an independent set of paths has non-NA values for each tree.
 #' @export
-getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  useSpecies=NULL,  min.sp=10, scale=T,  doOnly=NULL, maxT=NULL, scaleForPproj=F, mean.trim=0.05){
+getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  useSpecies=NULL,  min.sp=10, scale=T,  doOnly=NULL, maxT=NULL, scaleForPproj=F, mean.trim=0.05, plot=T){
 
   if(is.null(cutoff)){
     cutoff=quantile(treesObj$paths, 0.05, na.rm=T)
     message(paste("cutoff is set to", cutoff))
   }
   if (weighted){
-    weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=T)
+    weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=plot)
     residfunc=fastLmResidMatWeighted
   }
   else{
@@ -693,7 +693,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
           message(paste("Issue with gettiing paths for genes with same species as tree",i))
           return(list("iiboth"=iiboth,"ii"=ii))
         }
-        
+
         if(weighted){
           allbranchw=weights[iiboth,ii]
         }
