@@ -17,6 +17,7 @@ require(Rcpp)
 require(RcppArmadillo)
 require(phangorn)
 require(weights)
+require(limma) #for new RER function
 
 #' reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
@@ -2251,7 +2252,7 @@ changeInRers=function(treesObj, rermat, preservena=TRUE) {
   for (i in 1:length(rertrees)) {
     diffrertrees[[i]] = diffBranches(rertrees[[i]], assumeroot="na", natozero=T)
     ee=try(edgeIndexRelativeMaster(diffrertrees[[i]], treesObj$masterTree))
-    stop()
+    #stop()
     if (is.numeric(ee)) {
       #this is the columns of the  paths matrix
       ii= treesObj$matIndex[ee[, c(2,1)]]
@@ -2268,4 +2269,194 @@ changeInRers=function(treesObj, rermat, preservena=TRUE) {
     diffrermat[which(is.na(rermat))] <- NA
   }
   return(diffrermat)
+}
+
+#Normalize branches rather than obtaining residuals for them
+getAllZScores=function(treesObj, cutoff=NULL, transform="sqrt", weighted=F,  
+                       useSpecies=NULL,  min.sp=10, scale=F,  doOnly=NULL, maxT=NULL,
+                       scaleForPproj=F, mean.trim=0.05){
+  
+  if(is.null(cutoff)){
+    cutoff=quantile(treesObj$paths, 0.05, na.rm=T)
+    message(paste("cutoff is set to", cutoff))
+  }
+  if (weighted){
+    weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=T)
+    #residfunc=fastLmResidMatWeighted
+  }
+  else{
+    #residfunc=fastLmResidMat
+  }
+  # residfunc=naresid
+  
+  if (is.null(useSpecies)){
+    useSpecies=treesObj$masterTree$tip.label
+    #mappedEdges=trees$mappedEdges
+  }
+  if(is.null(maxT)){
+    maxT=treesObj$numTrees
+  }
+  if(transform!="none"){
+    transform=match.arg(transform,c("sqrt", "log"))
+    transform=get(transform)
+  }
+  else{
+    transform=NULL
+  }
+  
+  
+  
+  #cm is the names of species that are included in useSpecies and the master tree
+  cm=intersect(treesObj$masterTree$tip.label, useSpecies)
+  sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
+  if (length(sp.miss) > 0) {
+    message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
+                                                                                 collapse = ",")))
+    
+  }
+  
+  rr=matrix(nrow=nrow(treesObj$paths), ncol=ncol(treesObj$paths))
+  
+  #maximum number of present species
+  maxn=rowSums(treesObj$report[,cm])
+  
+  if(is.null(doOnly)){
+    doOnly=1
+  }
+  else{
+    maxT=1
+  }
+  skipped=double(nrow(rr))
+  skipped[]=0
+  
+  for (i in doOnly:(doOnly+maxT-1)){
+    
+    if(sum(!is.na(rr[i,]))==0&&!skipped[i]==1){
+      
+      
+      #get the ith tree
+      tree1=treesObj$trees[[i]]
+      
+      #get the common species, prune and unroot
+      both=intersect(tree1$tip.label, cm)
+      if(length(both)<min.sp){
+        next
+      }
+      tree1=unroot(pruneTree(tree1,both))
+      
+      #do the same for the refTree
+      
+      
+      #find all the genes that contain all of the species in tree1
+      allreport=treesObj$report[,both]
+      ss=rowSums(allreport)
+      iiboth=which(ss==length(both))
+      
+      nb=length(both)
+      ai=which(maxn[iiboth]==nb)
+      
+      
+      message(paste("i=", i))
+      
+      
+      if(T){
+        
+        
+        ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+        
+        ii= treesObj$matIndex[ee[, c(2,1)]]
+        
+        allbranch=treesObj$paths[iiboth,ii]
+        if(weighted){
+          allbranchw=weights[iiboth,ii]
+        }
+        if(scaleForPproj){
+          nv=apply(scaleMatMean(allbranch), 2, mean, na.rm=T, trim=mean.trim)
+        }
+        else{
+          nv=apply(allbranch, 2, mean, na.rm=T, trim=mean.trim)
+        }
+        
+        iibad=which(allbranch<cutoff)
+        #don't scale
+        #allbranch=scaleMat(allbranch)
+        if(!is.null(transform)){
+          nv=transform(nv)
+          allbranch=transform(allbranch)
+        }
+        allbranch[iibad]=NA
+        
+        
+        
+        
+        #if(!scale){
+          #if(!weighted){
+          #  proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv))
+          #  
+          #}
+          #else{
+          #  
+          #  proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv), allbranchw[ai, ,drop=F])
+          #  
+          #}
+        #}
+        
+        #else{
+          
+          #if(!weighted){
+            #proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv))
+          #}
+          #else{
+            
+            #proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv),allbranchw)
+          #}
+          
+          #proj=scale(proj, center = F)[ai, , drop=F]
+          
+        #}
+        
+        proj=scale(allbranch[ai, ,drop=F]) #how is this different with scale vs no scale?
+        #we have the projection
+        
+        
+        
+        rr[iiboth[ai],ii]=proj
+        
+      }
+      
+    }}
+  rownames(rr)=names(treesObj$trees)
+  colnames(rr)=namePathsWSpecies(treesObj$masterTree)
+  rr
+}
+
+#Use multiplicative method of determining expectation for genes x branches
+#May want to check that treesObj and rermat are compatible
+#Norm.method: normalization method
+getAllMultResiduals = function (treesObj,  rermat,  norm.method = NULL) {
+  #require(limma)
+  if (!is.null(norm.method)) {
+    norm.method=match.arg(norm.method,c("quantile", "loess"))
+    norm.method=get(norm.method)
+  }
+  pmat = treesObj$paths
+  pmatColumnMean=apply(pmat,2, mean, na.rm=T)
+  pmatRowMean=apply(pmat,1, mean, na.rm=T)
+  
+  iinotna=which(!is.na(pmat))
+  pmatRCmean=outer(pmatRowMean,pmatColumnMean, function(x,y){(x*y)})
+  lmres=lm((y<-pmat[iinotna])~0+pmatRCmean[iinotna])
+  lmres$coefficients
+  predicted=pmatRCmean*lmres$coefficients
+  
+  naiveRER=pmat-predicted
+  naiveRERscale=scale(naiveRER)
+  if (norm.method == "quantile") {
+    naiveRERscale=normalizeQuantiles(naiveRERscale)
+  }
+  if (norm.method == "loess") {
+    naiveRERscale=normalizeQuantiles(naiveRERscale)
+  }
+  naiveRERscale[is.na(rermat)]=NA
+  return(naiveRERscale)
 }
