@@ -26,9 +26,12 @@ require(weights)
 #' @param  masterTree (optional) User can specify a master tree.
 #' @param  minTreesAll The minimum number of trees with all species present in order to estimate
 #' master tree edge lengths.
+#' @param doRotate Whether to rotate the master and gene trees to ensure the same order.
+#' (warning: doRotate = F may not guarantee comparability across trees unless they are
+#' specified with the species order completely constrained; use with caution)
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
+readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, doRotate=T){
   tmp=scan(file, sep="\t", what="character")
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   treenames=character()
@@ -93,24 +96,22 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     treesObj$masterTree=master
   }
 
+  if (doRotate) {
+    treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
+    #this gets the abolute alphabetically constrained order when all branches
+    #are present
+    tiporder=treeTraverse(treesObj$masterTree)
 
+    #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
+    message("Rotating trees")
 
+    for ( i in 1:treesObj$numTrees){
 
-  treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
-  #this gets the abolute alphabetically constrained order when all branches
-  #are present
-  tiporder=treeTraverse(treesObj$masterTree)
+      treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
 
-  #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
-  message("Rotating trees")
-
-  for ( i in 1:treesObj$numTrees){
-
-    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
+    }
 
   }
-
-
 
   ap=allPaths(master)
   treesObj$ap=ap
@@ -667,7 +668,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
           message(paste("Issue with gettiing paths for genes with same species as tree",i))
           return(list("iiboth"=iiboth,"ii"=ii))
         }
-        
+
         if(weighted){
           allbranchw=weights[iiboth,ii]
         }

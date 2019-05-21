@@ -16,3 +16,5 @@ trtfail3 = readTrees('yeastfirst19_genetrees.txt',masterTree=rightmaster)
 trer = getAllResiduals(trtsucceed)
 #Error in apply(allbranch, 2, mean, na.rm = T, trim = mean.trim) :
 #dim(X) must have a positive length
+#Also try without rotating.... how does this work?
+trtsucceed2 = readTrees('yeastfirst19.txt',masterTree=rightmaster,doRotate=F)
