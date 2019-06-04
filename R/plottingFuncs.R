@@ -590,12 +590,12 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7,
                              tip.cex = 0.7, nalab = 'NA', plot = T){
   trgene <- treesObj$trees[[index]]
-  trgene$edge.length <- rep(2,nrow(trgene$edge))
   ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
   ii= treesObj$matIndex[ee[, c(2,1)]]
-  rertree=rermat[index,ii]
+  rertree=unname(rermat[index,ii]) #avoid storing names
   rertree[is.nan(rertree)]=NA #replace NaNs from C functions
   if (plot) {
+    trgene$edge.length <- rep(2,nrow(trgene$edge))
     par(mar = c(1,1,1,0))
     edgcols <- rep('black', nrow(trgene$edge))
     edgwds <- rep(1, nrow(trgene$edge))

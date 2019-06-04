@@ -2218,7 +2218,7 @@ diffBranches=function(tree, assumeroot=c("zero","avg","na"), natozero=TRUE){
   assumeroot = match.arg(assumeroot)
   difftree=tree
   if (natozero) {
-    difftree$edge.length[is.na(difftree$edge.length)] <- 0
+    tree$edge.length[is.na(difftree$edge.length)] <- 0
   }
   for (i in 1:nrow(difftree$edge)) {
     upperNode = difftree$edge[i,1]
@@ -2255,7 +2255,7 @@ changeInRers=function(treesObj, rermat, preservena=TRUE) {
     ee=try(edgeIndexRelativeMaster(diffrertrees[[i]], treesObj$masterTree))
     #stop()
     if (is.numeric(ee)) {
-      #this is the columns of the  paths matrix
+      #this is the columns of the paths matrix
       ii= treesObj$matIndex[ee[, c(2,1)]]
       diffrermat[i,ii] <- diffrertrees[[i]]$edge.length
     } else {
@@ -2270,6 +2270,24 @@ changeInRers=function(treesObj, rermat, preservena=TRUE) {
     diffrermat[which(is.na(rermat))] <- NA
   }
   return(diffrermat)
+}
+
+#' @keywords internal
+computeDiffRerMat = function(rertree, treesObj, ...){
+  diffrertree = diffBranches(rertree, ...)
+  ee=try(edgeIndexRelativeMaster(diffrertree, treesObj$masterTree))
+  #stop()
+  if (is.numeric(ee)) {
+    #this is the columns of the  paths matrix
+    ii= treesObj$matIndex[ee[, c(2,1)]] #length > 1
+    diffrerval <- diffrertree$edge.length
+  } else {
+    par(mfrow=c(1,2))
+    plot(diffrertree,cex=0.5)
+    plot(treesObj$masterTree,cex=0.5)
+    message(paste("Issue with edgeIndexRelative for tree",i))
+  }
+  return(list("ii"=ii,"diffrerval"=diffrerval))
 }
 
 #Normalize branches rather than obtaining residuals for them
