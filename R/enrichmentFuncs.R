@@ -126,6 +126,8 @@
 
     posn=length(pos)
     negn=length(neg)
+    posn=as.numeric(posn)
+    negn=as.numeric(negn)
     stat=sum(pos)-posn*(posn+1)/2
     auc=stat/(posn*negn)
     mu=posn*negn/2
