@@ -453,7 +453,7 @@ This section describes how to run pathway enrichment analysis using RERconverge 
 
 Enrichment analysis starts with the results from the *correlateWithContinuousPhenotype*, *correlateWithBinaryPhenotype*, or *getAllCor* functions in the RERconverge package.  These results include Rho, p-value, and the Benjamini-Hochberg corrected p-value for the correlation between the relative evolutionary rates of each gene and the phenotype provided.  These statistics are used to calculate enrichments. 
  
-In this case, we will start with the data from the continuous trait analysis described  [above](#ContinuousTrait) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge.
+In this case, we will start with the data from the continuous trait analysis described  [above](#ContinuousTrait) that used adult mass as the phenotype of interest in mammalian species.  This walkthrough assumes that you have already installed RERconverge, and it uses output from the *correlateWithContinuousPhenotype* function ("RERresults") that is included with the RERconverge package.
 
 ```{r results='hide', message = FALSE, warning = FALSE, cache=T}
 library(RERconverge)
@@ -466,7 +466,7 @@ We will perform our enrichment on Rho-signed negative log p-values from our corr
 
 ```{r cache=T}
 library(RERconverge)
-stats=getStat(res)
+stats=getStat(RERresults)
 ```
 
 ## Import Pathway Annotations
