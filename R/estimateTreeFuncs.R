@@ -52,7 +52,8 @@ pruneTreeFromAln = function (treefile, alnfile, type = "AA", format = "fasta", w
 #' @param format Format of the alignment file (commonly used formats include fasta and phylip)
 #' @param k Number of intervals in the discrete gamma distribution for `pml`
 #' @param ... Further arguments passed to `pml` or `optim.pml`
-#' @return A list: `tree.opt` is the tree from the optimized output of `optim.pml`;
+#' @return A list:
+#' `tree.opt` is the tree from the optimized output of `optim.pml`;
 #' `results.opt` is the optimized output of `optim.pml`;
 #' `results.init` is the initial results estimated by `pml`
 #' @seealso \code{\link[phangorn]{phyDat}} for alignment formats,

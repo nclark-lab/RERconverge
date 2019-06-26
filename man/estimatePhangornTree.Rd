@@ -24,8 +24,10 @@ estimatePhangornTree(alnfile, treefile, submodel = "LG", type = "AA",
 \item{...}{Further arguments passed to `pml` or `optim.pml`}
 }
 \value{
-A list: `tree.opt` is the optimized output of `optim.pml`; 
-`tree.init` is the initial tree estimated by `pml`
+A list:
+`tree.opt` is the tree from the optimized output of `optim.pml`;
+`results.opt` is the optimized output of `optim.pml`;
+`results.init` is the initial results estimated by `pml`
 }
 \description{
 Estimate a ML tree from a given topology
