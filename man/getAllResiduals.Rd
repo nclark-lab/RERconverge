@@ -11,6 +11,8 @@ getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt",
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
 
+\item{cutoff}{a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.}
+
 \item{transform}{The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, sqrt is recommended.}
 
 \item{weighted}{Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data.}
@@ -24,8 +26,6 @@ getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt",
 \item{doOnly}{The index of a specific tree in the treesObj to calculate RER for. Useful if a single result is needed quickly.}
 
 \item{maxT}{The maximum number of trees to compute results for. Since this function takes some time this is useful for debugging.}
-
-\item{a}{cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.}
 }
 \value{
 A numer of trees by number of paths matrix of relative evolutionary rates. Only an independent set of paths has non-NA values for each tree.

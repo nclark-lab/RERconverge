@@ -5,12 +5,18 @@
 \title{reads trees from a 2 column , tab seperated, file
 The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format}
 \usage{
-readTrees(file, max.read = NA)
+readTrees(file, max.read = NA, reorient = F, outgroup = NULL)
 }
 \arguments{
 \item{file}{The path to the tree file}
 
 \item{max.read}{this function takes a while for  a whole genome so max.read is useful for testing}
+
+\item{reorient}{Whether to re-orient the master tree so that it is pseudo-rooted
+on an outgroup. If unspecified in `outgroup`, this will use `midpoint.root`.}
+
+\item{outgroup}{A user-specified outgroup for re-rooting with `root`
+(only used if reorient=TRUE)}
 }
 \value{
 A trees object of class "treeObj"
