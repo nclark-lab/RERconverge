@@ -52,12 +52,13 @@ pruneTreeFromAln = function (treefile, alnfile, type = "AA", format = "fasta", w
 #' @param format Format of the alignment file (commonly used formats include fasta and phylip)
 #' @param k Number of intervals in the discrete gamma distribution for `pml`
 #' @param ... Further arguments passed to `pml` or `optim.pml`
-#' @return A list: `tree.opt` is the optimized output of `optim.pml`; 
-#' `tree.init` is the initial tree estimated by `pml`
+#' @return A list: `tree.opt` is the tree from the optimized output of `optim.pml`;
+#' `results.opt` is the optimized output of `optim.pml`;
+#' `results.init` is the initial results estimated by `pml`
 #' @seealso \code{\link[phangorn]{phyDat}} for alignment formats,
 #'  \code{\link[phangorn]{pml}} and \code{\link[phangorn]{optim.pml}} for tree estimation
 #' @export
-estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA", 
+estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA",
                                 format = "fasta", k=4, ...) {
   #Generates distance-based tree using submodel for substitutions
   #Read in pruned alignment and pruned master tree
@@ -83,5 +84,5 @@ estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA",
   #generate a tree
   lgopttree = optim.pml(lgptree,optInv=T,optGamma=T,optEdge=T,rearrangement="none",
                         model=submodel, ...)
-  return(list("tree.init"=lgptree,"tree.opt"=lgopttree))
+  return(list("results.init"=lgptree,"results.opt"=lgopttree, "tree.opt"=lgopttree$tree))
 }

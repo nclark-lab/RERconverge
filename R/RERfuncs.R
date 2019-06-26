@@ -1485,6 +1485,7 @@ getAllCladeEdges=function(tree, AncEdge){
 
 
 #if(T){
+#Is this function used? It generates an error (see below).
 getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
   report=treesObj[["report"]]
   both=names(which(colSums(report[c(name1,name2),])==2))
@@ -1494,7 +1495,8 @@ getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
   for ( i in 1:(length(treesObj)-3)){
     if(sum(is.na(match(both, treesObj[[i]]$tip.label)))==0){
       tmptree=(pruneTree(treesObj[[i]], both, mastertree))
-
+      #error generated:
+      #Note: possible error in 'pruneTree(treesObj[[i]], ': unused argument (mastertree)
       # show(c(length(tmptree$edge.length), ncol(allbranch)))
       allbranch=rbind(allbranch, tmptree$edge.length)
     }
@@ -1964,7 +1966,7 @@ mapEdge=function(tree1, tree2){
 
 }
 
-
+#Is this function used? It generates an error (see below)
 plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, useDiff=T, xlab){
   #get the tree projection
   tip.vals=tip.vals[!is.na(tip.vals)]
@@ -2010,7 +2012,9 @@ plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=
   mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
 
   if(!is.null(tip.vals.ref)){
-    treeCharRef=edgeVars(tree, tip.vals.ref, useDiff=useDiff)
+    treeCharRef=edgeVars(tree, tip.vals.ref, useDiff=useDiff) #this line generates an error
+    #Error produced:
+    #Note: possible error in 'edgeVars(tree, tip.vals.ref, ': unused argument (useDiff = useDiff)
     proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
   }
 
