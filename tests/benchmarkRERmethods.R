@@ -1,4 +1,4 @@
-# Benchmark methods to calculate RERs against original and updated methods of RERconverge on 
+# Benchmark methods to calculate RERs against original and updated methods of RERconverge on
 # correlations with subterranean phenotype for eye-specific genes
 
 
@@ -35,7 +35,7 @@ calcprc <- function(scores,labels){
 }
 addontoprecrecplot <- function(rermat, foreground, treesObj, positive.gene.list){
      phenvfgd <- foreground2Paths(foreground, treesObj,  clade = 'terminal')
-     rermat.fgdcorr <- correlateWithBinaryPhenotype(rermat, phenvfgd) %>% 
+     rermat.fgdcorr <- correlateWithBinaryPhenotype(rermat, phenvfgd) %>%
           mutate(gene = rownames(rermat)) %>%
           rowwise() %>%
           mutate(score = -1*sign(Rho)*log(P)) %>% arrange(desc(score))
@@ -59,8 +59,8 @@ lines(upd.control.prs$curve[,1], upd.control.prs$curve[,2], lty = 2, col = 'red'
 lines(upd.mole.prs$curve[,1], upd.mole.prs$curve[,2], lty = 1, col = 'red',lwd=2)
 legend('topright',c('Mole','Control'),lty=c(1,2),title='Foreground', bty = 'n')
 legend('right',c('Original','Updated'),col=c('Black','Red'),pch=19,title='RERconverge',bty='n')
-addontoprecrecplot(rermat = rermat, 
-                   foreground = foregroundforbenchmark, 
-                   treesObj = treesObj, 
+addontoprecrecplot(rermat = rermat,
+                   foreground = foregroundforbenchmark,
+                   treesObj = treesObj,
                    positive.gene.list = eyemastergenes)
 dev.off()
