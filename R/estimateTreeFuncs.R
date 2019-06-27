@@ -87,3 +87,57 @@ estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA",
                         model=submodel, ...)
   return(list("results.init"=lgptree,"results.opt"=lgopttree, "tree.opt"=lgopttree$tree))
 }
+
+
+#' Estimates a ML trees from a given topology for a list of alignments. Wirtes a text file compatble with readTrees().
+#' Uses `pml` and `optim.pml` from the `phangorn` package to estimate the tree.
+
+#' @param alndir The path to directories with alignment files. Trees will be named with the alignment file name after stripping the extension. Either alnfiles or alndir must be supplied.
+#' @param alnfiles A character vector of paths to alignment files. Such as one produced by \code{\link{list.files}}. Either alnfiles or alndir must be supplied.
+#' @param pattern An optional regular expression for files in the alndir director. As in  ".*fasta".
+#' @param treefile The path to the master tree file (whose topology will be used to generate the tree)
+#' @param output.file The file where the output trees will be written. This file can be read with readTrees().
+#' @param submodel Substitution model to be used to estimate the tree
+#' @param type "AA" for amino acid or "DNA" for DNA
+#' @param format Format of the alignment file (commonly used formats include fasta and phylip)
+#' @param k Number of intervals in the discrete gamma distribution for `pml`
+#' @param ... Further arguments passed to `pml` or `optim.pml`
+#' @return A list:
+#' `tree.opt` is the tree from the optimized output of `optim.pml`;
+#' `results.opt` is the optimized output of `optim.pml`;
+#' `results.init` is the initial results estimated by `pml`
+#' @seealso \code{\link[phangorn]{phyDat}} for alignment formats,
+#'  \code{\link[phangorn]{pml}} and \code{\link[phangorn]{optim.pml}} for tree estimation
+#' @export
+estimatePhangornTreeAll = function(alnfiles=NULL, alndir=NULL, pattern=NULL, treefile, output.file=NULL, submodel="LG", type = "AA",
+                                format = "fasta", k=4, ...) {
+  if(is.null(output.file)){
+    stop("output.file must be supplied")
+  }
+  if (is.null(alnfiles)&&is.null(alndir)){
+    stop("Either alnfiles or alndir must be supplied")
+  }
+
+  if (!is.null(alnfiles)&&!is.null(alndir)){
+    stop("Only on of alnfiles or alndir must be supplied")
+  }
+
+  if (!is.null(alndir)){
+    alnfiles=list.files(path=alndir, pattern=pattern, full.names = TRUE)
+  }
+  names=basename(alnfiles)
+  names=sub("\\.\\w*$", "", names)
+
+  treesL=vector(mode = "list", length = length(names))
+  for(i in 1:length(alnfiles)){
+   message(paste("Processing", alnfiles[i]))
+ tree.res=estimatePhangornTree(alnfiles[i], treefile, submodel=submodel, type = type,
+                                          format = format, k=k, ...)
+   treesL[[i]]=tree.res$tree
+  }
+  fc=file(output.file, "wt")
+  for(i in 1:length(alnfiles)){
+  writeLines(paste(names[i], write.tree(treesL[[i]]), sep = "\t"), fc)
+  }
+  close(fc)
+}
