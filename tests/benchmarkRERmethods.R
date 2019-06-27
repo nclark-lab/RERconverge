@@ -4,6 +4,7 @@
 
 if(!require(PRROC)){
      install.packages('PRROC')
+     library(PRROC)
 }
 
 source('R/RERfuncs.R')
