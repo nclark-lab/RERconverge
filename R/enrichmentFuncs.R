@@ -43,7 +43,7 @@
         if(!simple){
           res=wilcox.test(x = vals[curgenes], y=vals[bkgenes])
 
-          out[i, 1:2]=c(res$statistic/(length(bkgenes)*length(curgenes)), res$p.value)
+          out[i, 1:2]=c(res$statistic/(as.numeric(length(bkgenes))*as.numeric(length(curgenes))), res$p.value)
         }
         else{
           valsr=rank(vals[genes])
@@ -126,6 +126,8 @@
 
     posn=length(pos)
     negn=length(neg)
+    posn=as.numeric(posn)
+    negn=as.numeric(negn)
     stat=sum(pos)-posn*(posn+1)/2
     auc=stat/(posn*negn)
     mu=posn*negn/2
@@ -179,7 +181,7 @@
         if(!simple){
           res=wilcox.test(x = vals[curgenes], y=vals[bkgenes], exact=F)
 
-          out[i, 1:2]=c(res$statistic/(length(bkgenes)*length(curgenes)), res$p.value)
+          out[i, 1:2]=c(res$statistic/(as.numeric(length(bkgenes))*as.numeric(length(curgenes))), res$p.value)
         }
         else{
 

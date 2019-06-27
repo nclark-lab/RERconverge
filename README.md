@@ -49,16 +49,26 @@ See also the list of [contributors](https://github.com/nclark-lab/RERconverge/co
 
 RERconverge can be cited as follows:
 
-```
-For coding sequences:
+#### Description of software:
+
+Kowalczyk A, Meyer WK, Partha R, Mao W, Clark NL, Chikina M. RERconverge: an R package for associating evolutionary rates with convergent traits. Pre-print at bioRxiv: [https://doi.org/10.1101/451138](https://doi.org/10.1101/451138)
+
+#### Detailed description of latest methods:
+
+Partha R, Kowalczyk A, Clark N, Chikina M. Robust methods for detecting convergent shifts in evolutionary rates. In press, Mol Biol Evol. Pre-print at bioRxiv: [https://doi.org/10.1101/457309](https://doi.org/10.1101/457309)
+
+The following are the first demonstrations of analyses using the methods in RERconverge:
+
+#### In coding sequences:
+
 Chikina M, Robinson JD, Clark NL. Hundreds of Genes Experienced Convergent Shifts in Selective Pressure in Marine 
-Mammals. Mol Biol Evol. 2016;33: 2182–92. doi:10.1093/molbev/msw112
+Mammals. Mol Biol Evol. 2016;33: 2182–92. [doi:10.1093/molbev/msw112](https://academic.oup.com/mbe/article/33/9/2182/2579331)
 
-For conserved non-coding sequences:
+#### For conserved non-coding sequences:
+
 Partha R, Chauhan B, Ferreira Z, Robinson J, Lathrop K, Nischal K, et al. Subterranean mammals show convergent 
-regression in ocular genes and enhancers, along with adaptation to tunneling. In press eLife. 
+regression in ocular genes and enhancers, along with adaptation to tunneling. eLife 2017;6:e25884. [https://doi.org/10.7554/eLife.25884](https://doi.org/10.7554/eLife.25884)
 
-```
 
 ## License
 
