@@ -1,5 +1,4 @@
 base
-devtools
 RColorBrewer
 gplots
 ape
@@ -20,5 +19,3 @@ weights
 phangorn
 dplyr
 RERconverge
-bindrcpp
-usethis
