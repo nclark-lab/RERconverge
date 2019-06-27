@@ -1,5 +1,5 @@
-# Benchmark methods to calculate RERs against original and updated methods of RERconverge on
-# correlations with subterranean phenotype for eye-specific genes
+# Benchmark methods to calculate RERs against original and updated methods of RERconverge using
+# correlations of eye-specific genes with subterranean phenotype 
 
 
 if(!require(PRROC)){
