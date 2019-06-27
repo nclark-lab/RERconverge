@@ -14,7 +14,7 @@ install_github("nclark-lab/RERconverge")
 To run an analysis you will need:
 1) a trees file: a tab-delimited files with gene names and Newick format trees for each gene.
 Tree topologies must be the same for all genes, and at least one tree must contain all species in the dataset.
-We provide trees files for several clades [here](bit.ly/2J2QBnj).
+We provide trees files for several clades [here](https://bit.ly/2J2QBnj).
 
 2) information about phenotypes for species included in the dataset. 
  
