@@ -1607,6 +1607,7 @@ getAllCladeEdges=function(tree, AncEdge){
 
 
 #if(T){
+#Is this function used? It generates an error (see below).
 getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
   report=treesObj[["report"]]
   both=names(which(colSums(report[c(name1,name2),])==2))
@@ -1615,8 +1616,9 @@ getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
   allbranch=matrix(nrow=0, ncol=length(mastertree$edge.length))
   for ( i in 1:(length(treesObj)-3)){
     if(sum(is.na(match(both, treesObj[[i]]$tip.label)))==0){
-      tmptree=(pruneTree(treesObj[[i]], both, mastertree))
-
+      tmptree=(pruneTree(treesObj[[i]], both))
+      #error generated:
+      #Note: possible error in 'pruneTree(treesObj[[i]], ': unused argument (mastertree)
       # show(c(length(tmptree$edge.length), ncol(allbranch)))
       allbranch=rbind(allbranch, tmptree$edge.length)
     }
@@ -2086,60 +2088,63 @@ mapEdge=function(tree1, tree2){
 
 }
 
-
-plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, useDiff=T, xlab){
-  #get the tree projection
-  tip.vals=tip.vals[!is.na(tip.vals)]
-
-  stopifnot(gene %in% names(treesObj$trees))
-  tree=treesObj$trees[[gene]]
-  stopifnot(!is.null(names(tip.vals)))
-  both=intersect(tree$tip.label, names(tip.vals))
-
-  stopifnot(length(both)>10)
-
-
-  torm=setdiff(treesObj$masterTree$tip.label, both)
-  tree=pruneTree(tree, both)
-  tip.vals=tip.vals[both]
-  allreport=treesObj$report[,both]
-  ss=rowSums(allreport)
-  iiboth=which(ss==length(both))
-
-
-  ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
-  ii= match(namePaths(ee,T), colnames(treesObj$paths))
-
-  allbranch=treesObj$paths[iiboth,ii]
-
-  allbranch=scaleMat(allbranch)
-  show(sum(is.na(allbranch)))
-  nv=projection(t(allbranch), method="AVE", returnNV = T)
-
-  proj=residfun(tree$edge.length, nv)
-  show(length(tree$edge.length))
-  treeChar=edgeVarsDiff(tree, tip.vals)
-  show(length(treeChar))
-  show(length(proj))
-  nn=nameEdges(tree)
-  nn[nn!=""]=speciesNames[nn[nn!=""], ]
-  #par(mfrow=c(2,2), mai=rep(0.7,4))
-  #plotWtext(sqrt(nv), sqrt(tree$edge.length), xlab="char", ylab="Gene branch length", labels = nn)
-
-  plotWtext(treeChar$edge.length, proj, xlab=xlab, ylab="relative gene branch length", labels = nn)
-  stat=cor.test(treeChar$edge.length, proj, method="s")
-  mtext(gene,side = 3, line=2, font=2)
-  mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
-
-  if(!is.null(tip.vals.ref)){
-    treeCharRef=edgeVars(tree, tip.vals.ref, useDiff=useDiff)
-    proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
-  }
-
-
-
-
-}
+#Is this function used? It generates an error (see below)
+# don't think this is used
+# plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, metric="diff", xlab){
+#   #get the tree projection
+#   tip.vals=tip.vals[!is.na(tip.vals)]
+#
+#   stopifnot(gene %in% names(treesObj$trees))
+#   tree=treesObj$trees[[gene]]
+#   stopifnot(!is.null(names(tip.vals)))
+#   both=intersect(tree$tip.label, names(tip.vals))
+#
+#   stopifnot(length(both)>10)
+#
+#
+#   torm=setdiff(treesObj$masterTree$tip.label, both)
+#   tree=pruneTree(tree, both)
+#   tip.vals=tip.vals[both]
+#   allreport=treesObj$report[,both]
+#   ss=rowSums(allreport)
+#   iiboth=which(ss==length(both))
+#
+#
+#   ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
+#   ii= match(namePaths(ee,T), colnames(treesObj$paths))
+#
+#   allbranch=treesObj$paths[iiboth,ii]
+#
+#   allbranch=scaleMat(allbranch)
+#   show(sum(is.na(allbranch)))
+#   nv=projection(t(allbranch), method="AVE", returnNV = T)
+#
+#   proj=residfun(tree$edge.length, nv)
+#   show(length(tree$edge.length))
+#   treeChar=edgeVarsDiff(tree, tip.vals)
+#   show(length(treeChar))
+#   show(length(proj))
+#   nn=nameEdges(tree)
+#   nn[nn!=""]=speciesNames[nn[nn!=""], ]
+#   #par(mfrow=c(2,2), mai=rep(0.7,4))
+#   #plotWtext(sqrt(nv), sqrt(tree$edge.length), xlab="char", ylab="Gene branch length", labels = nn)
+#
+#   plotWtext(treeChar$edge.length, proj, xlab=xlab, ylab="relative gene branch length", labels = nn)
+#   stat=cor.test(treeChar$edge.length, proj, method="s")
+#   mtext(gene,side = 3, line=2, font=2)
+#   mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
+#
+#   if(!is.null(tip.vals.ref)){
+#     treeCharRef=edgeVars(tree, tip.vals.ref, metric=metric)
+#     #Error produced:
+#     #Note: possible error in 'edgeVars(tree, tip.vals.ref, ': unused argument (useDiff = useDiff)
+#     proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
+#   }
+#
+#
+#
+#
+# }
 
 plotWtext=function(x,y, labels, text.cex=0.7, ...){plot(x,y, pch=19, col="#00008844", xlim=range(x)+c(0,0.7),...); textplot(x,y, words=labels, cex=text.cex)}
 
