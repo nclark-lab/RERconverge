@@ -156,7 +156,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
     ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
 
     if (is.null(masterTree)) {
-      if(length(ii)>minTreesAll){
+      if(length(ii)>=minTreesAll){
         message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
         tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
 
