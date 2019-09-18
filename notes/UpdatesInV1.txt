@@ -1,0 +1,21 @@
+#Draft list of function(alitie)s that have been added or revised
+#since v0.1.0, to distribute with release of v1.0.0
+
+Addition of tree-estimation functions:
+
+* estimatePhangornTree will estimate branch lengths on a provided
+  master tree topology for a single genetic element, based on a provided
+  nucleotide or amino acid alignment. This function relies on the `pml`
+  and `optim.pml` methods for approximate maximum likelihood estimation
+  from the `phangorn` package.
+
+* estimatePhangornTreeAll is a wrapper for estimatePhangornTree that
+  will estimate gene trees for a set of alignments, and will write the
+  resulting trees to a file that is then readable by `readTrees`.
+
+Improved flexibility for working with master trees:
+
+* users can now specify their own masterTree in readTrees
+
+* users can also reorient the master tree with respect to a provided or
+  inferred outgroup (inferred using `midpoint.root`)

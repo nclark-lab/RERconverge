@@ -2,7 +2,7 @@
 #To do: Find a way to suppress printed output but not
 repodir = "~/repos/RERconverge"
 source(paste(repodir,"R/estimateTreeFuncs.R",sep="/"), echo=TRUE)
-taln = paste(repodir,"inst/extdata/eg_alns/A1BG.phy", sep="/")
+taln = paste(repodir,"inst/extdata/eg_alns/ABHD15.phy", sep="/")
 ttree = paste(repodir,"inst/extdata/MarineTreeBin.txt", sep="/")
 talndir = paste(repodir,"inst/extdata/eg_alns", sep="/")
 toutfile = paste(repodir,"inst/extdata/tmp_esttrees.txt", sep="/")

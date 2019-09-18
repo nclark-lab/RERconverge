@@ -3,10 +3,10 @@ title: "RERconverge Analysis Walkthrough"
 bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     css: custom.css
-    toc: yes
-  pdf_document:
     toc: yes
 authors: Amanda Kowalczyk and Wynn Meyer
 ---
@@ -28,7 +28,7 @@ The following document describes the steps necessary to perform a standard RERco
 
 The analysis requires two sources of data as input:  
  
-1. Phylogenetic trees for every genomic element with branch lengths that represent element-specific evolutionary rates  
+1. Phylogenetic trees for every genomic element with branch lengths that represent element-specific evolutionary rates*  
     * Trees should be in Newick format with tip labels and no node labels
     * Tree topologies must all be subsets of the same master tree topology
 2. Species-labeled phenotype values  
@@ -40,6 +40,8 @@ The analysis requires two sources of data as input:
         * a Newick tree with branch lengths 0 for background branches and values between 0 and 1 for foreground branches (for a basic analysis, set all foreground branches to 1) OR
         * the user can specify foreground branches (which will be set to 1) using an interactive tool (see below)
   
+\*We now provide tools for users to estimate approximate maximum likelihood trees from nucleotide or amino acid alignments using the `pml` and `optim.pml` functions from the [phangorn](https://cran.r-project.org/web/packages/phangorn/index.html) package [@Schliep2011]. Users must supply alignments in a format readable by `read.phyDat`, as well as a **master tree** in Newick format, representing the tree topology on which branch lengths should be estimated. For more details on how to generate trees from alignments using these tools, see the documentation for the `estimatePhangornTree` and `estimatePhangornTreeAll` functions.
+
 When choosing a dataset to work with, consider the availability and accuracy of both genomic and phenotypic data, and be sure to select a valid convergent phenotype that is observed in multiple independent clades in your phylogeny, and at high and low levels for continuous traits. 
   
 For a more detailed description of data formatting requirements and examples, please see the relevant sections of the walkthrough.
@@ -467,7 +469,8 @@ We will perform our enrichment on Rho-signed negative log p-values from our corr
 
 ```{r cache=T}
 library(RERconverge)
-stats=getStat(RERresults)
+#stats=getStat(RERresults)
+stats=getStat(res) #the object in RERresults.RData is named 'res'
 ```
 
 ## Import Pathway Annotations
