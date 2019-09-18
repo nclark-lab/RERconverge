@@ -1,7 +1,8 @@
 #add-on functions for creating trees for use with RERconverge
 require(phangorn)
 require(phytools)
-require(tools)
+require(tools) #may be unnecessary for tree estimation functions but useful for
+#versioning in R
 pruneAlnFromTree = function(alnfile, treefile, type = "AA", format = "fasta", writealn=TRUE) {
   #prune the alignment to have only the species in the tree
   #read in the alignment
@@ -79,10 +80,13 @@ estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA",
   }
   #unroot the tree
   genetree = unroot(genetree)
+  #just in case, set all branches to 1 first (pml abhors a vacuum... or a zero)
+  genetree$edge.length = c(rep(1,length(genetree$edge.length)))
   #Run distance estimation using submodel
   #generate an initial pml tree
   lgptree = pml(genetree, alnPhyDat, model = submodel, k = k, rearrangement="none", ...)
   #generate a tree
+  #use capture.output to suppress optimization output?
   lgopttree = optim.pml(lgptree,optInv=T,optGamma=T,optEdge=T,rearrangement="none",
                         model=submodel, ...)
   return(list("results.init"=lgptree,"results.opt"=lgopttree, "tree.opt"=lgopttree$tree))
@@ -93,7 +97,8 @@ estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA",
 #' Uses `pml` and `optim.pml` from the `phangorn` package to estimate the tree.
 
 #' @param alndir The path to directories with alignment files. Trees will be named with the alignment file name after stripping the extension. Either alnfiles or alndir must be supplied.
-#' @param alnfiles A character vector of paths to alignment files. Such as one produced by \code{\link{list.files}}. Either alnfiles or alndir must be supplied.
+#' @param alnfiles A character vector of paths to alignment files. Such as one produced by \code{\link{list.files}}.
+#' Either alnfiles or alndir must be supplied.
 #' @param pattern An optional regular expression for files in the alndir director. As in  ".*fasta".
 #' @param treefile The path to the master tree file (whose topology will be used to generate the tree)
 #' @param output.file The file where the output trees will be written. This file can be read with readTrees().
@@ -109,8 +114,8 @@ estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA",
 #' @seealso \code{\link[phangorn]{phyDat}} for alignment formats,
 #'  \code{\link[phangorn]{pml}} and \code{\link[phangorn]{optim.pml}} for tree estimation
 #' @export
-estimatePhangornTreeAll = function(alnfiles=NULL, alndir=NULL, pattern=NULL, treefile, output.file=NULL, submodel="LG", type = "AA",
-                                format = "fasta", k=4, ...) {
+estimatePhangornTreeAll = function(alnfiles=NULL, alndir=NULL, pattern=NULL, treefile, output.file=NULL,
+                                   submodel="LG", type = "AA", format = "fasta", k=4, ...) {
   if(is.null(output.file)){
     stop("output.file must be supplied")
   }
@@ -119,7 +124,7 @@ estimatePhangornTreeAll = function(alnfiles=NULL, alndir=NULL, pattern=NULL, tre
   }
 
   if (!is.null(alnfiles)&&!is.null(alndir)){
-    stop("Only on of alnfiles or alndir must be supplied")
+    stop("Only one of alnfiles or alndir must be supplied")
   }
 
   if (!is.null(alndir)){
