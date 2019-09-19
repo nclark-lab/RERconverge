@@ -13,9 +13,17 @@ Addition of tree-estimation functions:
   will estimate gene trees for a set of alignments, and will write the
   resulting trees to a file that is then readable by `readTrees`.
 
+
 Improved flexibility for working with master trees:
 
 * users can now specify their own masterTree in readTrees
 
 * users can also reorient the master tree with respect to a provided or
   inferred outgroup (inferred using `midpoint.root`)
+
+
+New visualization function(s):
+
+* new_plotTreeHighlightBranches (needs to be re-named) uses ggplot for 
+  improved visualization of foreground lineages
+  Note: requires BioConductor installation
