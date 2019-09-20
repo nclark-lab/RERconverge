@@ -10,7 +10,8 @@ estimatePhangornTreeAll(alnfiles = NULL, alndir = NULL,
   type = "AA", format = "fasta", k = 4, ...)
 }
 \arguments{
-\item{alnfiles}{A character vector of paths to alignment files. Such as one produced by \code{\link{list.files}}. Either alnfiles or alndir must be supplied.}
+\item{alnfiles}{A character vector of paths to alignment files. Such as one produced by \code{\link{list.files}}.
+Either alnfiles or alndir must be supplied.}
 
 \item{alndir}{The path to directories with alignment files. Trees will be named with the alignment file name after stripping the extension. Either alnfiles or alndir must be supplied.}
 

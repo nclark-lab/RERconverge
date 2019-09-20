@@ -4,9 +4,10 @@
 \alias{getAllResiduals}
 \title{main RER computation function}
 \usage{
-getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt", weighted = T,
-  useSpecies = NULL, min.sp = 10, scale = T, doOnly = NULL,
-  maxT = NULL, scaleForPproj = F, mean.trim = 0.05)
+getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt",
+  weighted = T, useSpecies = NULL, min.sp = 10, scale = T,
+  doOnly = NULL, maxT = NULL, scaleForPproj = F, mean.trim = 0.05,
+  plot = T)
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
@@ -26,6 +27,8 @@ getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt", weighted = T,
 \item{doOnly}{The index of a specific tree in the treesObj to calculate RER for. Useful if a single result is needed quickly.}
 
 \item{maxT}{The maximum number of trees to compute results for. Since this function takes some time this is useful for debugging.}
+
+\item{plot}{Whether to plot the output of the correction for mean-variance relationship.}
 }
 \value{
 A numer of trees by number of paths matrix of relative evolutionary rates. Only an independent set of paths has non-NA values for each tree.

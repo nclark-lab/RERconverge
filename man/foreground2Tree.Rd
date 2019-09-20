@@ -4,9 +4,9 @@
 \alias{foreground2Tree}
 \title{Creates a binary trait tree from a set of foreground species.}
 \usage{
-foreground2Tree(foreground, treesObj, plotTree = T, clade = c("ancestral",
-  "terminal", "all"), weighted = F, transition = "unidirectional",
-  useSpecies = NULL)
+foreground2Tree(foreground, treesObj, plotTree = T,
+  clade = c("ancestral", "terminal", "all"), weighted = F,
+  transition = "unidirectional", useSpecies = NULL)
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
