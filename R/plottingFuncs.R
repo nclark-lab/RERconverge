@@ -11,6 +11,7 @@
 
 require(dplyr)
 require(ggplot2)
+require(ggtree)
 
 if(F){
 multiplot = function(..., plotlist=NULL, file, cols=1, layout=NULL, widths=NULL, heights=NULL, flip=F) {
@@ -785,10 +786,12 @@ nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
 #' @param hlspecies. A vector of species whose terminal branches to highlight, or a vector of branch numbers within the tree.
 #' @param hlcols. Colors to use in highlighting the branches. If not specified, will use default R colors.
 #' @param main. Main text for plot.
+#' @param useGG option to creat plot with ggtree. Improves plot readability for most data sets.  
 #' @return A plot of the the (optionally rerooted) tree, with branches highlighted.
 #' @export
 
-plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NULL, main=""){
+plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NULL, main="", useGG=FALSE){
+  
   if (is.null(hlcols)) {
     hlcols <- c(2:(length(hlspecies)+1))
   }
@@ -817,29 +820,91 @@ plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NUL
   } else {
     rooted <- tree
   }
-  colMaster <- c(rep("black",nrow(rooted$edge)))
-  if (is.numeric(hlspecies)) {
-    if (!is.null(outgroup)) {
-      hlcols <- c("black",hlcols)
-      colMaster <- hlcols[dummyrooted$edge.length]
+  
+  if(useGG){
+    #if hlcols is numeric make branches blue
+    if (is.numeric(hlcols)) {
+      hlcols <- rep_len("#0000ff", length(hlspecies)) #if there are fewer colors than species to highlight, repeat colors
+    }
+    
+    #create hlspecies_named
+    hlspecies_named <- vector(mode="character")
+    if(is.numeric(hlspecies)){
+      for(i in 1: length(hlspecies))
+      {
+        hlspecies_named[i] <- tree$tip.label[hlspecies[i]]
+      }
+    }else
+      hlspecies_named <- hlspecies
+    
+    #Make branches of length 0 just *slightly* larger values to visualize tree
+    rooted2 <- rooted
+    mm <- min(rooted2$edge.length[rooted2$edge.length>0])
+    rooted2$edge.length[rooted2$edge.length==0] <- max(0.02,mm/20)
+    
+    
+    #vector of tip label colors
+    tipCols <- vector(mode = "character")
+    x <- 1
+    for(i in 1: length(tree$tip.label))
+    {
+      if(tree$tip.label[i] %in% hlspecies_named)
+      {
+        tipCols[i] <- hlcols[x]
+        x <- x+1
+      }
+      else tipCols[i] <- "black"
+    }
+    
+    #number of labels
+    nlabel <- rooted2$Nnode + length(rooted2$tip.label)
+    
+    edgeCols <- vector(mode="character", length=nlabel)
+    x <- 1
+    for(i in 1: nlabel)
+    {
+      if(i < length(rooted2$tip.label))
+      {
+        if(rooted2$tip.label[i] %in% hlspecies_named)
+        {
+          edgeCols[i] <- hlcols[x]
+          x <- x+1
+        }else
+          edgeCols[i] <- "Black"
+      }else
+        edgeCols[i] <- "Black"
+    }
+    
+    plotobj = ggtree(rooted2, color = edgeCols)
+    plotobj = plotobj + geom_tiplab(color= tipCols, geom="text", cex = 3) + labs(title = main)
+    return(plotobj)
+  }else{ #This is executed when useGG is FALSE
+    colMaster <- c(rep("black",nrow(rooted$edge)))
+    if (is.numeric(hlspecies)) {
+      if (!is.null(outgroup)) {
+        hlcols <- c("black",hlcols)
+        colMaster <- hlcols[dummyrooted$edge.length]
+      } else {
+        for (i in 1:length(hlspecies)) {
+          colMaster[hlspecies[i]] <- hlcols[i]
+        }
+      }
     } else {
+      wspmr <- rooted$tip.label[rooted$edge[,2]] #order of tips in edges
       for (i in 1:length(hlspecies)) {
-        colMaster[hlspecies[i]] <- hlcols[i]
+        colMaster[which(wspmr==hlspecies[i])] <- hlcols[i]
       }
     }
-  } else {
-    wspmr <- rooted$tip.label[rooted$edge[,2]] #order of tips in edges
-    for (i in 1:length(hlspecies)) {
-      colMaster[which(wspmr==hlspecies[i])] <- hlcols[i]
-    }
+    termedge <- order(rooted$edge[,2])[1:length(rooted$tip.label)] #which edge corresponds to each terminal branch
+    colMasterTip <- colMaster[termedge]
+    #Make branches of length 0 just *slightly* larger values to visualize tree
+    rooted2=rooted
+    mm=min(rooted2$edge.length[rooted2$edge.length>0])
+    rooted2$edge.length[rooted2$edge.length==0]=max(0.02,mm/20)
+    plotobj = plot.phylo(rooted2, main = main, edge.color=colMaster,
+                         tip.color = colMasterTip, edge.width = 2, cex=0.8)
+    
+    return(plotobj)
   }
-  termedge <- order(rooted$edge[,2])[1:length(rooted$tip.label)] #which edge corresponds to each terminal branch
-  colMasterTip <- colMaster[termedge]
-  #Make branches of length 0 just *slightly* larger values to visualize tree
-  rooted2=rooted
-  mm=min(rooted2$edge.length[rooted2$edge.length>0])
-  rooted2$edge.length[rooted2$edge.length==0]=max(0.02,mm/20)
-  plotobj = plot.phylo(rooted2, main = main, edge.color=colMaster,
-                       tip.color = colMasterTip, edge.width = 2, cex=0.8)
-  return(plotobj)
+  
 }
