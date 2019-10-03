@@ -46,7 +46,11 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reorient=
       treenames=c(treenames, tmp[i])
     }
     else{
-      trees[[i/2]]=unroot(read.tree(text=tmp[i]))
+      trees[[i/2]]=tryCatch(unroot(read.tree(text=tmp[i])),
+                                     error = function(e) {
+                                          message('Cannot parse tree for the following gene: ',treenames[i/2]);
+                                          stop()
+                                          })
       #reduce to species present in master tree
       if (!is.null(masterTree)) {
         trees[[i/2]] = pruneTree(trees[[i/2]],intersect(trees[[i/2]]$tip.label,masterTree$tip.label))
