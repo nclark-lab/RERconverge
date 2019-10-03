@@ -34,7 +34,8 @@ require(weights)
 #' @return A trees object of class "treeObj"
 #' @export
 readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reorient=F, outgroup=NULL){
-  tmp=scan(file, sep="\t", what="character")
+  tmp=scan(file, sep="\t", what="character", quiet = T)
+  message(paste0("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   treenames=character()
   maxsp=0; # maximum number of species
