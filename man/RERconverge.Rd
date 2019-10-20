@@ -4,8 +4,6 @@
 \name{RERconverge}
 \alias{RERconverge}
 \alias{RERconverge-package}
-\alias{RERconverge}
-\alias{RERconverge-package}
 \title{RERconverge}
 \description{
 RERconverge

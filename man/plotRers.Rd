@@ -6,7 +6,8 @@
 species present in the gene tree}
 \usage{
 plotRers(rermat = NULL, index = NULL, phenv = NULL, rers = NULL,
-  method = "k", xlims = NULL, plot = 1, xextend = 0.2, sortrers = F)
+  method = "k", xlims = NULL, plot = 1, xextend = 0.2,
+  sortrers = F)
 }
 \arguments{
 \item{rermat.}{A residual matrix, output of the getAllResiduals() function}

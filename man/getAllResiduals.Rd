@@ -4,12 +4,15 @@
 \alias{getAllResiduals}
 \title{main RER computation function}
 \usage{
-getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt", weighted = T,
-  useSpecies = NULL, min.sp = 10, scale = T, doOnly = NULL,
-  maxT = NULL, scaleForPproj = F, mean.trim = 0.05)
+getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt",
+  weighted = T, useSpecies = NULL, min.sp = 10, scale = T,
+  doOnly = NULL, maxT = NULL, scaleForPproj = F, mean.trim = 0.05,
+  plot = T)
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
+
+\item{cutoff}{a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.}
 
 \item{transform}{The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, sqrt is recommended.}
 
@@ -25,7 +28,7 @@ getAllResiduals(treesObj, cutoff = NULL, transform = "sqrt", weighted = T,
 
 \item{maxT}{The maximum number of trees to compute results for. Since this function takes some time this is useful for debugging.}
 
-\item{a}{cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.}
+\item{plot}{Whether to plot the output of the correction for mean-variance relationship.}
 }
 \value{
 A numer of trees by number of paths matrix of relative evolutionary rates. Only an independent set of paths has non-NA values for each tree.

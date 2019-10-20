@@ -28,7 +28,7 @@ The following document describes the steps necessary to perform a standard RERco
 
 The analysis requires two sources of data as input:  
  
-1. Phylogenetic trees for every genomic element with branch lengths that represent element-specific evolutionary rates  
+1. Phylogenetic trees for every genomic element with branch lengths that represent element-specific evolutionary rates*  
     * Trees should be in Newick format with tip labels and no node labels
     * Tree topologies must all be subsets of the same master tree topology
 2. Species-labeled phenotype values  
@@ -40,6 +40,8 @@ The analysis requires two sources of data as input:
         * a Newick tree with branch lengths 0 for background branches and values between 0 and 1 for foreground branches (for a basic analysis, set all foreground branches to 1) OR
         * the user can specify foreground branches (which will be set to 1) using an interactive tool (see below)
   
+\*We now provide tools for users to estimate approximate maximum likelihood trees from nucleotide or amino acid alignments using the `pml` and `optim.pml` functions from the [phangorn](https://cran.r-project.org/web/packages/phangorn/index.html) package [@Schliep2011]. Users must supply alignments in a format readable by `read.phyDat`, as well as a **master tree** in Newick format, representing the tree topology on which branch lengths should be estimated. For more details on how to generate trees from alignments using these tools, see the documentation for the `estimatePhangornTree` and `estimatePhangornTreeAll` functions.
+
 When choosing a dataset to work with, consider the availability and accuracy of both genomic and phenotypic data, and be sure to select a valid convergent phenotype that is observed in multiple independent clades in your phylogeny, and at high and low levels for continuous traits. 
   
 For a more detailed description of data formatting requirements and examples, please see the relevant sections of the walkthrough.
@@ -375,20 +377,17 @@ head(logAdultWeightcm)
 
 
 We must convert the trait vector to paths comparable to the paths in the RER matrix.  To do that, we can use the function 'char2Paths' as shown here:
-```{r, include=FALSE}
-#This is a workaround for the subsequent knitting issue. Please do not delete.
-# repopath = '~/repos/RERconverge' #replace with your local installation.
-# source(paste(repopath,'/R/RERfuncs.R',sep=''))
-```
-<!-- The following chunk prevents knitting, although it runs fine on its own. When knitting, it produces the following error (despite char2Paths being set to export and listed in NAMESPACE):
-Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
 ```{r chunk_name, include=FALSE}
+#This is a workaround for the subsequent knitting issue. Please do not delete.
 #Modify this for a local machine
-repopath = '~/Documents/GitHub/RERConverge'
+repopath = '~/repos/RERconverge' #replace with your local installation.
+# repopath = '~/Documents/GitHub/RERConverge'
 if (!exists("char2Paths",mode="function")) {
   source(paste(repopath,"/R/RERfuncs.R",sep=""))
 }
 ```
+<!-- The following chunk prevents knitting, although it runs fine on its own. When knitting, it produces the following error (despite char2Paths being set to export and listed in NAMESPACE):
+Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
 
 ```{r}
 charpaths=char2Paths(logAdultWeightcm, toyTrees)
@@ -467,7 +466,8 @@ We will perform our enrichment on Rho-signed negative log p-values from our corr
 
 ```{r cache=T}
 library(RERconverge)
-stats=getStat(RERresults)
+#stats=getStat(RERresults)
+stats=getStat(res) #the object in RERresults.RData is named 'res'
 ```
 
 ## Import Pathway Annotations

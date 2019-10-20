@@ -22,16 +22,18 @@ require(weights)
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
 
 #' @param file The path to the tree file
-#' @param  max.read This function takes a while for a whole genome, so max.read is useful for testing
-#' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
-#' @return A trees object of class "treeObj"
-#' @param  masterTree (optional) User can specify a master tree. Recommended only when
+#' @param max.read This function takes a while for a whole genome, so max.read is useful for testing
+#' @param masterTree (optional) User can specify a master tree. Recommended only when
 #' the number of available gene trees with all species is small.
 #' @param  minTreesAll The minimum number of trees with all species present in order to estimate
 #' master tree edge lengths (default 20).
+#' @param reorient Whether to re-orient the master tree so that it is pseudo-rooted
+#' on an outgroup. If unspecified in `outgroup`, this will use `midpoint.root`.
+#' @param outgroup A user-specified outgroup for re-rooting with `root`
+#' (only used if reorient=TRUE)
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
+readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reorient=F, outgroup=NULL){
   tmp=scan(file, sep="\t", what="character", quiet = T)
   message(paste0("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
@@ -60,127 +62,182 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
         maxsp=length(trees[[i/2]]$tip.label)
         allnames=trees[[i/2]]$tip.label
       }
-        #check if it has new species
-        if (sum(trees[[i/2]]$tip.label %in% allnames == F) > 0) {
-          allnames = unique(c(allnames,trees[[i/2]]$tip.label))
-          maxsp = length(allnames) - 1
+      #check if it has new species
+      if (sum(trees[[i/2]]$tip.label %in% allnames == F) > 0) {
+        allnames = unique(c(allnames,trees[[i/2]]$tip.label))
+        maxsp = length(allnames) - 1
 
-        }
-        #if(length(trees[[i/2]]$tip.label)>maxsp){
-        #  maxsp=length(trees[[i/2]]$tip.label)
-        #  allnames=trees[[i/2]]$tip.label
-        #}
       }
-
     }
-    allnames = allnames[!is.na(allnames)]
-    names(trees)=treenames
-    treesObj=vector(mode = "list")
-    treesObj$trees=trees
-    treesObj$numTrees=length(trees)
-    treesObj$maxSp=maxsp
+  }
+  allnames = allnames[!is.na(allnames)]
+  names(trees)=treenames
+  treesObj=vector(mode = "list")
+  treesObj$trees=trees
+  treesObj$numTrees=length(trees)
+  treesObj$maxSp=maxsp
 
-    message(paste("max is", maxsp))
+  message(paste("max is", maxsp))
 
-    report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
-    colnames(report)=allnames
+  report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
+  colnames(report)=allnames
 
-    rownames(report)=treenames
-    for ( i in 1:nrow(report)){
-      ii=match(allnames, trees[[i]]$tip.label)
-      report[i,]=1-is.na(ii)
+  rownames(report)=treenames
+  for ( i in 1:nrow(report)){
+    ii=match(allnames, trees[[i]]$tip.label)
+    report[i,]=1-is.na(ii)
 
-    }
-    treesObj$report=report
+  }
+  treesObj$report=report
 
 
 
-    ii=which(rowSums(report)==maxsp)
+  ii=which(rowSums(report)==maxsp)
 
-    #Create a master tree with no edge lengths
-    if (is.null(masterTree)) {
-      master=trees[[ii[1]]]
-      master$edge.length[]=1
-      treesObj$masterTree=master
+  #Create a master tree with no edge lengths
+  if (is.null(masterTree)) {
+    master=trees[[ii[1]]]
+    master$edge.length[]=1
+    treesObj$masterTree=master
+  } else {
+    master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
+    #prune tree to just the species names in the gene trees
+    treesObj$masterTree=master
+  }
+
+  print("rotating master")
+
+  treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
+  #this gets the abolute alphabetically constrained order when all branches
+  #are present
+  tiporder=treeTraverse(treesObj$masterTree)
+
+  message("Rotating trees")
+
+  for ( i in 1:treesObj$numTrees){
+
+    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
+
+  }
+
+  #Reorient *here*
+  #add re-rooting if specified
+  if (reorient) {
+    print("reorienting master")
+    #root the master tree
+    if (is.null(outgroup)) {
+      #If this happens before branch lengths are estimated,
+      #it will incorrectly place the root of the tree
+      mytreeFull.rooted=midpoint.root(treesObj$masterTree)
     } else {
-
-      master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
-      #prune tree to just the species names in the largest gene tree
-      master$edge.length[]=1
-
-      master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
-      #prune tree to just the species names in the gene trees
-      #master$edge.length[]=1
-
-      treesObj$masterTree=master
+      mytreeFull.rooted=root(treesObj$masterTree,outgroup)
     }
-
-
-
-
-    treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
-    #this gets the abolute alphabetically constrained order when all branches
-    #are present
+    mytreeFull.reoriented = unroot(mytreeFull.rooted)
+    towrite=rotateConstr(mytreeFull.reoriented,
+                         sort(treesObj$masterTree$tip.label))
+    toread=write.tree(towrite) #must be written and re-read to have nodes in the right order for matchNodesInject
+    treesObj$masterTree=read.tree(text=toread)
     tiporder=treeTraverse(treesObj$masterTree)
 
-    #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
-    message("Rotating trees")
-
-    for ( i in 1:treesObj$numTrees){
-
-      treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
-
+    #Re-orient gene trees
+    print("re-orienting gene trees")
+    for (i in 1:treesObj$numTrees) {
+      #can this be done with just fixPseudoroot?
+      #do trees need to be written and read to fix node order?
+      #prune the rooted masterTree to the correct species
+      prunedTree=pruneTree(treesObj$masterTree, treesObj$trees[[i]]$tip.label)
+      #find the new root node
+      rootNode=setdiff(prunedTree$edge[,1], prunedTree$edge[,2])
+      #find the first child or the root node
+      rootNode1down=prunedTree$edge[prunedTree$edge[,1]==rootNode,2][1]
+      #get the corresponding outgroup
+      goutgroup=treeTraverse(prunedTree, rootNode1down)
+      #root the tree with missing species on the outgroup
+      #this doesn't work if the "outgroup" is all other species
+      if ((length(prunedTree$tip.label)-length(goutgroup)) > 1) {
+        mytree.rooted=try(root(treesObj$trees[[i]], outgroup = goutgroup))
+        if (class(mytree.rooted) == "phylo") {
+          treesObj$trees[[i]]=unroot(mytree.rooted)
+        } else {
+          plotTreeHighlightBranches(treesObj$trees[[i]],hlspecies=goutgroup,hlcols="red")
+          #return master tree, problematic tree for re-rooting
+          treesObj$probtree = treesObj$trees[[i]]
+          treesObj$goutgroup = goutgroup
+          message(paste("Issue re-rooting for tree",i))
+          return(probtreesObj)
+        }
+      } else {
+        goutgroup = setdiff(prunedTree$tip.label,goutgroup)
+        mytree.rooted=root(treesObj$trees[[i]], outgroup = goutgroup)
+      }
+      mytree.reunrooted=unroot(mytree.rooted)
+      #Only run fixPseudoroot if root species is in prunedTree
+      if (!is.rooted(prunedTree)) {
+        mytree.fixed = try(fixPseudorootForReorient(mytree.reunrooted,prunedTree))
+        if (class(mytree.fixed)=="phylo") {
+          treesObj$trees[[i]]=mytree.fixed
+        } else {
+          treesObj$probTree = mytree.reunrooted
+          treesObj$prunedTree = prunedTree
+          message(paste("Issue fixing pseudoroot for tree",i))
+          return(treesObj)
+        }
+      } else {
+        treesObj$trees[[i]]=mytree.reunrooted
+      }
     }
+  }
 
-
-
-    ap=allPaths(master)
-    treesObj$ap=ap
-    matAnc=(ap$matIndex>0)+1-1
-    matAnc[is.na(matAnc)]=0
-
-    paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
-    for( i in 1:treesObj$numTrees){
+  print("getting paths")
+  ap=allPaths(treesObj$masterTree)
+  treesObj$ap=ap
+  matAnc=(ap$matIndex>0)+1-1
+  matAnc[is.na(matAnc)]=0
+  paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
+  for( i in 1:treesObj$numTrees){
+    if (reorient) {
+      testpaths = try(allPathMasterRelative(treesObj$trees[[i]], treesObj$masterTree, ap))
+      if (is.numeric(testpaths)) {
+        paths[i,]=testpaths
+      } else {
+        message(paste("Issue pseudo-rooting in paths for tree",i))
+        return(treesObj)
+      }
+    } else {
       #Make paths all NA if tree topology is discordant
       paths[i,]=tryCatch(allPathMasterRelative(treesObj$trees[[i]], master, ap), error=function(err) NA)
       #calls matchAllNodes -> matchNodesInject
     }
-    paths=paths+min(paths[paths>0], na.rm=T)
-    treesObj$paths=paths
-    treesObj$matAnc=matAnc
-    treesObj$matIndex=ap$matIndex
-    treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
+  }
+  paths=paths+min(paths[paths>0], na.rm=T)
 
+  if (is.null(masterTree)) {
     #require all species and tree compatibility
-    #ii=which(rowSums(report)==maxsp)
     ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
+    if(length(ii)>=minTreesAll){
+      message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+      tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
 
-    if (is.null(masterTree)) {
-      if(length(ii)>=minTreesAll){
-        message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-        tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-
-        allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-        allEdge=scaleMat(allEdge)
-        allEdgeM=apply(allEdge,2,mean)
-        treesObj$masterTree$edge.length=allEdgeM
-      }else {
-        message("Not enough genes with all species present: master tree has no edge.lengths")
-      }
+      allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+      allEdge=scaleMat(allEdge)
+      allEdgeM=apply(allEdge,2,mean)
+      treesObj$masterTree$edge.length=allEdgeM
     } else {
-      message("Using user-specified master tree")
-
+      message("Not enough genes with all species present: master tree has no edge.lengths")
     }
+  } else {
+    message("Using user-specified master tree")
+  }
 
-      message("Naming columns of paths matrix")
-      colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
-      class(treesObj)=append(class(treesObj), "treesObj")
-      treesObj
-}#readTrees
-
-
-
-
+  treesObj$paths=paths
+  treesObj$matAnc=matAnc
+  treesObj$matIndex=ap$matIndex
+  treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
+  message("Naming columns of paths matrix")
+  colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
+  class(treesObj)=append(class(treesObj), "treesObj")
+  treesObj
+}
 
 
 computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicted=T){
@@ -350,7 +407,7 @@ matchNodesInject=function (tr1, tr2){
   #  stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
   #}
 
-  toRm=setdiff(tr2$tip.label, tr1$tip.label)
+  toRm=setdiff(tr2$tip.label, tr1$tip.label) #unused?
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
                                                                               x)$tip.label)
   names(desc.tr1) <- 1:tr1$Nnode + length(tr1$tip)
@@ -590,7 +647,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
 
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.
+#' @param cutoff a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.
 #' @param transform The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, sqrt is recommended.
 #' @param weighted Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data.
 #' @param useSpecies Give only a subset of the species to use for RER calculation. Some times excluding unusually long branches can provide more stable results
@@ -1054,6 +1111,33 @@ fixPseudoroot=function(tree, treesObj){
   return(tree)
 }
 
+#' @keywords internal
+fixPseudorootForReorient=function(tree, mastersub){
+  #allows using a sub-tree of the master tree (not the whole tree)
+  if(RF.dist(tree, mastersub)>0){
+    stop("The focal tree and master sub-tree are not reconcilable - they have different topologies")
+  }
+  #fix pseudorooting
+  tr1=tree
+  tr2=mastersub
+  #get species at pseudoroot
+  toroot=tr2$tip.label[tr2$edge[,2][tr2$edge[,1]==as.numeric(names(which(table(tr2$edge[,1])==3)))]]
+  toroot=toroot[!is.na(toroot)]
+  #pick one, must be in tr1
+  if(toroot[[1]] %in% tr1$tip.label){
+    toroot=toroot[[1]]
+  }else if(toroot [[2]] %in% tr1$tip.label){
+    toroot=toroot[[2]]
+  }else{
+    stop("Key species missing from trait tree")
+  }
+  tr1=root.phylo(tr1, toroot)
+  tree=tr1
+  #plot(tree)
+  #message("Make sure the branch lengths for the new trait tree are correct")
+  return(tree)
+}
+
 #' Generate a phenotype paths vector from a phenotype tree
 #'
 #' \code{tree2Paths} generates a phenotype paths vector matching the treesObject
@@ -1446,6 +1530,7 @@ getAllCladeEdges=function(tree, AncEdge){
 
 
 #if(T){
+#Is this function used? It generates an error (see below).
 getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
   report=treesObj[["report"]]
   both=names(which(colSums(report[c(name1,name2),])==2))
@@ -1454,8 +1539,9 @@ getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
   allbranch=matrix(nrow=0, ncol=length(mastertree$edge.length))
   for ( i in 1:(length(treesObj)-3)){
     if(sum(is.na(match(both, treesObj[[i]]$tip.label)))==0){
-      tmptree=(pruneTree(treesObj[[i]], both, mastertree))
-
+      tmptree=(pruneTree(treesObj[[i]], both))
+      #error generated:
+      #Note: possible error in 'pruneTree(treesObj[[i]], ': unused argument (mastertree)
       # show(c(length(tmptree$edge.length), ncol(allbranch)))
       allbranch=rbind(allbranch, tmptree$edge.length)
     }
@@ -1925,60 +2011,63 @@ mapEdge=function(tree1, tree2){
 
 }
 
-
-plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, useDiff=T, xlab){
-  #get the tree projection
-  tip.vals=tip.vals[!is.na(tip.vals)]
-
-  stopifnot(gene %in% names(treesObj$trees))
-  tree=treesObj$trees[[gene]]
-  stopifnot(!is.null(names(tip.vals)))
-  both=intersect(tree$tip.label, names(tip.vals))
-
-  stopifnot(length(both)>10)
-
-
-  torm=setdiff(treesObj$masterTree$tip.label, both)
-  tree=pruneTree(tree, both)
-  tip.vals=tip.vals[both]
-  allreport=treesObj$report[,both]
-  ss=rowSums(allreport)
-  iiboth=which(ss==length(both))
-
-
-  ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
-  ii= match(namePaths(ee,T), colnames(treesObj$paths))
-
-  allbranch=treesObj$paths[iiboth,ii]
-
-  allbranch=scaleMat(allbranch)
-  show(sum(is.na(allbranch)))
-  nv=projection(t(allbranch), method="AVE", returnNV = T)
-
-  proj=residfun(tree$edge.length, nv)
-  show(length(tree$edge.length))
-  treeChar=edgeVarsDiff(tree, tip.vals)
-  show(length(treeChar))
-  show(length(proj))
-  nn=nameEdges(tree)
-  nn[nn!=""]=speciesNames[nn[nn!=""], ]
-  #par(mfrow=c(2,2), mai=rep(0.7,4))
-  #plotWtext(sqrt(nv), sqrt(tree$edge.length), xlab="char", ylab="Gene branch length", labels = nn)
-
-  plotWtext(treeChar$edge.length, proj, xlab=xlab, ylab="relative gene branch length", labels = nn)
-  stat=cor.test(treeChar$edge.length, proj, method="s")
-  mtext(gene,side = 3, line=2, font=2)
-  mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
-
-  if(!is.null(tip.vals.ref)){
-    treeCharRef=edgeVars(tree, tip.vals.ref, useDiff=useDiff)
-    proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
-  }
-
-
-
-
-}
+#Is this function used? It generates an error (see below)
+# don't think this is used
+# plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, metric="diff", xlab){
+#   #get the tree projection
+#   tip.vals=tip.vals[!is.na(tip.vals)]
+#
+#   stopifnot(gene %in% names(treesObj$trees))
+#   tree=treesObj$trees[[gene]]
+#   stopifnot(!is.null(names(tip.vals)))
+#   both=intersect(tree$tip.label, names(tip.vals))
+#
+#   stopifnot(length(both)>10)
+#
+#
+#   torm=setdiff(treesObj$masterTree$tip.label, both)
+#   tree=pruneTree(tree, both)
+#   tip.vals=tip.vals[both]
+#   allreport=treesObj$report[,both]
+#   ss=rowSums(allreport)
+#   iiboth=which(ss==length(both))
+#
+#
+#   ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
+#   ii= match(namePaths(ee,T), colnames(treesObj$paths))
+#
+#   allbranch=treesObj$paths[iiboth,ii]
+#
+#   allbranch=scaleMat(allbranch)
+#   show(sum(is.na(allbranch)))
+#   nv=projection(t(allbranch), method="AVE", returnNV = T)
+#
+#   proj=residfun(tree$edge.length, nv)
+#   show(length(tree$edge.length))
+#   treeChar=edgeVarsDiff(tree, tip.vals)
+#   show(length(treeChar))
+#   show(length(proj))
+#   nn=nameEdges(tree)
+#   nn[nn!=""]=speciesNames[nn[nn!=""], ]
+#   #par(mfrow=c(2,2), mai=rep(0.7,4))
+#   #plotWtext(sqrt(nv), sqrt(tree$edge.length), xlab="char", ylab="Gene branch length", labels = nn)
+#
+#   plotWtext(treeChar$edge.length, proj, xlab=xlab, ylab="relative gene branch length", labels = nn)
+#   stat=cor.test(treeChar$edge.length, proj, method="s")
+#   mtext(gene,side = 3, line=2, font=2)
+#   mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
+#
+#   if(!is.null(tip.vals.ref)){
+#     treeCharRef=edgeVars(tree, tip.vals.ref, metric=metric)
+#     #Error produced:
+#     #Note: possible error in 'edgeVars(tree, tip.vals.ref, ': unused argument (useDiff = useDiff)
+#     proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
+#   }
+#
+#
+#
+#
+# }
 
 plotWtext=function(x,y, labels, text.cex=0.7, ...){plot(x,y, pch=19, col="#00008844", xlim=range(x)+c(0,0.7),...); textplot(x,y, words=labels, cex=text.cex)}
 
@@ -2168,3 +2257,278 @@ matchNodesInjectUpdate=function (tr1, tr2){
   #ii=ii[order(ii[,1]),]
 }
 
+#' @keywords internal
+diffBranches=function(tree, assumeroot=c("zero","avg","na"), natozero=TRUE){
+  #set branch lengths to differences in branch lengths
+  #perform on RER trees and convert back to paths
+  #assumeroot sets the value one assumes for the root node:
+  #zero, an average of branches descending from the root, or NA
+  #optionally, convert any NA branches to 0, assuming they have been filtered
+  #for being close to zero
+  assumeroot = match.arg(assumeroot)
+  difftree=tree
+  if (natozero) {
+    tree$edge.length[is.na(difftree$edge.length)] <- 0
+  }
+  for (i in 1:nrow(difftree$edge)) {
+    upperNode = difftree$edge[i,1]
+    upperEdge = which(difftree$edge[,2]==upperNode) #check whether length is 1?
+    if (length(upperEdge)==0) {
+      upperLength = switch(assumeroot,
+             zero = 0,
+             avg = mean(tree$edge.length[which(difftree$edge[,1]==upperNode)]),
+             na = NA)
+      difftree$edge.length[i] = tree$edge.length[i] - upperLength
+    }
+    else if (length(upperEdge)==1) {
+      difftree$edge.length[i] = tree$edge.length[i] - tree$edge.length[upperEdge]
+    } else {
+      stop(paste("Multiple upstream edges exist for edge",i))
+    }
+  }
+  return(difftree)
+}
+
+#' @keywords internal
+changeInRers=function(treesObj, rermat, preservena=TRUE) {
+  #convert a RER matrix (rermat) to a matrix representing change in RERs
+  #preservena: whether to keep the same values NA as in the original rermat
+  rertrees = returnRersAsTreesAll(treesObj,rermat)
+  #get delta_RER trees and convert back to RER matrix
+  diffrertrees = list()
+  diffrermat = matrix(data=NA,nrow=nrow(rermat),ncol=ncol(rermat))
+  colnames(diffrermat) = colnames(rermat)
+  rownames(diffrermat) = rownames(rermat)
+  #Need to find more efficient way to estimate this
+  for (i in 1:length(rertrees)) {
+    diffrertrees[[i]] = diffBranches(rertrees[[i]], assumeroot="na", natozero=T)
+    ee=try(edgeIndexRelativeMaster(diffrertrees[[i]], treesObj$masterTree))
+    #stop()
+    if (is.numeric(ee)) {
+      #this is the columns of the paths matrix
+      ii= treesObj$matIndex[ee[, c(2,1)]]
+      diffrermat[i,ii] <- diffrertrees[[i]]$edge.length
+    } else {
+      par(mfrow=c(1,2))
+      plot(diffrertrees[[i]],cex=0.5)
+      plot(treesObj$masterTree,cex=0.5)
+      message(paste("Issue with edgeIndexRelative for tree",i))
+      return(diffrermat)
+    }
+  }
+  if (preservena) {
+    diffrermat[which(is.na(rermat))] <- NA
+  }
+  return(diffrermat)
+}
+
+#' @keywords internal
+computeDiffRerMat = function(rertree, treesObj, ...){
+  diffrertree = diffBranches(rertree, ...)
+  ee=try(edgeIndexRelativeMaster(diffrertree, treesObj$masterTree))
+  #stop()
+  if (is.numeric(ee)) {
+    #this is the columns of the  paths matrix
+    ii= treesObj$matIndex[ee[, c(2,1)]] #length > 1
+    diffrerval <- diffrertree$edge.length
+  } else {
+    par(mfrow=c(1,2))
+    plot(diffrertree,cex=0.5)
+    plot(treesObj$masterTree,cex=0.5)
+    message(paste("Issue with edgeIndexRelative for tree",i))
+  }
+  return(list("ii"=ii,"diffrerval"=diffrerval))
+}
+
+#Normalize branches rather than obtaining residuals for them
+getAllZScores=function(treesObj, cutoff=NULL, transform="sqrt", weighted=F,
+                       useSpecies=NULL,  min.sp=10, scale=F,  doOnly=NULL, maxT=NULL,
+                       scaleForPproj=F, mean.trim=0.05){
+
+  if(is.null(cutoff)){
+    cutoff=quantile(treesObj$paths, 0.05, na.rm=T)
+    message(paste("cutoff is set to", cutoff))
+  }
+  if (weighted){
+    weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=T)
+    #residfunc=fastLmResidMatWeighted
+  }
+  else{
+    #residfunc=fastLmResidMat
+  }
+  # residfunc=naresid
+
+  if (is.null(useSpecies)){
+    useSpecies=treesObj$masterTree$tip.label
+    #mappedEdges=trees$mappedEdges
+  }
+  if(is.null(maxT)){
+    maxT=treesObj$numTrees
+  }
+  if(transform!="none"){
+    transform=match.arg(transform,c("sqrt", "log"))
+    transform=get(transform)
+  }
+  else{
+    transform=NULL
+  }
+
+
+
+  #cm is the names of species that are included in useSpecies and the master tree
+  cm=intersect(treesObj$masterTree$tip.label, useSpecies)
+  sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
+  if (length(sp.miss) > 0) {
+    message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
+                                                                                 collapse = ",")))
+
+  }
+
+  rr=matrix(nrow=nrow(treesObj$paths), ncol=ncol(treesObj$paths))
+
+  #maximum number of present species
+  maxn=rowSums(treesObj$report[,cm])
+
+  if(is.null(doOnly)){
+    doOnly=1
+  }
+  else{
+    maxT=1
+  }
+  skipped=double(nrow(rr))
+  skipped[]=0
+
+  for (i in doOnly:(doOnly+maxT-1)){
+
+    if(sum(!is.na(rr[i,]))==0&&!skipped[i]==1){
+
+
+      #get the ith tree
+      tree1=treesObj$trees[[i]]
+
+      #get the common species, prune and unroot
+      both=intersect(tree1$tip.label, cm)
+      if(length(both)<min.sp){
+        next
+      }
+      tree1=unroot(pruneTree(tree1,both))
+
+      #do the same for the refTree
+
+
+      #find all the genes that contain all of the species in tree1
+      allreport=treesObj$report[,both]
+      ss=rowSums(allreport)
+      iiboth=which(ss==length(both))
+
+      nb=length(both)
+      ai=which(maxn[iiboth]==nb)
+
+
+      message(paste("i=", i))
+
+
+      if(T){
+
+
+        ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+
+        ii= treesObj$matIndex[ee[, c(2,1)]]
+
+        allbranch=treesObj$paths[iiboth,ii]
+        if(weighted){
+          allbranchw=weights[iiboth,ii]
+        }
+        if(scaleForPproj){
+          nv=apply(scaleMatMean(allbranch), 2, mean, na.rm=T, trim=mean.trim)
+        }
+        else{
+          nv=apply(allbranch, 2, mean, na.rm=T, trim=mean.trim)
+        }
+
+        iibad=which(allbranch<cutoff)
+        #don't scale
+        #allbranch=scaleMat(allbranch)
+        if(!is.null(transform)){
+          nv=transform(nv)
+          allbranch=transform(allbranch)
+        }
+        allbranch[iibad]=NA
+
+
+
+
+        #if(!scale){
+          #if(!weighted){
+          #  proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv))
+          #
+          #}
+          #else{
+          #
+          #  proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv), allbranchw[ai, ,drop=F])
+          #
+          #}
+        #}
+
+        #else{
+
+          #if(!weighted){
+            #proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv))
+          #}
+          #else{
+
+            #proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv),allbranchw)
+          #}
+
+          #proj=scale(proj, center = F)[ai, , drop=F]
+
+        #}
+
+        proj=scale(allbranch[ai, ,drop=F]) #how is this different with scale vs no scale?
+        #we have the projection
+
+
+
+        rr[iiboth[ai],ii]=proj
+
+      }
+
+    }}
+  rownames(rr)=names(treesObj$trees)
+  colnames(rr)=namePathsWSpecies(treesObj$masterTree)
+  rr
+}
+
+#Use multiplicative method of determining expectation for genes x branches
+#May want to check that treesObj and rermat are compatible
+#Norm.method: normalization method
+getAllMultResiduals = function (treesObj,  rermat,  norm.method = NULL) {
+  require(limma) #this requires limma installation using bioconductor
+  if (!is.null(norm.method)) {
+    norm.method=match.arg(norm.method,c("quantile", "loess"))
+  }
+  pmat = treesObj$paths
+  pmatColumnMean=apply(pmat,2, mean, na.rm=T)
+  pmatRowMean=apply(pmat,1, mean, na.rm=T)
+
+  iinotna=which(!is.na(pmat))
+  pmatRCmean=outer(pmatRowMean,pmatColumnMean, function(x,y){(x*y)})
+  lmres=lm((y<-pmat[iinotna])~0+pmatRCmean[iinotna])
+  lmres$coefficients
+  predicted=pmatRCmean*lmres$coefficients
+
+  naiveRER=pmat-predicted
+  naiveRERscale=scale(naiveRER)
+  if (!is.null(norm.method)) {
+    if (norm.method == "quantile") {
+      naiveRERscale=normalizeQuantiles(naiveRERscale)
+    }
+    if (norm.method == "loess") {
+      naiveRERscale=normalizeCyclicLoess(naiveRERscale)
+    }
+  }
+  naiveRERscale[is.na(rermat)]=NA #this requires both matrices to be in the same format/dimensions
+  rownames(naiveRERscale) = rownames(rermat)
+  colnames(naiveRERscale) = colnames(rermat)
+  return(naiveRERscale)
+}
