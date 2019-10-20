@@ -377,20 +377,17 @@ head(logAdultWeightcm)
 
 
 We must convert the trait vector to paths comparable to the paths in the RER matrix.  To do that, we can use the function 'char2Paths' as shown here:
-```{r, include=FALSE}
-#This is a workaround for the subsequent knitting issue. Please do not delete.
-# repopath = '~/repos/RERconverge' #replace with your local installation.
-# source(paste(repopath,'/R/RERfuncs.R',sep=''))
-```
-<!-- The following chunk prevents knitting, although it runs fine on its own. When knitting, it produces the following error (despite char2Paths being set to export and listed in NAMESPACE):
-Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
 ```{r chunk_name, include=FALSE}
+#This is a workaround for the subsequent knitting issue. Please do not delete.
 #Modify this for a local machine
-repopath = '~/Documents/GitHub/RERConverge'
+repopath = '~/repos/RERconverge' #replace with your local installation.
+# repopath = '~/Documents/GitHub/RERConverge'
 if (!exists("char2Paths",mode="function")) {
   source(paste(repopath,"/R/RERfuncs.R",sep=""))
 }
 ```
+<!-- The following chunk prevents knitting, although it runs fine on its own. When knitting, it produces the following error (despite char2Paths being set to export and listed in NAMESPACE):
+Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
 
 ```{r}
 charpaths=char2Paths(logAdultWeightcm, toyTrees)
