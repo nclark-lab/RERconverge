@@ -4,8 +4,14 @@
 \alias{char2Paths}
 \title{turns a named vector of characters into a paths vector to be used with \code{\link{getAllCor}}}
 \usage{
-char2Paths(tip.vals, treesObj, altMasterTree = NULL, metric = "diff",
-  se.filter = -1, ...)
+char2Paths(
+  tip.vals,
+  treesObj,
+  altMasterTree = NULL,
+  metric = "diff",
+  se.filter = -1,
+  ...
+)
 }
 \arguments{
 \item{tip.vals}{the trait/phenotype/character value at the tip, \code{names(tip.vals)} should match some of the \code{mastertree$tip.label}, though a perfect match is not required}

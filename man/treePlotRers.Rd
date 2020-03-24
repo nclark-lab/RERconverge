@@ -6,8 +6,15 @@
 heatmap along the branches (type="color")
 Wraps around \code{\link{returnRersAsTree}} or \code{\link{treePlotNew}}, respectively}
 \usage{
-treePlotRers(treesObj, rermat = NULL, index = NULL, type = c("label",
-  "color"), phenv = NULL, figwid = 10, ...)
+treePlotRers(
+  treesObj,
+  rermat = NULL,
+  index = NULL,
+  type = c("label", "color"),
+  phenv = NULL,
+  figwid = 10,
+  ...
+)
 }
 \arguments{
 \item{treesObj.}{A treesObj created by \code{\link{readTrees}}}

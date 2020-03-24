@@ -4,8 +4,7 @@
 \alias{edgeVars}
 \title{maps a vector of traits onto a reference tree}
 \usage{
-edgeVars(mastertree, tip.vals, metric = "diff", se.filter = -1,
-  return.var = F)
+edgeVars(mastertree, tip.vals, metric = "diff", se.filter = -1, return.var = F)
 }
 \arguments{
 \item{mastertree}{the tree species the topology of the output tree and the branch lengths are used to infer ancestral states}

@@ -4,8 +4,13 @@
 \alias{foreground2Paths}
 \title{Creates paths from a set of foreground species}
 \usage{
-foreground2Paths(foreground, treesObj, plotTree = F, clade = c("ancestral",
-  "terminal", "all", "weighted"), useSpecies = NULL)
+foreground2Paths(
+  foreground,
+  treesObj,
+  plotTree = F,
+  clade = c("ancestral", "terminal", "all", "weighted"),
+  useSpecies = NULL
+)
 }
 \arguments{
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}

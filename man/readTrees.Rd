@@ -12,13 +12,11 @@ readTrees(file, max.read = NA, masterTree = NULL, minTreesAll = 20)
 
 \item{max.read}{This function takes a while for a whole genome, so max.read is useful for testing}
 
-\item{masterTree}{(optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.}
+\item{masterTree}{(optional) User can specify a master tree. Recommended only when
+the number of available gene trees with all species is small.}
 
 \item{minTreesAll}{The minimum number of trees with all species present in order to estimate
 master tree edge lengths (default 20).}
-
-\item{masterTree}{(optional) User can specify a master tree. Recommended only when
-the number of available gene trees with all species is small.}
 }
 \value{
 A trees object of class "treeObj"

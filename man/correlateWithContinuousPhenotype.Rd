@@ -4,8 +4,13 @@
 \alias{correlateWithContinuousPhenotype}
 \title{Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a continuous phenotype made with \code{\link{char2Paths}}}
 \usage{
-correlateWithContinuousPhenotype(RERmat, charP, min.sp = 10,
-  winsorizeRER = 3, winsorizetrait = 3)
+correlateWithContinuousPhenotype(
+  RERmat,
+  charP,
+  min.sp = 10,
+  winsorizeRER = 3,
+  winsorizetrait = 3
+)
 }
 \arguments{
 \item{RERmat}{RER matrix returned by \code{\link{getAllResiduals}}}

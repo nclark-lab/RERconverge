@@ -4,8 +4,13 @@
 \alias{correlateWithBinaryPhenotype}
 \title{Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}}
 \usage{
-correlateWithBinaryPhenotype(RERmat, charP, min.sp = 10, min.pos = 2,
-  weighted = "auto")
+correlateWithBinaryPhenotype(
+  RERmat,
+  charP,
+  min.sp = 10,
+  min.pos = 2,
+  weighted = "auto"
+)
 }
 \arguments{
 \item{RERmat}{RER matrix returned by \code{\link{getAllResiduals}}}

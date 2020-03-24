@@ -1,84 +1,116 @@
-combinePermData=function(permdat1, permdat2){
-  #combine results
-  allres=merge(permdat1[[1]],permdat2[[1]],by="row.names")
-  rownames(allres)=allres[,1]
-  allres[,1]=NULL
 
-  #combine enrich
-  enrich1=permdat1[[2]]
-  enrich2=permdat2[[2]]
-  groups=length(enrich1)
-  allnewenrich=vector("list", groups)
-  count=1
-  while(count<=groups){
-    newenrich=merge(enrich1[[count]], enrich2[[count]], by="row.names")
-    rownames(newenrich)=newenrich[,1]
-    newenrich[,1]=NULL
-    allnewenrich[[count]]=newenrich
-    count=count+1
+#'Combines batches of permulations
+#' @param permdat1 Batch of permulations output from \code{\link{getPermsContinuous}}
+#' @param permdat2 Batch of permulations output from \code{\link{getPermsContinuous}}
+#' @param enrich Default T. Specifies if both `permdat1` and `permdat2` contain enrichment permulations
+#' @return Combined permulations
+#' @export
+combinePermData=function(permdat1, permdat2, enrich=T){
+  #combine results
+  allcorP=merge(permdat1$corP,permdat2$corP,by="row.names")
+  allcorRho=merge(permdat1$corRho,permdat2$corRho,by="row.names")
+  allcorStat=merge(permdat1$corStat,permdat2$corStat,by="row.names")
+  rownames(allcorP)=allcorP[,1]
+  allcorP[,1]=NULL
+  rownames(allcorRho)=allcorRho[,1]
+  allcorRho[,1]=NULL
+  rownames(allcorStat)=allcorStat[,1]
+  allcorStat[,1]=NULL
+
+  if(enrich){
+    #combine enrichment
+    allenrichP=permdat1$enrichP
+    allenrichP2=permdat2$enrichP
+    allenrichStat=permdat1$enrichStat
+    allenrichStat2=permdat2$enrichStat
+    g=1
+    while(g<=length(allenrichP)){
+      allenrichP[[g]]=merge(allenrichP[[g]], allenrichP2[[g]])
+      rownames(allenrichP[[g]])=allenrichP[[g]][,1]
+      allenrichP[[g]][,1]=NULL
+
+      allenrichStat[[g]]=merge(allenrichStat[[g]], allenrichStat2[[g]])
+      rownames(allenrichStat[[g]])=allenrichStat[[g]][,1]
+      allenrichStat[[g]][,1]=NULL
+
+      g=g+1
+    }
   }
-  data=vector("list", 2)
-  data[[1]]=allres
-  data[[2]]=allnewenrich
+
+  if(enrich){
+    data=vector("list", 5)
+    data[[1]]=allcorP
+    data[[2]]=allcorRho
+    data[[3]]=allcorStat
+    data[[4]]=allenrichP
+    data[[5]]=allenrichStat
+    names(data)=c("corP", "corRho", "corStat", "enrichP", "enrichStat")
+  }else{
+    data=vector("list", 3)
+    data[[1]]=allcorP
+    data[[2]]=allcorRho
+    data[[3]]=allcorStat
+    names(data)=c("corP", "corRho", "corStat")
+  }
   data
 }
-
-
-
 
 #'Calculates permuted correlation and enrichment statistics
 #' @param numperms An integer number of permulations
 #' @param traitvec A named phenotype vector
 #' @param RERmat An RER matrix calculated using \code{\link{getAllResiduals}}
 #' @param annotlist Pathway annotations
-#' @param treetop A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
 #' @param trees treesObj from \code{\link{readTrees}}
+#' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
+#' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
 #' @param type One of "simperm", "sim", or "perm" for permulations, simulations, or permutations, respectively
 #' @param winR Integer winzorization value for RERs
 #' @param winT Integer winzorization value for trait
+#' @param method statistical method to use for correlations
+#' @param min.pos minimum foreground species - should be set to 0
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
 #' @export
-getPerms=function(numperms, traitvec, RERmat, annotlist, treetop, trees, type="simperm", winR=NULL, winT=NULL){
-  #get real enrich and cors
-  vec=traitvec
-  realpaths=RERconverge::char2Paths(vec, trees)
-  realresults=RERconverge::getAllCor(RERmat, realpaths, method = "p", min.pos = 0, winsorizeRER = winR, winsorizetrait=winT)
-  realstat=getStat(realresults)
-  realenrich=fastwilcoxGMTall(realstat, annotlist, outputGeneVals=T)
+getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, mastertree, calculateenrich=T, type="simperm", winR=3, winT=3, method="p", min.pos=0){
 
-  #sort real enrichments
-  groups=length(realenrich)
-  c=1
-  while(c<=groups){
-    current=realenrich[[c]]
-    realenrich[[c]]=current[order(rownames(current)),]
-    c=c+1
-  }
+  #get real enrich and cors
+  realpaths=RERconverge::char2Paths(traitvec, trees)
+  realresults=RERconverge::getAllCor(RERmat, realpaths, method = method, min.pos = min.pos, winsorizeRER = winR, winsorizetrait=winT)
+  realstat=getStat(realresults)
 
   #make enrich list/matrices to fill
-  permutationresults=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
-  rownames(permutationresults)=rownames(realresults)
-  rhos=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
-  rownames(rhos)=rownames(realresults)
-  permutationenrichments=vector("list", length(realenrich))
-  c=1
-  while(c<=length(realenrich)){
-    newdf=data.frame(matrix(ncol=numperms, nrow=nrow(realenrich[[c]])))
-    rownames(newdf)=rownames(realenrich[[c]])
-    permutationenrichments[[c]]=newdf
-    c=c+1
+  permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
+  rownames(permPvals)=rownames(realresults)
+  permRhovals=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
+  rownames(permRhovals)=rownames(realresults)
+  permStatvals=data.frame(matrix(ncol=numperms, nrow=length(realstat)))
+  rownames(permStatvals)=names(realstat)
+
+
+  if(calculateenrich){
+    realenrich=fastwilcoxGMTall(realstat, annotlist, outputGeneVals=F)
+
+    #sort real enrichments
+    groups=length(realenrich)
+    c=1
+    while(c<=groups){
+      current=realenrich[[c]]
+      realenrich[[c]]=current[order(rownames(current)),]
+      c=c+1
+    }
+    #make matrices to fill
+    permenrichP=vector("list", length(realenrich))
+    permenrichStat=vector("list", length(realenrich))
+    c=1
+    while(c<=length(realenrich)){
+      newdf=data.frame(matrix(ncol=numperms, nrow=nrow(realenrich[[c]])))
+      rownames(newdf)=rownames(realenrich[[c]])
+      permenrichP[[c]]=newdf
+      permenrichStat[[c]]=newdf
+      c=c+1
+    }
   }
 
-  v=vec
-  rr=RERmat
-  meredithplustreesv2=trees
-
-  #pick number of rows of stat matrix
-  st=getStat(realresults)
-  r=length(st)
-  signpvals=data.frame(matrix(ncol=numperms, nrow=r))
-  rownames(signpvals)=names(st)
 
   counter=1;
   while(counter<=numperms){
@@ -86,46 +118,64 @@ getPerms=function(numperms, traitvec, RERmat, annotlist, treetop, trees, type="s
     print(paste("running permutation: ", counter))
 
     #get correlation results
-    out=getNullCor(v, rr, treetop, meredithplustreesv2, type = type, winR=winR, winT=winT)
-    permutationresults[,counter]=out$P
-    rhos[,counter]=out$Rho
-
-    #get enrich results
+    out=getNullCor(traitvec, RERmat, mastertree, trees, type = type, winR=winR, winT=winT)
     stat=getStat(out)
-    #store stat values
-    signpvals[,counter]=stat
 
-    enrich=fastwilcoxGMTall(stat, annotlist, outputGeneVals=T)
+    permPvals[,counter]=out$P
+    permRhovals[,counter]=out$Rho
+    permStatvals[,counter]=stat
 
-    #sort and store enrichment results
-    groups=length(enrich)
-    c=1
-    while(c<=groups){
-      current=enrich[[c]]
-      enrich[[c]]=current[order(rownames(current)),]
-      permutationenrichments[[c]][,counter]=enrich[[c]]$stat
-      c=c+1
+    if(calculateenrich){
+      enrich=fastwilcoxGMTall(stat, annotlist, outputGeneVals=F)
+      #sort and store enrichment results
+      groups=length(enrich)
+      c=1
+      while(c<=groups){
+        current=enrich[[c]]
+        enrich[[c]]=current[order(rownames(current)),]
+        permenrichP[[c]][,counter]=enrich[[c]]$pval
+        permenrichStat[[c]][,counter]=enrich[[c]]$stat
+        c=c+1
+      }
     }
-
     counter=counter+1
   }
-  data=vector("list", 4)
-  data[[1]]=permutationresults
-  data[[2]]=permutationenrichments
-  data[[3]]=rhos
-  data[[4]]=signpvals
-  names(data)=c("correlationpvals", "signedenrichmentstats", "rhos", "correlationeffectsize")
+
+  if(calculateenrich){
+    data=vector("list", 5)
+    data[[1]]=permPvals
+    data[[2]]=permRhovals
+    data[[3]]=permStatvals
+    data[[4]]=permenrichP
+    data[[5]]=permenrichStat
+    names(data)=c("corP", "corRho", "corStat", "enrichP", "enrichStat")
+  }else{
+    data=vector("list", 3)
+    data[[1]]=permPvals
+    data[[2]]=permRhovals
+    data[[3]]=permStatvals
+    names(data)=c("corP", "corRho", "corStat")
+  }
   data
 }
 
-
-#'Calculates permutation pvals from output of \code{\link{getPerms}}
+#'Calculates enrichment permutation pvals from output of \code{\link{getPermsContinuous}}
 #' @param realenrich Real enrichment statistics from \code{\link{fastwilcoxGMTall}}
-#' @param permenrich signedenrichmentstats from \code{\link{getPerms}}
-#' @return A list object with permulation p-values
+#' @param permvals output from \code{\link{getPermsContinuous}}
+#' @return A list object with vectors of permulation p-values
 #' @export
-permpvalenrich=function(realenrich, permenrich){
-  #takes real and perm enrich with rows in the same order
+permpvalenrich=function(realenrich, permvals){
+
+  #sort real enrichments
+  groups=length(realenrich)
+  c=1
+  while(c<=groups){
+    current=realenrich[[c]]
+    realenrich[[c]]=current[match(rownames(perms$enrichStat[[c]]), rownames(current)),]
+    c=c+1
+  }
+
+  permenrich=permvals$enrichStat
   enrichpvals=vector("list", length(realenrich))
   groups=length(realenrich)
   count=1
@@ -136,8 +186,13 @@ permpvalenrich=function(realenrich, permenrich){
     rowcount=1
     pvallist=c()
     while(rowcount<=rowlen){
-      lessnum=sum(abs(currenrich[rowcount,])>abs(currreal[rowcount,]$stat))
-      pval=lessnum/ncol(currenrich)
+      if(is.na(currreal[rowcount,]$stat)){
+        pval=lessnum/denom
+      }else{
+        lessnum=sum(abs(currenrich[rowcount,])>abs(currreal[rowcount,]$stat), na.rm=T)
+        denom=sum(!is.na(currenrich[rowcount,]))
+        pval=lessnum/denom
+      }
       pvallist=c(pvallist, pval)
       rowcount=rowcount+1
     }
@@ -146,6 +201,35 @@ permpvalenrich=function(realenrich, permenrich){
     count=count+1
   }
   enrichpvals
+}
+
+#'Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}}
+#' @param realcor Real enrichment statistics from \code{\link{fastwilcoxGMTall}}
+#' @param permvals output from \code{\link{getPermsContinuous}}
+#' @return A vector with permulation p-values
+#' @export
+permpvalcor=function(realcor, permvals){
+
+  permcor=permvals$corStat
+  realstat=sign(realcor$Rho)*log10(realcor$P)
+  names(realstat)=rownames(realcor)
+
+  permcor=permcor[match(names(realstat), rownames(permcor)),]
+
+  permpvals=vector(length=length(realstat))
+  names(permpvals)=names(realstat)
+  count=1
+  while(count<=length(realstat)){
+    if(is.na(realstat[count])){
+      permpvals[count]=NA
+    }else{
+      num=sum(abs(permcor[count,])>abs(realstat[count]), na.rm=T)
+      denom=sum(!is.na(permcor[count,]))
+      permpvals[count]=num/denom
+    }
+    count=count+1
+  }
+  permpvals
 }
 
 getNullCor=function(traitvec, RERmat, trimmedtree, genetrees, type="simperm", winR=NULL, winT=NULL){
@@ -168,23 +252,6 @@ getNullCor=function(traitvec, RERmat, trimmedtree, genetrees, type="simperm", wi
   paths=RERconverge::char2Paths(vec, genetrees)
   out=RERconverge::getAllCor(RERmat, paths, method="p", min.pos=0, winsorizeRER=winR, winsorizetrait = winT)
   out
-}
-
-getPermpval=function(permmatrix, realenrich){
-  #returns vector of permpvals
-  #sort real enrich
-  realenrich=realenrich[order(rownames(realenrich)),]
-  realpvals=realenrich$pval
-  permpvals=c()
-  count=1
-  while(count<=nrow(realenrich)){
-    numsig=sum(permmatrix[count,]<=realpvals[count])
-    thisp=numsig/ncol(permmatrix)
-    permpvals=c(permpvals, thisp)
-    count=count+1
-  }
-  realenrich$permpval=permpvals
-  realenrich
 }
 
 permutevec=function(namedvec){
@@ -228,7 +295,5 @@ simpermvec=function(namedvec, treewithbranchlengths){
   }
   simsorted
 }
-
-
 
 

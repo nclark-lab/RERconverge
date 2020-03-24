@@ -5,8 +5,17 @@
 \title{Plot the residuals reflecting the relative evolutionary rates (RERs) of a gene across
 species present in the gene tree}
 \usage{
-plotRers(rermat = NULL, index = NULL, phenv = NULL, rers = NULL,
-  method = "k", xlims = NULL, plot = 1, xextend = 0.2, sortrers = F)
+plotRers(
+  rermat = NULL,
+  index = NULL,
+  phenv = NULL,
+  rers = NULL,
+  method = "k",
+  xlims = NULL,
+  plot = 1,
+  xextend = 0.2,
+  sortrers = F
+)
 }
 \arguments{
 \item{rermat.}{A residual matrix, output of the getAllResiduals() function}

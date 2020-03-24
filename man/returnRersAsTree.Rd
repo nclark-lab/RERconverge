@@ -5,8 +5,16 @@
 \title{Produce a gene tree with branch lengths representing RERs and (optionally)
 display these RERs as branch labels}
 \usage{
-returnRersAsTree(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7,
-  tip.cex = 0.7, nalab = "NA", plot = T)
+returnRersAsTree(
+  treesObj,
+  rermat,
+  index,
+  phenv = NULL,
+  rer.cex = 0.7,
+  tip.cex = 0.7,
+  nalab = "NA",
+  plot = T
+)
 }
 \arguments{
 \item{treesObj.}{A treesObj created by \code{\link{readTrees}}}

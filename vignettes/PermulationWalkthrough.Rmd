@@ -1,0 +1,93 @@
+---
+title: "PermulationWalkthrough"
+author: "Amanda Kowalczyk and Elysia Saputra"
+date:  "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This walkthrough provides instructions to perform permulation analysis to calculate empirical p-values for genes and pathways.  Due to a non-uniform p-value distribution for gene-evolutionary rate associations and non-independence among genes for pathway enrichment, parametric p-values directly from RERconverge may not accurately represent true confidence of association or enrichment.  Permulation p-values correct this issue.
+
+# Binary Permulations
+
+# Continuous Permulations
+
+First, conduct standard RERconverge analysis.  Please see full walkthroughs for more details about these steps.
+
+```{r, message=F, warning=F, error=F}
+#load RER package
+library(RERconverge)
+rerpath = find.package('RERconverge')
+
+#read trees
+toytreefile = "subsetMammalGeneTrees.txt" 
+toyTrees=RERconverge::readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+
+#load phenotype data
+data("logAdultWeightcm") 
+
+#calculate RERs
+mamRERw = RERconverge::getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), 
+                                       transform = "sqrt", weighted = T, scale = T)
+
+#generate trait tree
+charpaths=RERconverge::char2Paths(logAdultWeightcm, toyTrees)
+
+#calculate correlation statistics
+res=RERconverge::correlateWithContinuousPhenotype(mamRERw, charpaths, min.sp = 10, 
+                                                  winsorizeRER = 3, winsorizetrait = 3)
+
+#calculate pathway enrichment statistics
+stats=RERconverge::getStat(res)
+annots=RERconverge::read.gmt("gmtfile.gmt")
+annotlist=list(annots)
+names(annotlist)="MSigDBpathways"
+enrichment=RERconverge::fastwilcoxGMTall(stats, annotlist, outputGeneVals=T, num.g=10)
+
+```
+
+After calculating parametric statistics above, calculate permulations.  The `getPermsContinuous` function operates by generating null p-values and statistics for gene correlations and enrichment statistics.  The function requires the following input:
+
+* `numperms`: the number of permulations to perform, recommended at least 1000.  Note that the total number of permulations is the limit to permulation p-value precion - the lowest possible permulation p-value is 1/numperms
+* `traitvec`: phenotype vector as specified in `correlateWithContinuousPhenotype`
+* `RERmat`: RER matrix from `getAllResiduals` as used in `correlateWithContinuousPhenotype`
+* `annotlist`: annotations as used in `fastwilcoxGMTall`. Not used if `calculateenrich`=F
+* `trees`: trees object from `readTrees` as used in `getAllResiduals`
+* `mastertree`: rooted and fully dichotomous tree containing all species with branch lengths representing average evolutionary rate genome wide.  In most cases, modify the master tree from `trees`
+* `calculateenrich`: default T.  Boolean specifying if permulation enrichment statistics should be calculated
+* `type`: default "simperm". Specifies method to generate null phenotypes.  "simperm" specifies permulations, "sim" specifies phylogenetic simulations, and "perm" specifies permutations
+* `winR` and `winT`: default 3.  Numeric values specifying how much to winsorize RER and trait trees, respectively.  Should match `winR` and `winT` values used in `correlateWithContinuousPhenotype`
+
+
+```{r, message=F, warning=F, error=F}
+mt=toyTrees$masterTree
+mt=root.phylo(mt, outgroup="Platypus", resolve.root=T)
+
+perms=RERconverge::getPermsContinuous(100, logAdultWeightcm, mamRERw, annotlist, toyTrees, mt)
+corpermpvals=RERconverge::permpvalcor(res, perms)
+enrichpermpvals=RERconverge::permpvalenrich(enrichment, perms)
+
+# add permulations to real results
+
+res$permpval=corpermpvals[match(rownames(res), names(corpermpvals))]
+res$permpvaladj=p.adjust(res$permpval, method="BH")
+count=1
+while(count<=length(enrichment)){
+  enrichment[[count]]$permpval=enrichpermpvals[[count]][match(rownames(enrichment[[count]]), names(enrichpermpvals[[count]]))]
+  enrichment[[count]]$permpvaladj=p.adjust(enrichment[[count]]$permpval, method="BH")
+  count=count+1
+}
+```
+
+Permulations can also be run in batches and combined using `combinePermData`.
+
+```{r, message=F, warning=F, error=F}
+perm2=RERconverge::getPermsContinuous(100, logAdultWeightcm, mamRERw, annotlist, toyTrees, mt)
+combperms=RERconverge::combinePermData(perms, perm2)
+```
+
+
+

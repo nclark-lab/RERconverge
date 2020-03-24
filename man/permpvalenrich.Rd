@@ -2,18 +2,18 @@
 % Please edit documentation in R/PermulationFuncs.R
 \name{permpvalenrich}
 \alias{permpvalenrich}
-\title{Calculates permutation pvals from output of \code{\link{getPerms}}}
+\title{Calculates enrichment permutation pvals from output of \code{\link{getPermsContinuous}}}
 \usage{
-permpvalenrich(realenrich, permenrich)
+permpvalenrich(realenrich, permvals)
 }
 \arguments{
 \item{realenrich}{Real enrichment statistics from \code{\link{fastwilcoxGMTall}}}
 
-\item{permenrich}{signedenrichmentstats from \code{\link{getPerms}}}
+\item{permvals}{output from \code{\link{getPermsContinuous}}}
 }
 \value{
-A list object with permulation p-values
+A list object with vectors of permulation p-values
 }
 \description{
-Calculates permutation pvals from output of \code{\link{getPerms}}
+Calculates enrichment permutation pvals from output of \code{\link{getPermsContinuous}}
 }

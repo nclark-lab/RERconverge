@@ -4,8 +4,16 @@
 \alias{getAllCor}
 \title{Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
 \usage{
-getAllCor(RERmat, charP, method = "auto", min.sp = 10, min.pos = 2,
-  winsorizeRER = NULL, winsorizetrait = NULL, weighted = F)
+getAllCor(
+  RERmat,
+  charP,
+  method = "auto",
+  min.sp = 10,
+  min.pos = 2,
+  winsorizeRER = NULL,
+  winsorizetrait = NULL,
+  weighted = F
+)
 }
 \arguments{
 \item{RERmat}{RER matrix returned by \code{\link{getAllResiduals}}}
