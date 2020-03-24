@@ -1,23 +1,36 @@
 ---
 title: "PermulationWalkthrough"
 author: "Amanda Kowalczyk and Elysia Saputra"
-date:  "`r format(Sys.time(), '%d %B, %Y')`"
-output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This walkthrough provides instructions to perform permulation analysis to calculate empirical p-values for genes and pathways.  Due to a non-uniform p-value distribution for gene-evolutionary rate associations and non-independence among genes for pathway enrichment, parametric p-values directly from RERconverge may not accurately represent true confidence of association or enrichment.  Permulation p-values correct this issue.
+This walkthrough provides instructions to perform permulation analysis to calculate empirical p-values for genes and pathways.  Due to a non-uniform p-value distribution for gene-evolutionary rate associations and non-independence among genes for pathway enrichment, parametric p-values directly from RERconverge may not accurately represent true confidence of association or enrichment.  Permulation p-values correct this issue.  For the continuous phenotype, parametric p-values for gene correlations tend to be overestimated and parametric p-values for pathway enrichment tend to be underestimated.
 
-# Binary Permulations
+Permulations are performed using the following steps after performing standard RERconverge analyses:
+
+1. generate null (permulated) phenotypes
+2. recalculate gene correlation and pathway enrichment statistics using null phenotypes
+3. quantify the proportion of null statistics more significant than observed statistics
+
+Since statistics generated from null phenotypes represent the true null distribution for the statistic calculated over the given data, the proportion of extreme null statistics quantifies true confidence in the extremity of a particular correlation or enrichment.  These are permulation p-values and can be interpreted similarly to standard p-values, including performing multiple hypothesis testing correction.  One caveat is that the precision of a permulation p-value is limited by the number of permulations performed - the lowest observable p-value is the reciprocal of the number of permulations performed.
+
+Permulations are a combination of phylogenetic simulations and permutations.  To generate a permulated phenotype, first a simulated phenotype is generated based on a phylogeny with branch lengths that represent the average genome-wide evolutionary rate along that branch using a Brownian motion model of evolution.  Observed phenotype values are then assigned to species based on the ranks of simulated values - the highest simulated value is assigned the highest observed value, the second-highest simulated values is assigned the second-highest observed value, etc.  Permulations are favored over permulations because they respect the underlying phylogenetic relationships among species, so more closely related species have more similar phenotypes.  Permulations are favored over simulations because they preserve the exact distribution and range of the observed phenotype.  In practice, permulation p-values are more conservative (i.e. lower) than permutation p-values and equally as conservative as simulation p-values.
+
+**In R, permulation procedures are conveniently bundled into a handful of functions for simplicity.  Note that these functions can take a very long time to run on large datasets and for large numbers of permulations.**
+
 
 # Continuous Permulations
 
 First, conduct standard RERconverge analysis.  Please see full walkthroughs for more details about these steps.
 
-```{r, message=F, warning=F, error=F}
+```{r, message=F, warning=F, error=F, results=F, fig.show="hide"}
 #load RER package
 library(RERconverge)
 rerpath = find.package('RERconverge')
@@ -61,8 +74,9 @@ After calculating parametric statistics above, calculate permulations.  The `get
 * `type`: default "simperm". Specifies method to generate null phenotypes.  "simperm" specifies permulations, "sim" specifies phylogenetic simulations, and "perm" specifies permutations
 * `winR` and `winT`: default 3.  Numeric values specifying how much to winsorize RER and trait trees, respectively.  Should match `winR` and `winT` values used in `correlateWithContinuousPhenotype`
 
+**This example uses only 100 permulations as a toy example.  In practice, we have found that for this group of species and this gene set, at least 500 permulations should be performed to obtain meaningful p-values.  Ideally, as many permulations as possible should be performed to maximize p-value precision.**
 
-```{r, message=F, warning=F, error=F}
+```{r, message=F, warning=F, error=F, results=F}
 mt=toyTrees$masterTree
 mt=root.phylo(mt, outgroup="Platypus", resolve.root=T)
 
@@ -76,18 +90,19 @@ res$permpval=corpermpvals[match(rownames(res), names(corpermpvals))]
 res$permpvaladj=p.adjust(res$permpval, method="BH")
 count=1
 while(count<=length(enrichment)){
-  enrichment[[count]]$permpval=enrichpermpvals[[count]][match(rownames(enrichment[[count]]), names(enrichpermpvals[[count]]))]
+  enrichment[[count]]$permpval=enrichpermpvals[[count]][match(rownames(enrichment[[count]]),
+                                                              names(enrichpermpvals[[count]]))]
   enrichment[[count]]$permpvaladj=p.adjust(enrichment[[count]]$permpval, method="BH")
   count=count+1
 }
 ```
 
-Permulations can also be run in batches and combined using `combinePermData`.
+Permulations can also be run in batches and combined using `combinePermData`.  This function would be useful for combining several permulation batches run in tandem for computational efficiency.
 
-```{r, message=F, warning=F, error=F}
+```{r, message=F, warning=F, error=F, results=F}
 perm2=RERconverge::getPermsContinuous(100, logAdultWeightcm, mamRERw, annotlist, toyTrees, mt)
 combperms=RERconverge::combinePermData(perms, perm2)
 ```
 
-
+Subsequent analyses should include subsetting observed significant pathways and genes according to parametric statistics based on significance according to permulation statistics.
 
