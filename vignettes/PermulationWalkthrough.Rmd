@@ -3,8 +3,8 @@ title: "PermulationWalkthrough"
 author: "Amanda Kowalczyk and Elysia Saputra"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -96,6 +96,25 @@ while(count<=length(enrichment)){
   count=count+1
 }
 ```
+
+As an alternative to running correlation and enrichment analyses simultaneously, the `getPermsContinuous` function may be used to run correlation analyses alone, and then the `getEnrichPermsContinuous` function may be used to calculate null enrichment statistics based on the null correlation statistics.  In this case, the output from `getEnrichPermsContinuous` should be supplied to `permpvalcor` and `permpvalenrich` functions.
+
+This pipeline may be useful in the following cases
+1. If very large datasets with many datasets are batched to run `readTrees`, `getAllResiduals`, and to calculate gene correlation statistics and then combined during standard RERconverge analysis, the following procedure should be used to mimic those steps during permulation analyses
+2. If new pathway annotations are being tested after gene correlation permulations have already been run, `getEnrichPermsContinuous` can be used to calculate permulation enrichment statistics without rerunning correlation analyses.
+
+
+```{r, message=F, warning=F, error=F, results=F}
+permsnoenrich=RERconverge::getPermsContinuous(100, logAdultWeightcm, mamRERw, annotlist, toyTrees, mt, calculateenrich = F)
+permswithenrich=RERconverge::getEnrichPermsContinuous(permsnoenrich, enrichment, annotlist)
+corpermpvals2=RERconverge::permpvalcor(res, permswithenrich)
+enrichpermpvals2=RERconverge::permpvalenrich(enrichment, permswithenrich)
+
+plot(corpermpvals,corpermpvals2)
+plot(enrichpermpvals[[1]],enrichpermpvals2[[1]])
+```
+
+Note variations in these two separate sets of permulation p-values.  This stochasticity highlights the necessity of running many permulations to explore as much null phenotype space as possible.
 
 Permulations can also be run in batches and combined using `combinePermData`.  This function would be useful for combining several permulation batches run in tandem for computational efficiency.
 

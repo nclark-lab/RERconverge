@@ -159,6 +159,61 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
   data
 }
 
+#'Performs enrichment statistic permulations using existing gene correlation permulations
+#' @param corperms Gene correlation permulations from \code{\link{getPermsContinuous}}
+#' @param realenrich Pathway enrichment results using observed phenotype obtained from `correlateWithContinuousPhenotype`
+#' @param annotlist Pathway annotations
+#' @return Full null permulation statistics and p-values for gene correlations and pathway enrichment
+#' @export
+getEnrichPermsContinuous=function(corperms, realenrich, annotlist){
+  numperms=ncol(corperms$corP)
+  #sort real enrichments
+  groups=length(realenrich)
+  c=1
+  while(c<=groups){
+    current=realenrich[[c]]
+    realenrich[[c]]=current[order(rownames(current)),]
+    c=c+1
+  }
+  #make matrices to fill
+  permenrichP=vector("list", length(realenrich))
+  permenrichStat=vector("list", length(realenrich))
+  c=1
+  while(c<=length(realenrich)){
+    newdf=data.frame(matrix(ncol=numperms, nrow=nrow(realenrich[[c]])))
+    rownames(newdf)=rownames(realenrich[[c]])
+    permenrichP[[c]]=newdf
+    permenrichStat[[c]]=newdf
+    c=c+1
+  }
+
+  count=1
+  while(count<=numperms){
+    statvec=setNames(corperms$corStat[,count], rownames(corperms$corStat))
+    statvec=na.omit(statvec)
+    enrich=fastwilcoxGMTall(statvec, annotlist, outputGeneVals=F)
+    #sort and store enrichment results
+    groups=length(enrich)
+    c=1
+    while(c<=groups){
+      current=enrich[[c]]
+      enrich[[c]]=current[order(rownames(current)),]
+      permenrichP[[c]][,count]=enrich[[c]]$pval
+      permenrichStat[[c]][,count]=enrich[[c]]$stat
+      c=c+1
+    }
+    count=count+1
+  }
+  data=vector("list", 5)
+  data[[1]]=corperms$corP
+  data[[2]]=corperms$corRho
+  data[[3]]=corperms$corStat
+  data[[4]]=permenrichP
+  data[[5]]=permenrichStat
+  names(data)=c("corP", "corRho", "corStat", "enrichP", "enrichStat")
+  data
+}
+
 #'Calculates enrichment permutation pvals from output of \code{\link{getPermsContinuous}}
 #' @param realenrich Real enrichment statistics from \code{\link{fastwilcoxGMTall}}
 #' @param permvals output from \code{\link{getPermsContinuous}}

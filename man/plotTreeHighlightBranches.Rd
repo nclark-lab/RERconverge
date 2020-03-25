@@ -9,10 +9,13 @@ plotTreeHighlightBranches(
   outgroup = NULL,
   hlspecies,
   hlcols = NULL,
-  main = ""
+  main = "",
+  useGG = FALSE
 )
 }
 \arguments{
+\item{useGG}{option to creat plot with ggtree. Improves plot readability for most data sets.}
+
 \item{tree.}{A tree object.}
 
 \item{outgroup.}{A vector of species to use to root the tree. If not provided, the tree remains unrooted.}

@@ -1026,7 +1026,7 @@ nameEdges=function(tree){
 
 #' pseudoroot trait tree to match the psuedoroot of trees from \code{\link{readTrees}}  if the trees are reconcilable
 #' @param tree A trait tree with branch lengths representing trait values
-#' @treesObj A treesObject created by \code{\link{readTrees}}
+#' @param treesObj A treesObject created by \code{\link{readTrees}}
 #' @return A trait tree with the correct topology
 #' @export
 fixPseudoroot=function(tree, treesObj){

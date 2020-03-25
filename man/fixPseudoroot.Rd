@@ -8,6 +8,8 @@ fixPseudoroot(tree, treesObj)
 }
 \arguments{
 \item{tree}{A trait tree with branch lengths representing trait values}
+
+\item{treesObj}{A treesObject created by \code{\link{readTrees}}}
 }
 \value{
 A trait tree with the correct topology
