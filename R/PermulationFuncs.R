@@ -25,11 +25,11 @@ combinePermData=function(permdat1, permdat2, enrich=T){
     allenrichStat2=permdat2$enrichStat
     g=1
     while(g<=length(allenrichP)){
-      allenrichP[[g]]=merge(allenrichP[[g]], allenrichP2[[g]])
+      allenrichP[[g]]=merge(allenrichP[[g]], allenrichP2[[g]],by="row.names")
       rownames(allenrichP[[g]])=allenrichP[[g]][,1]
       allenrichP[[g]][,1]=NULL
 
-      allenrichStat[[g]]=merge(allenrichStat[[g]], allenrichStat2[[g]])
+      allenrichStat[[g]]=merge(allenrichStat[[g]], allenrichStat2[[g]],by="row.names")
       rownames(allenrichStat[[g]])=allenrichStat[[g]][,1]
       allenrichStat[[g]][,1]=NULL
 
@@ -76,7 +76,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
   #get real enrich and cors
   realpaths=RERconverge::char2Paths(traitvec, trees)
   realresults=RERconverge::getAllCor(RERmat, realpaths, method = method, min.pos = min.pos, winsorizeRER = winR, winsorizetrait=winT)
-  realstat=getStat(realresults)
+  realstat=sign(realresults$Rho)*-log10(realresults$P)
 
   #make enrich list/matrices to fill
   permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
@@ -119,7 +119,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
 
     #get correlation results
     out=getNullCor(traitvec, RERmat, mastertree, trees, type = type, winR=winR, winT=winT)
-    stat=getStat(out)
+    stat=sign(out$Rho)*-log10(out$P)
 
     permPvals[,counter]=out$P
     permRhovals[,counter]=out$Rho
@@ -304,7 +304,7 @@ getNullCor=function(traitvec, RERmat, trimmedtree, genetrees, type="simperm", wi
   }
 
   #get enrich results
-  paths=RERconverge::char2Paths(vec, genetrees)
+  paths=RERconverge::char2Paths(na.omit(vec), genetrees)
   out=RERconverge::getAllCor(RERmat, paths, method="p", min.pos=0, winsorizeRER=winR, winsorizetrait = winT)
   out
 }
