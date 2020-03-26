@@ -266,8 +266,8 @@ permpvalenrich=function(realenrich, permvals){
 #' @export
 permpvalcor=function(realcor, permvals){
 
-  permcor=permvals$corStat
-  realstat=sign(realcor$Rho)*log10(realcor$P)
+  permcor=permvals$corRho
+  realstat=realcor$Rho
   names(realstat)=rownames(realcor)
 
   permcor=permcor[match(names(realstat), rownames(permcor)),]
