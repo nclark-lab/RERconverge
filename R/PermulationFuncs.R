@@ -189,6 +189,7 @@ getEnrichPermsContinuous=function(corperms, realenrich, annotlist){
 
   count=1
   while(count<=numperms){
+    print(paste("running permutation: ", count))
     statvec=setNames(corperms$corStat[,count], rownames(corperms$corStat))
     statvec=na.omit(statvec)
     enrich=fastwilcoxGMTall(statvec, annotlist, outputGeneVals=F)
