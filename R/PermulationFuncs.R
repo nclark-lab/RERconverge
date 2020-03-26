@@ -226,7 +226,7 @@ permpvalenrich=function(realenrich, permvals){
   c=1
   while(c<=groups){
     current=realenrich[[c]]
-    realenrich[[c]]=current[match(rownames(perms$enrichStat[[c]]), rownames(current)),]
+    realenrich[[c]]=current[match(rownames(permvals$enrichStat[[c]]), rownames(current)),]
     c=c+1
   }
 
