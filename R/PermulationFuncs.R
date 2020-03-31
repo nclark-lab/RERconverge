@@ -84,11 +84,11 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
   permRhovals=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
   rownames(permRhovals)=rownames(realresults)
   permStatvals=data.frame(matrix(ncol=numperms, nrow=length(realstat)))
-  rownames(permStatvals)=names(realstat)
+  rownames(permStatvals)=rownames(realresults)
 
 
   if(calculateenrich){
-    realenrich=fastwilcoxGMTall(realstat, annotlist, outputGeneVals=F)
+    realenrich=fastwilcoxGMTall(na.omit(realstat), annotlist, outputGeneVals=F)
 
     #sort real enrichments
     groups=length(realenrich)
@@ -126,7 +126,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
     permStatvals[,counter]=stat
 
     if(calculateenrich){
-      enrich=fastwilcoxGMTall(stat, annotlist, outputGeneVals=F)
+      enrich=fastwilcoxGMTall(na.omit(stat), annotlist, outputGeneVals=F)
       #sort and store enrichment results
       groups=length(enrich)
       c=1
@@ -190,7 +190,7 @@ getEnrichPermsContinuous=function(corperms, realenrich, annotlist){
   count=1
   while(count<=numperms){
     print(paste("running permutation: ", count))
-    statvec=setNames(corperms$corStat[,count], rownames(corperms$corStat))
+    statvec=setNames(corperms$corStat[,count], rownames(corperms$corP))
     statvec=na.omit(statvec)
     enrich=fastwilcoxGMTall(statvec, annotlist, outputGeneVals=F)
     #sort and store enrichment results
