@@ -97,7 +97,7 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
     phenvec.list = lapply(seq_len(ncol(phenvec.table)), function(i) phenvec.table[,i])
 
     print("Calculating correlations")
-    corMatList = lapply(phenvec.list,correlateWithBinaryPhenotype,RERmat=RERmat)
+    corMatList = lapply(phenvec.list, correlateWithBinaryPhenotype, RERmat=RERmat)
 
     #make enrich list/matrices to fill
     permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
