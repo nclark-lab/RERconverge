@@ -99,6 +99,20 @@ After calculating the actual correlation statistics, we can proceed with calcula
 * `calculateenrich`: default F.  Boolean specifying if permulation enrichment statistics should be calculated
 * `annotlist`: annotations as used in `fastwilcoxGMTall`. Not used if `calculateenrich`=F
 
+To run binary permulations with the Complete Case (CC) method, follow the example in the block of code below. The output of `getPermsBinary`, which contains the p-values and correlation statistics of the permulations, should then be supplied to `permpvalcor` to compute the empirical permulation p-values of the genes from the permulated correlation statistics.
+
+```{r}
+#define the root species
+root_sp = "Human"
+
+masterTree = toyTrees$masterTree
+
+#perform binary CC permulation
+permCC = getPermsBinary(100, marineFg, sisters_marine, root_sp, mamRERw, toyTrees, masterTree, permmode="cc")
+
+#calculate permulation p-values
+permpvalCC = permpvalcor(res,permCC)
+```
 
 
 
