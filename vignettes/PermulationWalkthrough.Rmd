@@ -11,7 +11,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-abc
 
 This walkthrough provides instructions to perform permulation analysis to calculate empirical p-values for genes and pathways.  Due to a non-uniform p-value distribution for gene-evolutionary rate associations and non-independence among genes for pathway enrichment, parametric p-values directly from RERconverge may not accurately represent true confidence of association or enrichment.  Permulation p-values correct this issue.  For the continuous phenotype, parametric p-values for gene correlations tend to be overestimated and parametric p-values for pathway enrichment tend to be underestimated.
 
@@ -26,6 +25,81 @@ Since statistics generated from null phenotypes represent the true null distribu
 Permulations are a combination of phylogenetic simulations and permutations.  To generate a permulated phenotype, first a simulated phenotype is generated based on a phylogeny with branch lengths that represent the average genome-wide evolutionary rate along that branch using a Brownian motion model of evolution.  Observed phenotype values are then assigned to species based on the ranks of simulated values - the highest simulated value is assigned the highest observed value, the second-highest simulated values is assigned the second-highest observed value, etc.  Permulations are favored over permulations because they respect the underlying phylogenetic relationships among species, so more closely related species have more similar phenotypes.  Permulations are favored over simulations because they preserve the exact distribution and range of the observed phenotype.  In practice, permulation p-values are more conservative (i.e. lower) than permutation p-values and equally as conservative as simulation p-values.
 
 **In R, permulation procedures are conveniently bundled into a handful of functions for simplicity.  Note that these functions can take a very long time to run on large datasets and for large numbers of permulations.**
+
+
+# Binary Permulations
+To evaluate the association between relative evolutionary rates (RERs) and **binary traits**, we first have to provide a binary trait tree that specifies which branches in the tree have the trait of interest (**foreground branches**). In this vignette, we'll use the marine mammals phenotype to demonstrate the steps. Let's first read the set of trees for all the genes with the `readTrees` function.
+
+```{r}
+library(RERconverge)
+rerpath = find.package('RERconverge')
+
+#read trees
+toytreefile = "subsetMammalGeneTrees.txt" 
+toyTrees=readTrees(paste(rerpath,"/ext/",toytreefile,sep=""), max.read = 200)
+plot(toyTrees$masterTree)
+```
+
+The foreground set for the marine mammals phenotype include 3 independent tip branches (walrus, seal, manatee) and the cetacean clade (killer whale, dolphin, and the cetacean ancestor). Walrus and seal branched out from a common ancestor, but the common ancestor is not included in the foreground set. To set up a foreground set that contains a mixture of independent tip species and clades, we can use the `foreground2TreeClades` function. This function requires the following input:
+
+* `fg_vec`: a vector containing the names of the tip foreground species
+* `sisters_list`: a list object containing information on clades in the foreground set, specifically the pair(s) of "sister species" that branch out from the same ancestor
+* `trees`: trees object from `readTrees`
+
+For example, the marine foregrounds can be constructed as follows:
+
+```{r}
+marineFg = c("Killer_whale", "Dolphin", "Walrus", "Seal", "Manatee")
+sisters_marine = list("clade1"=c("Killer_whale", "Dolphin"))
+
+marineFgTree = foreground2TreeClades(marineFg,sisters_marine,toyTrees,plotTree=T)
+```
+
+Notice that in the resulting binary trait tree, the ancestor of walrus and seal are not included in the foreground set. If this ancestor should also be included, the `sisters_list` input should be specified as follows:
+
+```{r}
+sisters_marine2 = list("clade1"=c("Killer_whale","Dolphin"), "clade2"=c("Walrus","Seal"))
+marineFgTree2 = foreground2TreeClades(marineFg,sisters_marine2,toyTrees,plotTree=T)
+```
+
+Thus, the `foreground2TreeClades` function allows for flexible definition of foregrounds that include tip branches and clades with any depth. Below is an example of how to specify foreground clades where the ancestor of an ancestor is also a foreground species:
+
+```{r}
+fgExample = c("Golden_hamster","Chinese_hamster","Vole","Walrus","Seal")
+sisters_Example = list("clade1"=c("Golden_hamster","Chinese_hamster"),"clade2"=c("clade1","Vole"))
+
+exampleFgTree = foreground2TreeClades(fgExample,sisters_Example,toyTrees,plotTree=T)
+```
+
+Back to the marine phenotype example, once we have the binary trait tree, we can calculate the actual correlations with RERs following the steps below. Note that when `foreground2TreeClades`is used, the `tree2PathsClades` function should be used to compute the paths, instead of the standard `tree2Paths` like in the Full Walkthrough.
+
+```{r, message=F, warning=F, error=F, results=F, fig.show="hide"}
+# Calculating paths from the foreground tree
+pathvec = tree2PathsClades(marineFgTree, toyTrees)
+
+# Calculate RERs
+mamRERw = getAllResiduals(toyTrees, transform="sqrt", weighted=T, scale=T)
+
+# Calculate correlation 
+res = correlateWithBinaryPhenotype(mamRERw, pathvec, min.sp=10, min.pos=2, weighted="auto")
+```
+
+After calculating the actual correlation statistics, we can proceed with calculating the permulated correlations. The function `getPermsBinary` performs permulations of binary traits and produces the null p-values, correlation statistics, and enrichment by taking in the following input:
+
+* `numperms`: the number of permulations to perform.  Note that the total number of permulations is the limit to permulation p-value precision - the lowest possible permulation p-value is 1/numperms
+* `fg_vec`: a vector containing the names of tip foreground species
+* `sisters_list`: a list object containing information on clades in the foreground set, specifically the pair(s) of "sister species" that branch out from the same ancestor
+* `root_sp`: the species to root the trees on
+* `RERmat`: RER matrix from `getAllResiduals` as used in `correlateWithBinaryPhenotype`
+* `trees`: trees object from `readTrees`
+* `mastertree`: rooted and fully dichotomous tree containing all species with branch lengths representing average evolutionary rate genome wide.  In most cases, modify the master tree from `trees`
+* `permmode`: default "cc". Set to "cc" to use the Complete Case method, or "ssm" to use the Species Subset Match method.
+* `method`: default "k" for the Kendall Tau test (for binary traits)
+* `trees_list`: default NULL. If `permmode`="ssm", this (optional) input specifies the list of gene trees to perform permulations for. If `permmode`="ssm" and `trees_list`=NULL, permulations will be performed for all gene trees. Set this input to NULL if `permmode`="cc". 
+* `calculateenrich`: default F.  Boolean specifying if permulation enrichment statistics should be calculated
+* `annotlist`: annotations as used in `fastwilcoxGMTall`. Not used if `calculateenrich`=F
+
+
 
 
 # Continuous Permulations
