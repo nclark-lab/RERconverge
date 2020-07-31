@@ -99,7 +99,7 @@ After calculating the actual correlation statistics, we can proceed with calcula
 * `calculateenrich`: default F.  Boolean specifying if permulation enrichment statistics should be calculated
 * `annotlist`: annotations as used in `fastwilcoxGMTall`. Not used if `calculateenrich`=F
 
-To run binary permulations with the Complete Case (CC) method, follow the example in the block of code below. The output of `getPermsBinary`, which contains the p-values and correlation statistics of the permulations, should then be supplied to `permpvalcor` to compute the empirical permulation p-values of the genes from the permulated correlation statistics.
+To run binary permulations with the Complete Case (CC) method, follow the example in the block of code below, most importantly setting `permmode`="cc". The output of `getPermsBinary`, which contains the p-values and correlation statistics of the permulations, should then be supplied to `permpvalcor` to compute the empirical permulation p-values of the genes from the permulated correlation statistics.
 
 ```{r}
 #define the root species
@@ -113,6 +113,34 @@ permCC = getPermsBinary(100, marineFg, sisters_marine, root_sp, mamRERw, toyTree
 #calculate permulation p-values
 permpvalCC = permpvalcor(res,permCC)
 ```
+
+If we want to calculate the enrichment permulation statistics simultaneously, use the same function and set `calculateenrich`=T, as follows:
+
+
+[ADD ENRICHMENT EXAMPLE]
+
+
+To run the Species Subset Match (SSM) permulation, we can use the same function `getPermsBinary` while setting `permmode`="ssm". Note that because the SSM method produces distinct sets of permulations for different genes, this method is much more computationally intensive and takes a significantly longer time compared to the CC method. Hence, we advise that the SSM method should be run in batches of smaller numbers of permulations. The outputs of different batches can then be combined using the `combinePermData` function, such as shown in the example below. Let's perform 50 permulations of the first 20 gene trees in the list.
+
+```{r}
+#specify the list of trees to permulate
+trees_example = toyTrees$trees[1:20]
+
+#perform 2 batches of binary SSM permulations
+permSSM1 = getPermsBinary(50, marineFg, sisters_marine, root_sp, mamRERw, toyTrees, masterTree, permmode="ssm",trees_example)
+permSSM2 = getPermsBinary(50, marineFg, sisters_marine, root_sp, mamRERw, toyTrees, masterTree, permmode="ssm",trees_example)
+
+#combine the outputs of 2 batches
+combpermSSM = combinePermData(permSSM1, permSSM2)
+
+#calculate permulation p-values
+permpvalSSM = permpvalcor(res,combpermSSM)
+
+```
+
+
+
+
 
 
 
