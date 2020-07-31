@@ -68,7 +68,7 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
 
 #'Calculates permuted correlation and enrichment statistics for binary phenotype
 #' @param numperms An integer number of permulations
-#' @param fg_vec A vector containing the foreground species
+#' @param fg_vec A vector containing the tip foreground species
 #' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param root_sp The species to root the tree on
 #' @param RERmat An RER matrix calculated using \code{\link{getAllResiduals}}.
@@ -97,15 +97,15 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
     phenvec.list = lapply(seq_len(ncol(phenvec.table)), function(i) phenvec.table[,i])
 
     print("Calculating correlations")
-    corMatList = lapply(phenvec.list,correlateWithBinaryPhenotype,RERmat=rers)
+    corMatList = lapply(phenvec.list,correlateWithBinaryPhenotype,RERmat=RERmat)
 
     #make enrich list/matrices to fill
-    permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(rers)))
-    rownames(permPvals)=rownames(rers)
-    permRhovals=data.frame(matrix(ncol=numperms, nrow=nrow(rers)))
-    rownames(permRhovals)=rownames(rers)
-    permStatvals=data.frame(matrix(ncol=numperms, nrow=nrow(rers)))
-    rownames(permStatvals)=rownames(rers)
+    permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+    rownames(permPvals)=rownames(RERmat)
+    permRhovals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+    rownames(permRhovals)=rownames(RERmat)
+    permStatvals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+    rownames(permStatvals)=rownames(RERmat)
 
     for (i in 1:length(corMatList)){
       permPvals[,i] = corMatList[[i]]$P
@@ -120,7 +120,7 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
       trees_list = trees$trees
     }
 
-    RERmat = rers[match(names(trees_list), rownames(RERmat)),]
+    RERmat = RERmat[match(names(trees_list), rownames(RERmat)),]
 
     print("Generating permulated trees")
     permulated.binphens = generatePermulatedBinPhenSSMBatched(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec)
@@ -172,8 +172,8 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
     attributes(permulated.paths)$names = row_names
 
     print("Calculating correlations")
-    rers.list = lapply(seq_len(nrow(RERmat[])), function(i) RERmat[i,])
-    corMatList = mapply(calculateCorPermuted,permulated.paths,rers.list)
+    RERmat.list = lapply(seq_len(nrow(RERmat[])), function(i) RERmat[i,])
+    corMatList = mapply(calculateCorPermuted,permulated.paths,RERmat.list)
     permPvals = extractCorResults(corMatList,numperms,mode="P")
     rownames(permPvals) = names(trees_list)
     permRhovals = extractCorResults(corMatList,numperms,mode="Rho")
@@ -912,7 +912,7 @@ combinePermData=function(permdat1, permdat2, enrich=T){
 #' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
 #' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
 #' @param type One of "simperm", "sim", or "perm" for permulations, simulations, or permutations, respectively
-#' @param winR Integer winzorization value for RERs
+#' @param winR Integer winzorization value for RERmat
 #' @param winT Integer winzorization value for trait
 #' @param method statistical method to use for correlations
 #' @param min.pos minimum foreground species - should be set to 0
