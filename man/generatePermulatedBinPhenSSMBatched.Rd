@@ -15,6 +15,8 @@ generatePermulatedBinPhenSSMBatched(
 )
 }
 \arguments{
+\item{trees_list}{A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})}
+
 \item{numperms}{An integer number of permulations}
 
 \item{trees}{treesObj from \code{\link{readTrees}}}

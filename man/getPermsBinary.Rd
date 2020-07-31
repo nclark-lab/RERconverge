@@ -38,6 +38,8 @@ getPermsBinary(
 
 \item{method}{statistical method to use for correlations (set to "k" (default) for Kendall Tau test)}
 
+\item{trees_list}{A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})}
+
 \item{calculateenrich}{A boolean variable indicating if null permulation p-values for enrichment statistics}
 
 \item{annotlist}{Pathway annotations}

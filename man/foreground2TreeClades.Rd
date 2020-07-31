@@ -2,7 +2,7 @@
 % Please edit documentation in R/PermulationFuncs.R
 \name{foreground2TreeClades}
 \alias{foreground2TreeClades}
-\title{Generates a binary phenotype tree using the list of tip foreground animals, the presence of foreground common ancestors, and their phylogenetic relationships}
+\title{Generates a binary phenotype tree using the list of tip foreground animals, foreground common ancestors, and their phylogenetic relationships}
 \usage{
 foreground2TreeClades(
   fg_vec,
@@ -13,7 +13,7 @@ foreground2TreeClades(
 )
 }
 \arguments{
-\item{fg_vec}{A vector containing the foreground species}
+\item{fg_vec}{A vector containing the tip foreground species}
 
 \item{sisters_list}{A list containing pairs of "sister species" in the foreground set (put NULL if empty)}
 
@@ -24,8 +24,8 @@ foreground2TreeClades(
 \item{useSpecies}{An array containing the tip labels in the output tree}
 }
 \value{
-output.list A list containing 1) "tree" = a binary phenotype tree corresponding to the input information, 2) "fg.sisters.table" = a table containing all sister species in the foreground set
+fg.tree A binary phenotype tree corresponding to the input information
 }
 \description{
-Generates a binary phenotype tree using the list of tip foreground animals, the presence of foreground common ancestors, and their phylogenetic relationships
+Generates a binary phenotype tree using the list of tip foreground animals, foreground common ancestors, and their phylogenetic relationships
 }

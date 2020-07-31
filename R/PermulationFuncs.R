@@ -1,12 +1,26 @@
-#'Generates a binary phenotype tree using the list of tip foreground animals, the presence of foreground common ancestors, and their phylogenetic relationships
-#' @param fg_vec A vector containing the foreground species
+#'Generates a binary phenotype tree using the list of tip foreground animals, foreground common ancestors, and their phylogenetic relationships
+#' @param fg_vec A vector containing the tip foreground species
+#' @param sisters_list A list containing pairs of "sister species" in the foreground set (put NULL if empty)
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param plotTree A boolean indicator for plotting the output tree (default=FALSE)
+#' @param useSpecies An array containing the tip labels in the output tree
+#' @return fg.tree A binary phenotype tree corresponding to the input information
+#' @export
+foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpecies=NULL){
+  res.list = getForegroundInfoClades(fg_vec,sisters_list=sisters_list,trees,plotTree=plotTree,useSpecies=useSpecies)
+  fg.tree = res.list$tree
+  fg.tree
+}
+
+#'Generates a binary phenotype tree and foreground clades information using the list of tip foreground animals, the presence of foreground common ancestors, and their phylogenetic relationships
+#' @param fg_vec A vector containing the tip foreground species
 #' @param sisters_list A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @param plotTree A boolean indicator for plotting the output tree (default=FALSE)
 #' @param useSpecies An array containing the tip labels in the output tree
 #' @return output.list A list containing 1) "tree" = a binary phenotype tree corresponding to the input information, 2) "fg.sisters.table" = a table containing all sister species in the foreground set
 #' @export
-foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpecies=NULL){
+getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpecies=NULL){
   if (length(useSpecies)==0){
     useSpecies = trees$masterTree$tip.label
   }
@@ -62,7 +76,7 @@ foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpec
 #' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
 #' @param permmode Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match)
 #' @param method statistical method to use for correlations (set to "k" (default) for Kendall Tau test)
-#' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees})
+#' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
 #' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
 #' @param annotlist Pathway annotations
 #' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
@@ -242,7 +256,7 @@ nameEdgesPerms=function(tree){
 #' @export
 simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
   tip.labels = mastertree$tip.label
-  res = foreground2TreeClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
   fg_tree = res$tree
   fg.table = res$fg.sisters.table
 
@@ -299,7 +313,7 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
   } else {
     fg_k = tip.labels[ind_fg] # the list of the observed foreground animals that exist in the gene tree
 
-    res = foreground2TreeClades(fg_k,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
+    res = getForegroundInfoClades(fg_k,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
     fg_tree = res$tree
     fg.table = res$fg.sisters.table
 
@@ -391,7 +405,7 @@ rep_tree = function(num_input,tree){
 }
 
 #'Produces binary SSM permulations for a list of genes
-#' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees})
+#' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
 #' @param numperms An integer number of permulations
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @param root_sp The species to root the tree on
@@ -576,9 +590,9 @@ calculatePermulatedPaths_apply=function(permulated.trees.list,map.list,treesObj)
   permulated.paths.list
 }
 
-#' @keyword internal
+#' @keywords internal
 calculatePermulatedPaths=function(permulated.trees,map,treesObj){
-  permulated.paths=lapply(permulated.trees,tree2Paths_map,treesObj=treesObj,map=map)
+  permulated.paths=lapply(permulated.trees,tree2PathsClades,trees=treesObj)
   output.list = list()
   output.list[[1]] = permulated.paths
   output.list
@@ -586,9 +600,16 @@ calculatePermulatedPaths=function(permulated.trees,map,treesObj){
 
 #'A modification of the tree2Paths function that takes in pre-calculated mappings
 #' @param tree the input tree to be converted into paths
-#' @param map a dataframe containing clade mappings corresponding to the tree
-#' @param treesObj a multiphylo object containing all the gene trees and the master tree
+#' @param trees treesObj from \code{\link{readTrees}}
 #' @export
+tree2PathsClades=function(tree,trees){
+  map = matchAllNodesClades(tree,trees)
+  path = tree2Paths_map(tree,map[[1]],trees)
+  names(path) = colnames(trees$paths)
+  path
+}
+
+#' @keywords internal
 tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL){
   if (class(tree)[1]=="phylo"){
     stopifnot(class(tree)[1]=="phylo")
