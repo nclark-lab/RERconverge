@@ -989,7 +989,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
   }
 
 
-  counter=1;
+  counter=1
   while(counter<=numperms){
 
     print(paste("running permutation: ", counter))
@@ -997,6 +997,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
     #get correlation results
     out=getNullCor(traitvec, RERmat, mastertree, trees, type = type, winR=winR, winT=winT)
     stat=sign(out$Rho)*-log10(out$P)
+    names(stat)=rownames(out)
 
     permPvals[,counter]=out$P
     permRhovals[,counter]=out$Rho
