@@ -36,7 +36,7 @@ rerpath = find.package('RERconverge')
 
 #read trees
 toytreefile = "subsetMammalGeneTrees.txt" 
-toyTrees=readTrees(paste(rerpath,"/ext/",toytreefile,sep=""), max.read = 200)
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
 plot(toyTrees$masterTree)
 ```
 
@@ -101,7 +101,7 @@ After calculating the actual correlation statistics, we can proceed with calcula
 
 To run binary permulations with the Complete Case (CC) method, follow the example in the block of code below, most importantly setting `permmode`="cc". The output of `getPermsBinary`, which contains the p-values and correlation statistics of the permulations, should then be supplied to `permpvalcor` to compute the empirical permulation p-values of the genes from the permulated correlation statistics.
 
-```{r}
+```{r, message=F, warning=F, error=F, results=F}
 #define the root species
 root_sp = "Human"
 
@@ -120,15 +120,15 @@ If we want to calculate the enrichment permulation statistics simultaneously, us
 [ADD ENRICHMENT EXAMPLE]
 
 
-To run the Species Subset Match (SSM) permulation, we can use the same function `getPermsBinary` while setting `permmode`="ssm". Note that because the SSM method produces distinct sets of permulations for different genes, this method is much more computationally intensive and takes a significantly longer time compared to the CC method. Hence, we advise that the SSM method should be run in batches of smaller numbers of permulations. The outputs of different batches can then be combined using the `combinePermData` function, such as shown in the example below. Let's perform 50 permulations of the first 20 gene trees in the list.
+To run the Species Subset Match (SSM) permulation, we can use the same function `getPermsBinary` while setting `permmode`="ssm". Note that because the SSM method produces distinct sets of permulations for different genes, this method is much more computationally intensive and takes a significantly longer time compared to the CC method. Hence, we advise that the SSM method should be run in batches of smaller numbers of permulations. The outputs of different batches can then be combined using the `combinePermData` function, such as shown in the example below. Let's perform 10 permulations of the first 20 gene trees in the list.
 
-```{r}
+```{r, message=F, warning=F, error=F, results=F}
 #specify the list of trees to permulate
 trees_example = toyTrees$trees[1:20]
 
 #perform 2 batches of binary SSM permulations
-permSSM1 = getPermsBinary(50, marineFg, sisters_marine, root_sp, mamRERw, toyTrees, masterTree, permmode="ssm",trees_example)
-permSSM2 = getPermsBinary(50, marineFg, sisters_marine, root_sp, mamRERw, toyTrees, masterTree, permmode="ssm",trees_example)
+permSSM1 = getPermsBinary(10, marineFg, sisters_marine, root_sp, mamRERw, toyTrees, masterTree, permmode="ssm",trees_example)
+permSSM2 = getPermsBinary(10, marineFg, sisters_marine, root_sp, mamRERw, toyTrees, masterTree, permmode="ssm",trees_example)
 
 #combine the outputs of 2 batches
 combpermSSM = combinePermData(permSSM1, permSSM2)
@@ -137,6 +137,60 @@ combpermSSM = combinePermData(permSSM1, permSSM2)
 permpvalSSM = permpvalcor(res,combpermSSM)
 
 ```
+
+RERconverge also allows user to produce permulated binary phenotype trees to use with other softwares (e.g., ForwardGenomics, HyPhy RELAX, PhyloAcc, etc.), without calculating permulated correlation statistics. The functions `simBinPhenoCC` and `simBinPhenoSSM` produce one permulated phenotype using the CC and SSM methods, respectively. The code below produces one CC permulation:
+
+```{r}
+#producing one permulated tree using CC permulation
+treeCC = simBinPhenoCC(toyTrees, masterTree, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=T)
+```
+
+For SSM, the permulated tree of a gene may be different from that of another gene if they have different "species membership", meaning if the gene trees may be missing different sets of species. Below is an example permulation of a gene that has all marine foregrounds in its tree:
+
+```{r}
+#producing one permulated tree for a gene with all marine foregrounds using SSM
+TTNtree = toyTrees$trees$TTN
+
+#plot the gene tree of TTN
+TTNtreePlot = plotTreeHighlightBranches(TTNtree, 
+                                    hlspecies=marineFg, hlcols=rep("blue",length(marineFg)), 
+                                    main="TTN tree") #plot individual gene tree
+```
+
+```{r, message=F, warning=F, error=F, results=F}
+#generate and plot a SSM permulation of TTN
+TTNtreeSSM = simBinPhenoSSM(TTNtree, toyTrees, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=T)
+```
+
+
+
+And below is an example permulation of a gene that is missing some marine foregrounds in its tree:
+
+```{r}
+#producing one permulated tree for a gene that is missing some marine foregrounds
+ACBD5tree = toyTrees$trees$ACBD5
+ind.marine = which(ACBD5tree$tip.label %in% marineFg)
+marineFgACBD5 = ACBD5tree$tip.label[ind.marine]
+
+#plot the gene tree of ACBD5
+ACBD5treePlot = plotTreeHighlightBranches(ACBD5tree, 
+                                    hlspecies=marineFgACBD5, hlcols=rep("blue",length(marineFgACBD5)), 
+                                    main="ACBD5 tree")
+
+```
+
+```{r, message=F, warning=F, error=F, results=F}
+#generate and plot one SSM permulation of ACBD5
+ACBD5treeSSM = simBinPhenoSSM(ACBD5tree, toyTrees, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=T)
+```
+
+To produce multiple permulations using the CC method, the function `generatePermulatedBinPhen` can be used, specifying `permmode`="cc". For example, the code below produces 20 CC permulations:
+
+
+
+
+To produce multiple permulations of ONE gene using the SSM method, `generatePermulatedBinPhen can also be used with `permmode`="ssm". The code below produces 10 SSM permulations of TTN:
+
 
 
 
