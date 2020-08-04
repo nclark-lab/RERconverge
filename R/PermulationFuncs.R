@@ -186,8 +186,34 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
   }
 
   if (calculateenrich){
+    realFgtree = foreground2TreeClades(fg_vec, sisters_list, trees, plotTree=F)
+    realpaths = tree2PathsClades(realFgtree, trees)
+    realresults = getAllCor(RERmat, realpaths, method=method, min.pos=min.pos)
+    realenrich = fastWilcoxGMTall(na.omit(realstat), annotlist, outputGeneVals=F)
+
+    #sort real enrichments
+    groups=length(realenrich)
+    c=1
+    while(c<=groups){
+      current=realenrich[[c]]
+      realenrich[[c]]=current[order(rownames(current)),]
+      c=c+1
+    }
+    #make matrices to fill
+    permenrichP=vector("list", length(realenrich))
+    permenrichStat=vector("list", length(realenrich))
+    c=1
+    while(c<=length(realenrich)){
+      newdf=data.frame(matrix(ncol=numperms, nrow=nrow(realenrich[[c]])))
+      rownames(newdf)=rownames(realenrich[[c]])
+      permenrichP[[c]]=newdf
+      permenrichStat[[c]]=newdf
+      c=c+1
+    }
+
     counter=1;
     while (counter <= numperms){
+      stat = permStatvals[,counter]
       enrich=fastwilcoxGMTall(na.omit(stat), annotlist, outputGeneVals=F)
       #sort and store enrichment results
       groups=length(enrich)
