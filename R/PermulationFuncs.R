@@ -953,6 +953,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
   realpaths=RERconverge::char2Paths(traitvec, trees)
   realresults=RERconverge::getAllCor(RERmat, realpaths, method = method, min.pos = min.pos, winsorizeRER = winR, winsorizetrait=winT)
   realstat=sign(realresults$Rho)*-log10(realresults$P)
+  names(realstat)=rownames(realresults)
 
   #make enrich list/matrices to fill
   permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
