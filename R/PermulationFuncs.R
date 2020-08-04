@@ -76,12 +76,13 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
 #' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
 #' @param permmode Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match)
 #' @param method statistical method to use for correlations (set to "k" (default) for Kendall Tau test)
+#' @param min.pos minimum number of foreground species (default 2)
 #' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
 #' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
 #' @param annotlist Pathway annotations
 #' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
 #' @export
-getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, mastertree, permmode="cc", method="k", trees_list=NULL, calculateenrich=F, annotlist=NULL){
+getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, mastertree, permmode="cc", method="k", min.pos=2, trees_list=NULL, calculateenrich=F, annotlist=NULL){
   pathvec = foreground2Paths(fg_vec, trees, clade="all",plotTree=F)
   col_labels = colnames(trees$paths)
   names(pathvec) = col_labels
