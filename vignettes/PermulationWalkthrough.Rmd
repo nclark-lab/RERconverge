@@ -184,15 +184,45 @@ ACBD5treePlot = plotTreeHighlightBranches(ACBD5tree,
 ACBD5treeSSM = simBinPhenoSSM(ACBD5tree, toyTrees, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=T)
 ```
 
-To produce multiple permulations using the CC method, the function `generatePermulatedBinPhen` can be used, specifying `permmode`="cc". For example, the code below produces 20 CC permulations:
+To produce multiple permulations using the CC method, the function `generatePermulatedBinPhen` can be used, specifying `permmode`="cc" and supplying the master tree to the input `tree`. For example, the code below produces 20 CC permulated trees:
 
+```{r, message=F, warning=F, error=F, results=F, fig.show="hide"}
+# number of permulations
+numperms = 20
 
+TTNpermulatedTreesCC = generatePermulatedBinPhen(masterTree, numperms, toyTrees, root_sp, marineFg, sisters_marine, pathvec, permmode="cc")
+```
 
+To produce multiple permulations of ONE gene using the SSM method, `generatePermulatedBinPhen` can also be used with `permmode`="ssm". The code below produces 20 SSM permulations of TTN:
 
-To produce multiple permulations of ONE gene using the SSM method, `generatePermulatedBinPhen can also be used with `permmode`="ssm". The code below produces 10 SSM permulations of TTN:
+```{r, message=F, warning=F, error=F, results=F, fig.show="hide"}
+# number of permulations
+numperms = 20
 
+TTNpermulatedTreesSSM = generatePermulatedBinPhen(TTNtree, numperms, toyTrees, root_sp, marineFg, sisters_marine, pathvec, permmode="ssm")
+```
 
+RERconverge also allows users to generate SSM permulations for **multiple** genes at the same time. However, since the SSM method is a lot more computationally intensive compared to the CC method, permulations are run in 'batches' based on distinct species membership. To do this, use the function `generatePermulatedBinPhenSSMBatched`, which requires the following input:
 
+* `trees_list`: the list of gene trees to produce permulations for (e.g., a subset of toyTrees$trees)
+* `numperms`: integer number of permulations
+* `trees`: trees object from `readTrees`
+* `root_sp`: the species to root the trees on
+* `fg_vec`: a vector of names of tip foreground species
+* `sisters_list`: a list object containing information on clades in the foreground set, specifically the pair(s) of "sister species" that branch out from the same ancestor
+* `pathvec`: a path vector calculated by `foreground2Paths`, `tree2Paths`, or `tree2PathsClades`
+
+For example, the code below generates 5 permulations of the first 10 trees in the list:
+
+```{r, message=F, warning=F, error=F, results=F, fig.show="hide"}
+# list of gene trees
+trees_example = toyTrees$trees[1:10]
+
+# number of permulations
+numperms = 5
+
+SSMpermulatedTreesBatched = generatePermulatedBinPhenSSMBatched(trees_example, numperms, toyTrees, root_sp, marineFg, sisters_marine, pathvec)
+```
 
 
 
