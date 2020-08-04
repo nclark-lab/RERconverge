@@ -190,7 +190,7 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
     realFgtree = foreground2TreeClades(fg_vec, sisters_list, trees, plotTree=F)
     realpaths = tree2PathsClades(realFgtree, trees)
     realresults = getAllCor(RERmat, realpaths, method=method, min.pos=min.pos)
-    realenrich = fastWilcoxGMTall(na.omit(realstat), annotlist, outputGeneVals=F)
+    realenrich = fastwilcoxGMTall(na.omit(realstat), annotlist, outputGeneVals=F)
 
     #sort real enrichments
     groups=length(realenrich)
