@@ -30,7 +30,7 @@ Permulations are a combination of phylogenetic simulations and permutations.  To
 # Binary Permulations
 To evaluate the association between relative evolutionary rates (RERs) and **binary traits**, we first have to provide a binary trait tree that specifies which branches in the tree have the trait of interest (**foreground branches**). In this vignette, we'll use the marine mammals phenotype to demonstrate the steps. Let's first read the set of trees for all the genes with the `readTrees` function.
 
-```{r}
+```{r, message=F, warning=F, error=F, results=F, fig.show="hide"}
 library(RERconverge)
 rerpath = find.package('RERconverge')
 
@@ -51,14 +51,16 @@ For example, the marine foregrounds can be constructed as follows:
 marineFg = c("Killer_whale", "Dolphin", "Walrus", "Seal", "Manatee")
 sisters_marine = list("clade1"=c("Killer_whale", "Dolphin"))
 
-marineFgTree = foreground2TreeClades(marineFg,sisters_marine,toyTrees,plotTree=T)
+marineFgTree = foreground2TreeClades(marineFg,sisters_marine,toyTrees,plotTree=F)
+marineplot1 = plotTreeHighlightBranches(marineFgTree, hlspecies=which(marineFgTree$edge.length==1), hlcols="blue", main="Marine mammals trait tree")
 ```
 
 Notice that in the resulting binary trait tree, the ancestor of walrus and seal are not included in the foreground set. If this ancestor should also be included, the `sisters_list` input should be specified as follows:
 
 ```{r}
 sisters_marine2 = list("clade1"=c("Killer_whale","Dolphin"), "clade2"=c("Walrus","Seal"))
-marineFgTree2 = foreground2TreeClades(marineFg,sisters_marine2,toyTrees,plotTree=T)
+marineFgTree2 = foreground2TreeClades(marineFg,sisters_marine2,toyTrees,plotTree=F)
+marineplot2 = plotTreeHighlightBranches(marineFgTree2, hlspecies=which(marineFgTree2$edge.length==1), hlcols="blue", main="Modified marine trait tree with walrus-seal ancestor")
 ```
 
 Thus, the `foreground2TreeClades` function allows for flexible definition of foregrounds that include tip branches and clades with any depth. Below is an example of how to specify foreground clades where the ancestor of an ancestor is also a foreground species:
@@ -67,7 +69,9 @@ Thus, the `foreground2TreeClades` function allows for flexible definition of for
 fgExample = c("Golden_hamster","Chinese_hamster","Vole","Walrus","Seal")
 sisters_Example = list("clade1"=c("Golden_hamster","Chinese_hamster"),"clade2"=c("clade1","Vole"))
 
-exampleFgTree = foreground2TreeClades(fgExample,sisters_Example,toyTrees,plotTree=T)
+exampleFgTree = foreground2TreeClades(fgExample,sisters_Example,toyTrees,plotTree=F)
+
+exampleplot = plotTreeHighlightBranches(exampleFgTree, hlspecies=which(exampleFgTree$edge.length==1), hlcols="blue", main="Example trait tree with whole clade foreground")
 ```
 
 Back to the marine phenotype example, once we have the binary trait tree, we can calculate the actual correlations with RERs following the steps below. Note that when `foreground2TreeClades`is used, the `tree2PathsClades` function should be used to compute the paths, instead of the standard `tree2Paths` like in the Full Walkthrough.
@@ -147,7 +151,8 @@ RERconverge also allows user to produce permulated binary phenotype trees to use
 
 ```{r}
 #producing one permulated tree using CC permulation
-treeCC = simBinPhenoCC(toyTrees, masterTree, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=T)
+treeCC = simBinPhenoCC(toyTrees, masterTree, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=F)
+CCtree = plotTreeHighlightBranches(treeCC,hlspecies=which(treeCC$edge.length==1), hlcols="blue")
 ```
 
 For SSM, the permulated tree of a gene may be different from that of another gene if they have different "species membership", meaning if the gene trees may be missing different sets of species. Compared to `simBinPhenoCC`, `simBinPhenoSSM` requires an additional input `tree`, which specifies the gene tree of the specific gene to permulate. Below is an example permulation of a gene that has all marine foregrounds in its tree:
@@ -158,13 +163,15 @@ TTNtree = toyTrees$trees$TTN
 
 #plot the gene tree of TTN
 TTNtreePlot = plotTreeHighlightBranches(TTNtree, 
-                                    hlspecies=marineFg, hlcols=rep("blue",length(marineFg)), 
+                                    hlspecies=which(marineFgTree$edge.length==1), hlcols="blue", 
                                     main="TTN tree") #plot individual gene tree
 ```
 
 ```{r, message=F, warning=F, error=F, results=F}
 #generate and plot a SSM permulation of TTN
-TTNtreeSSM = simBinPhenoSSM(TTNtree, toyTrees, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=T)
+TTNtreeSSM = simBinPhenoSSM(TTNtree, toyTrees, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=F)
+TTNplotSSM = plotTreeHighlightBranches(TTNtreeSSM, hlspecies=which(TTNtreeSSM$edge.length==1), hlcols="blue")
+
 ```
 
 
@@ -186,7 +193,9 @@ ACBD5treePlot = plotTreeHighlightBranches(ACBD5tree,
 
 ```{r, message=F, warning=F, error=F, results=F}
 #generate and plot one SSM permulation of ACBD5
-ACBD5treeSSM = simBinPhenoSSM(ACBD5tree, toyTrees, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=T)
+ACBD5treeSSM = simBinPhenoSSM(ACBD5tree, toyTrees, root_sp, marineFg, sisters_marine, pathvec, plotTreeBool=F)
+ACBD5plotSSM = plotTreeHighlightBranches(ACBD5treeSSM, hlspecies=which(ACBD5treeSSM$edge.length==1), hlcols="blue")
+
 ```
 
 To produce multiple permulations using the CC method, the function `generatePermulatedBinPhen` can be used, specifying `permmode`="cc" and supplying the master tree to the input `tree`. For example, the code below produces 20 CC permulated trees:
