@@ -308,12 +308,15 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
       simulatedvec=s[,1]
       names(simulatedvec)=nam
       top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
-      t=foreground2Tree(top, trees, clade="all", plotTree = plotTreeBool)
+      t=foreground2Tree(top, trees, clade="all", plotTree = F)
       blsum=sum(t$edge.length)
 
       t.table = findPairs(t)
       num.tip.sisters.fake = length(which(as.vector(t.table) <= length(tip.labels)))
     }
+  }
+  if (plotTreeBool){
+    plot(t)
   }
   return(t)
 }
@@ -366,13 +369,16 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
         top.all=names(sort(simulatedvec, decreasing = TRUE))
         top.tree_k = top.all[top.all %in% tip.labels]
         top = top.tree_k[1:tips]
-        t=foreground2Tree(top, trees, clade="all", plotTree = plotTreeBool, useSpecies=tip.labels)
+        t=foreground2Tree(top, trees, clade="all", plotTree = F, useSpecies=tip.labels)
         blsum=sum(t$edge.length)
 
         t.table = findPairs(t)
         num.tip.sisters.fake = length(which(as.vector(t.table) <= length(tip.labels)))
       }
     }
+  }
+  if (plotTreeBool){
+    plot(t)
   }
   return(t)
 }
