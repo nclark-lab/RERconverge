@@ -165,7 +165,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, minSpecs=
 
 
   #if masterTree is provided by user, must use minSpecs<maxsp
-  #if no user supplied tree and not minSpec, calculate branch lengths from trees with all species
+  #if no user supplied tree and not minSpecs, calculate branch lengths from trees with all species
   #if minSpecs<maxsp, calculate branch lengths from trees with minSpecs species
   if(is.null(minSpecs)){
     #if minimum species not specified,
@@ -198,10 +198,19 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, minSpecs=
     if(length(treeinds)>=minTreesAll){
       pathstouse=treesObj$paths[treeinds,] #get paths for those trees
       #find columns that correspond to master tree branches
+      mtbranches=allPathsnew(treesObj$masterTree)$dist
+      mtbranches=which(!is.na(mtbranches))
       #this needs to happen per gene, i.e. per row: x/sqrt(sum(x^2))
+      count=1
+      while(count<=nrow(pathstouse)){
+        currow=pathstouse[count,]
+        currow[mtbranches]=currow[mtbranches]/sqrt(sum(currow[mtbranches]^2))
+        pathstouse[count,]=currow
+        count=count+1
+      }
       avgpath=colSums(pathstouse)/nrow(pathstouse) #calculate the average over those paths
       #convert path to branch lengths ("edgelengths") on the master tree topology
-      #treesObj$masterTree$edge.length=edgelengths
+      treesObj$masterTree$edge.length=avgpath[mtbranches]
     }else{
       message("Not enough genes with minSpecs species present: master tree has no edge.lengths")
     }
@@ -437,6 +446,46 @@ allPaths=function(tree){
   }
   return(list(dist=allD, nodeId=nn, matIndex=matIndex))
 }
+
+
+#' @keywords  internal
+allPathsnew=function(tree){
+  dd=dist.nodes(tree)
+
+  count=1
+  while(count<=nrow(dd)){
+    curval=as.numeric(rownames(dd)[count])
+    col1=which(tree$edge[,1]==curval)
+    col2=which(tree$edge[,2]==curval)
+    checkvals=c(tree$edge[col1,2], tree$edge[col2,1])
+    bad=which(!(colnames(dd) %in% as.character(checkvals)))
+
+    dd[count, bad]=NA
+
+    count=count+1
+  }
+
+  allD=double()
+  nn=matrix(nrow=0, ncol=2)
+  nA=length(tree$tip.label)+tree$Nnode
+  matIndex=matrix(nrow=nA, ncol=nA)
+  index=1
+  for ( i in 1:nA){
+    ia=getAncestors(tree,i)
+    if(length(ia)>0){
+      allD=c(allD, dd[i, ia])
+      nn=rbind(nn,cbind(rep(i, length(ia)), ia))
+      for (j in ia){
+        matIndex[i,j]=index
+        index=index+1
+      }
+    }
+  }
+  return(list(dist=allD, nodeId=nn, matIndex=matIndex))
+}
+
+
+
 #' @keywords  internal
 getAncestors=function(tree, nodeN){
   if(is.character(nodeN)){
@@ -2136,7 +2185,6 @@ getBranch=function(treesObj, speciesIndex,key.species=1, tri.node=NULL){
   res=findAllPaths(treesObj$matAnc, speciesIndex)
   ii=which(rowSums(treesObj$report[,speciesIndex])>=length(speciesIndex))
   allBranch=treesObj$paths[ii,treesObj$matIndex[res[,c(2:1)]]]
-
 }
 
 
