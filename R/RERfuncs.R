@@ -41,9 +41,6 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
   maxsp=0; # maximum number of species
   allnames=NA # unique tip labels in gene trees
 
-  if (reestimateBranches && is.null(masterTree)){
-    stop("Provide master tree topology if reestimateBranches==T")
-  }
 
 
   #create trees object, get species names and max number of species
@@ -193,7 +190,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
   }
 
 
-  if(is.null(masterTree) && is.null(minSpecs)){ #if we're using all species
+  if(minSpecs==maxsp){ #if we're using all species
     if (is.null(masterTree)) { #and if the user did not specify a master tree
       if(length(ii)>=minTreesAll){
         message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
