@@ -198,8 +198,11 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, minSpecs=
     if(length(treeinds)>=minTreesAll){
       pathstouse=treesObj$paths[treeinds,] #get paths for those trees
       #find columns that correspond to master tree branches
-      mtbranches=allPathsnew(treesObj$masterTree)$dist
+      mtbranchesog=allPathsnew(treesObj$masterTree)
+      mtedges=mtbranchesog$edgemat
+      mtbranches=mtbranchesog$dist
       mtbranches=which(!is.na(mtbranches))
+
       #this needs to happen per gene, i.e. per row: x/sqrt(sum(x^2))
       count=1
       while(count<=nrow(pathstouse)){
@@ -209,15 +212,25 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, minSpecs=
         count=count+1
       }
       avgpath=colSums(pathstouse)/nrow(pathstouse) #calculate the average over those paths
+      avgpath=avgpath[mtbranches]
+      reorderavgpath=vector(length=length(avgpath))
+
+      #reorder based on master edge order
+      count=1
+      while(count<=nrow(treesObj$masterTree$edge)){
+        m=which((mtedges[,1]==treesObj$masterTree$edge[count,1]&mtedges[,2]==treesObj$masterTree$edge[count,2]) |
+                (mtedges[,2]==treesObj$masterTree$edge[count,1]&mtedges[,1]==treesObj$masterTree$edge[count,2]) |
+                (mtedges[,1]==treesObj$masterTree$edge[count,1]&mtedges[,2]==treesObj$masterTree$edge[count,1]))
+        reorderavgpath[count]=avgpath[m]
+        count=count+1
+      }
+
       #convert path to branch lengths ("edgelengths") on the master tree topology
-      treesObj$masterTree$edge.length=avgpath[mtbranches]
+      treesObj$masterTree$edge.length=reorderavgpath
     }else{
       message("Not enough genes with minSpecs species present: master tree has no edge.lengths")
     }
   }
-
-
-
 
 
   message("Naming columns of paths matrix")
@@ -469,11 +482,19 @@ allPathsnew=function(tree){
   nn=matrix(nrow=0, ncol=2)
   nA=length(tree$tip.label)+tree$Nnode
   matIndex=matrix(nrow=nA, ncol=nA)
+  edge1=c()
+  edge2=c()
   index=1
   for ( i in 1:nA){
     ia=getAncestors(tree,i)
     if(length(ia)>0){
       allD=c(allD, dd[i, ia])
+      for(iacur in ia){
+        if(!is.na(dd[i,iacur])){
+          edge1=c(edge1, i)
+          edge2=c(edge2, iacur)
+        }
+      }
       nn=rbind(nn,cbind(rep(i, length(ia)), ia))
       for (j in ia){
         matIndex[i,j]=index
@@ -481,7 +502,9 @@ allPathsnew=function(tree){
       }
     }
   }
-  return(list(dist=allD, nodeId=nn, matIndex=matIndex))
+
+  edgemat=data.frame(edge2, edge1)
+  return(list(dist=allD, nodeId=nn, matIndex=matIndex, edgemat=edgemat))
 }
 
 
