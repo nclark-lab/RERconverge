@@ -31,7 +31,7 @@ require(weights)
 #' master tree edge lengths (default 20).
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
+readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, minSpecs=NULL){
   tmp=scan(file, sep="\t", what="character", quiet = T)
   message(paste0("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
@@ -95,7 +95,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   treesObj$report=report
 
 
-
+  #which trees have all the species
   ii=which(rowSums(report)==maxsp)
 
   ######################################################################
@@ -163,22 +163,53 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   #ii=which(rowSums(report)==maxsp)
   ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
 
-  if (is.null(masterTree)) {
-    if(length(ii)>=minTreesAll){
-      message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-      tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
 
-      allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-      allEdge=scaleMat(allEdge)
-      allEdgeM=apply(allEdge,2,mean)
-      treesObj$masterTree$edge.length=allEdgeM
-    }else {
-      message("Not enough genes with all species present: master tree has no edge.lengths")
-    }
-  } else {
-    message("Using user-specified master tree")
-
+  #if masterTree is provided by user, must use minSpecs<maxsp
+  #if no user supplied tree and not minSpec, calculate branch lengths from trees with all species
+  #if minSpecs<maxsp, calculate branch lengths from trees with minSpecs species
+  if(is.null(minSpecs)){
+    #if minimum species not specified,
+    #minimum is all species
+    minSpecs=maxsp
   }
+
+  if(!is.null(masterTree)){
+    message("Using user-specified master tree")
+  }
+  if(minSpecs==maxsp){ #if we're using all species
+    if (is.null(masterTree)) { #and if the user did not specify a master tree
+      if(length(ii)>=minTreesAll){
+        message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+        tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
+
+        allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+        allEdge=scaleMat(allEdge)
+        allEdgeM=apply(allEdge,2,mean)
+        treesObj$masterTree$edge.length=allEdgeM
+      }else {
+        message("Not enough genes with all species present: master tree has no edge.lengths")
+      }
+    }else{
+      message("Must specify minSpecs when supplying a master tree: master tree has no edge.lengths")
+    }
+  }else{ #if we are not using all species
+    #estimating from trees with minimum number of species
+    treeinds=which(rowSums(report)==minSpecs) #which trees have the minimum species
+    if(length(treeinds)>=minTreesAll){
+      pathstouse=treesObj$paths[treeinds,] #get paths for those trees
+      #find columns that correspond to master tree branches
+      #this needs to happen per gene, i.e. per row: x/sqrt(sum(x^2))
+      avgpath=colSums(pathstouse)/nrow(pathstouse) #calculate the average over those paths
+      #convert path to branch lengths ("edgelengths") on the master tree topology
+      #treesObj$masterTree$edge.length=edgelengths
+    }else{
+      message("Not enough genes with minSpecs species present: master tree has no edge.lengths")
+    }
+  }
+
+
+
+
 
   message("Naming columns of paths matrix")
   colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
