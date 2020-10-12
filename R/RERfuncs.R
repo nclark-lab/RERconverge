@@ -29,15 +29,22 @@ require(weights)
 #' the number of available gene trees with all species is small.
 #' @param  minTreesAll The minimum number of trees with all species present in order to estimate
 #' master tree edge lengths (default 20).
+#' @param reestimateBranches Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)
+#' @param minSpecs the minimum number of species that needs to be present in a gene tree to be included in calculating master tree
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
+readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimateBranches=F, minSpecs=NULL){
   tmp=scan(file, sep="\t", what="character", quiet = T)
   message(paste0("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   treenames=character()
   maxsp=0; # maximum number of species
   allnames=NA # unique tip labels in gene trees
+
+  if (reestimateBranches && is.null(masterTree)){
+    stop("Provide master tree topology if reestimateBranches==T")
+  }
+
 
   #create trees object, get species names and max number of species
   for ( i in 1:min(length(tmp),max.read*2, na.rm = T)){
@@ -50,6 +57,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
                               message('Cannot parse tree for the following gene: ',treenames[i/2]);
                               stop()
                             })
+
       #reduce to species present in master tree
       if (!is.null(masterTree)) {
         trees[[i/2]] = pruneTree(trees[[i/2]],intersect(trees[[i/2]]$tip.label,masterTree$tip.label))
@@ -71,9 +79,12 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
       #  maxsp=length(trees[[i/2]]$tip.label)
       #  allnames=trees[[i/2]]$tip.label
       #}
+
     }
 
   }
+
+
   allnames = allnames[!is.na(allnames)]
   names(trees)=treenames
   treesObj=vector(mode = "list")
@@ -83,6 +94,9 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
 
   message(paste("max is", maxsp))
 
+
+
+  ### report is a binary matrix showing the species membership of each tree
   report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
   colnames(report)=allnames
 
@@ -94,9 +108,10 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   }
   treesObj$report=report
 
-
-
+  ############ This line finds indices of trees that have the complete species
   ii=which(rowSums(report)==maxsp)
+
+
 
   ######################################################################
   if(length(ii)==0 & is.null(masterTree)){
@@ -124,8 +139,6 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   }
 
 
-
-
   treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
   #this gets the abolute alphabetically constrained order when all branches
   #are present
@@ -141,16 +154,17 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   }
 
 
-
-  ap=allPaths(master)
+  ap=allPathsTrackBranches(master)
   treesObj$ap=ap
   matAnc=(ap$matIndex>0)+1-1
   matAnc[is.na(matAnc)]=0
 
+
+
   paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
   for( i in 1:treesObj$numTrees){
     #Make paths all NA if tree topology is discordant
-    paths[i,]=tryCatch(allPathMasterRelative(treesObj$trees[[i]], master, ap), error=function(err) NA)
+    paths[i,]=tryCatch(allPathMasterRelativeTrackBranches(treesObj$trees[[i]], master, ap), error=function(err) NA)
     #calls matchAllNodes -> matchNodesInject
   }
   paths=paths+min(paths[paths>0], na.rm=T)
@@ -163,28 +177,142 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20){
   #ii=which(rowSums(report)==maxsp)
   ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
 
-  if (is.null(masterTree)) {
-    if(length(ii)>=minTreesAll){
-      message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
-      tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
 
-      allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
-      allEdge=scaleMat(allEdge)
-      allEdgeM=apply(allEdge,2,mean)
-      treesObj$masterTree$edge.length=allEdgeM
-    }else {
-      message("Not enough genes with all species present: master tree has no edge.lengths")
-    }
-  } else {
+
+  #if masterTree is provided by user, must use minSpecs<maxsp
+  #if no user supplied tree and not minSpec, calculate branch lengths from trees with all species
+  #if minSpecs<maxsp, calculate branch lengths from trees with minSpecs species
+  if(is.null(minSpecs)){
+    #if minimum species not specified,
+    #minimum is all species
+    minSpecs=maxsp
+  }
+
+  if(!is.null(masterTree) && !reestimateBranches){
     message("Using user-specified master tree")
+  }
 
+
+  if(is.null(masterTree) && is.null(minSpecs)){ #if we're using all species
+    if (is.null(masterTree)) { #and if the user did not specify a master tree
+      if(length(ii)>=minTreesAll){
+        message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+        tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
+
+        allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+        allEdge=scaleMat(allEdge)
+        allEdgeM=apply(allEdge,2,mean)
+        treesObj$masterTree$edge.length=allEdgeM
+      }else {
+        message("Not enough genes with all species present: master tree has no edge.lengths")
+      }
+    }else{
+      message("Must specify minSpecs when supplying a master tree: master tree has no edge.lengths")
+    }
+  }else{ #if we are not using all species
+    #estimating from trees with minimum number of species
+    treeinds=which(rowSums(report)>=minSpecs) #which trees have the minimum species
+    message (paste0("estimating master tree branch lengths from ", length(treeinds), " genes"))
+
+
+    if(length(treeinds)>=minTreesAll){
+      pathstouse=treesObj$paths[treeinds,] #get paths for those trees
+
+      colnames(pathstouse) = ap$destinNode
+      colBranch = vector("integer",0)
+      unq.colnames = unique(colnames(pathstouse))
+
+      for (i in 1:length(unq.colnames)){
+        ind.cols = which(colnames(pathstouse) == unq.colnames[i])
+        colBranch = c(colBranch,ind.cols[1])
+      }
+
+      allEdge = pathstouse[,colBranch]
+      allEdgeScaled = allEdge
+      for (i in 1:nrow(allEdgeScaled)){
+        allEdgeScaled[i,] = scaleDistNa(allEdgeScaled[i,])
+      }
+      colnames(allEdgeScaled) = unq.colnames
+
+      edgelengths = vector("double", ncol(allEdgeScaled))
+
+      edge.master = treesObj$masterTree$edge
+
+      for (i in 1:nrow(edge.master)){
+        destinNode.i = edge.master[i,2]
+        col.Node.i = allEdgeScaled[,as.character(destinNode.i)]
+        edgelengths[i] = mean(na.omit(col.Node.i))
+      }
+
+      treesObj$masterTree$edge.length = edgelengths
+    }else{
+      message("Not enough genes with minSpecs species present: master tree has no edge.lengths")
+    }
   }
 
   message("Naming columns of paths matrix")
   colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
   class(treesObj)=append(class(treesObj), "treesObj")
   treesObj
-}#readTrees
+}
+
+#' @keywords  internal
+allPathMasterRelativeTrackBranches=function(tree, masterTree, masterTreePaths=NULL){
+  if(! is.list(masterTreePaths)){
+    masterTreePaths=allPathsTrackBranches(masterTree)
+  }
+
+  treePaths=allPaths(tree)
+  map=matchAllNodes(tree,masterTree)
+
+  #remap the nodes
+  treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
+  treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
+
+
+  ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
+
+  vals=double(length(masterTreePaths$dist))
+  vals[]=NA
+  vals[ii]=treePaths$dist
+  vals
+}
+
+#' @keywords  internal
+allPathsTrackBranches=function(tree){
+  dd=dist.nodes(tree) #### pairwise distances between nodes in the tree
+  allD=double()
+  nn=matrix(nrow=0, ncol=2)
+  nA=length(tree$tip.label)+tree$Nnode ######### Total number of nodes in the tree (internal + tips)
+  matIndex=matrix(nrow=nA, ncol=nA)
+  index=1
+
+  destinNode = vector("integer", 0)
+  ancNode = vector("integer",0)
+
+  for ( i in 1:nA){
+    ia=getAncestors(tree,i) #### Getting the ancestors of each node in the tree
+
+    destinNode = c(destinNode, rep(i, length(ia)))
+    ancNode = c(ancNode, ia)
+
+    if(length(ia)>0){
+      allD=c(allD, dd[i, ia])
+      nn=rbind(nn,cbind(rep(i, length(ia)), ia))
+      for (j in ia){
+        matIndex[i,j]=index
+        index=index+1
+      }
+    }
+  }
+  return(list(dist=allD, nodeId=nn, matIndex=matIndex, destinNode=destinNode, ancNode=ancNode))
+}
+
+#' @keywords  internal
+scaleDistNa=function(x){
+  x/sqrt(sum(x[!is.na(x)]^2))
+}
+
 
 
 
