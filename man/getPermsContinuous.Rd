@@ -36,7 +36,7 @@ getPermsContinuous(
 
 \item{type}{One of "simperm", "sim", or "perm" for permulations, simulations, or permutations, respectively}
 
-\item{winR}{Integer winzorization value for RERs}
+\item{winR}{Integer winzorization value for RERmat}
 
 \item{winT}{Integer winzorization value for trait}
 

@@ -5,7 +5,14 @@
 \title{reads trees from a 2 column , tab seperated, file
 The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format}
 \usage{
-readTrees(file, max.read = NA, masterTree = NULL, minTreesAll = 20)
+readTrees(
+  file,
+  max.read = NA,
+  masterTree = NULL,
+  minTreesAll = 20,
+  reestimateBranches = F,
+  minSpecs = NULL
+)
 }
 \arguments{
 \item{file}{The path to the tree file}
@@ -17,6 +24,10 @@ the number of available gene trees with all species is small.}
 
 \item{minTreesAll}{The minimum number of trees with all species present in order to estimate
 master tree edge lengths (default 20).}
+
+\item{reestimateBranches}{Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)}
+
+\item{minSpecs}{the minimum number of species that needs to be present in a gene tree to be included in calculating master tree}
 }
 \value{
 A trees object of class "treeObj"

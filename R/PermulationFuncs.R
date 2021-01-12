@@ -1048,7 +1048,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
 
 #'Performs enrichment statistic permulations using existing gene correlation permulations
 #' @param corperms Gene correlation permulations from \code{\link{getPermsContinuous}}
-#' @param realenrich Pathway enrichment results using observed phenotype obtained from `correlateWithContinuousPhenotype`
+#' @param realenrich Pathway enrichment results using observed phenotype obtained from `correlateWithContinuousPhenotype` or `correlateWithBinaryPhenotype`
 #' @param annotlist Pathway annotations
 #' @return Full null permulation statistics and p-values for gene correlations and pathway enrichment
 #' @export

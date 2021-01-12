@@ -14,6 +14,7 @@ getPermsBinary(
   mastertree,
   permmode = "cc",
   method = "k",
+  min.pos = 2,
   trees_list = NULL,
   calculateenrich = F,
   annotlist = NULL
@@ -22,7 +23,7 @@ getPermsBinary(
 \arguments{
 \item{numperms}{An integer number of permulations}
 
-\item{fg_vec}{A vector containing the foreground species}
+\item{fg_vec}{A vector containing the tip foreground species}
 
 \item{sisters_list}{A list containing pairs of "sister species" in the foreground set (put NULL if empty)}
 
@@ -37,6 +38,8 @@ getPermsBinary(
 \item{permmode}{Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match)}
 
 \item{method}{statistical method to use for correlations (set to "k" (default) for Kendall Tau test)}
+
+\item{min.pos}{minimum number of foreground species (default 2)}
 
 \item{trees_list}{A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})}
 
