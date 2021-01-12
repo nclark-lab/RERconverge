@@ -343,17 +343,17 @@ while(count<=length(enrichment)){
 }
 ```
 
-As an alternative to running correlation and enrichment analyses simultaneously, the `getPermsContinuous` function may be used to run correlation analyses alone, and then the `getEnrichPermsContinuous` function may be used to calculate null enrichment statistics based on the null correlation statistics.  In this case, the output from `getEnrichPermsContinuous` should be supplied to `permpvalcor` and `permpvalenrich` functions.
+As an alternative to running correlation and enrichment analyses simultaneously, the `getPermsContinuous` function may be used to run correlation analyses alone, and then the `getEnrichPerms` function may be used to calculate null enrichment statistics based on the null correlation statistics.  In this case, the output from `getEnrichPerms` should be supplied to `permpvalcor` and `permpvalenrich` functions.
 
 This pipeline may be useful in the following cases
 1. If very large datasets with many datasets are batched to run `readTrees`, `getAllResiduals`, and to calculate gene correlation statistics and then combined during standard RERconverge analysis, the following procedure should be used to mimic those steps during permulation analyses
-2. If new pathway annotations are being tested after gene correlation permulations have already been run, `getEnrichPermsContinuous` can be used to calculate permulation enrichment statistics without rerunning correlation analyses.
+2. If new pathway annotations are being tested after gene correlation permulations have already been run, `getEnrichPerms` can be used to calculate permulation enrichment statistics without rerunning correlation analyses.
 
 
 ```{r, message=F, warning=F, error=F, results=F}
 permsnoenrich=RERconverge::getPermsContinuous(100, logAdultWeightcm, mamRERw, annotlist, 
                                               toyTrees, mt, calculateenrich = F)
-permswithenrich=RERconverge::getEnrichPermsContinuous(permsnoenrich, enrichment,
+permswithenrich=RERconverge::getEnrichPerms(permsnoenrich, enrichment,
                                                       annotlist)
 corpermpvals2=RERconverge::permpvalcor(res, permswithenrich)
 enrichpermpvals2=RERconverge::permpvalenrich(enrichment, permswithenrich)
