@@ -9,7 +9,7 @@ getEnrichPerms(corperms, realenrich, annotlist)
 \arguments{
 \item{corperms}{Gene correlation permulations from \code{\link{getPermsContinuous}}}
 
-\item{realenrich}{Pathway enrichment results using observed phenotype obtained from `correlateWithContinuousPhenotype`}
+\item{realenrich}{Pathway enrichment results using observed phenotype obtained from `correlateWithContinuousPhenotype` or `correlateWithBinaryPhenotype`}
 
 \item{annotlist}{Pathway annotations}
 }
