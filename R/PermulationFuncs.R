@@ -1052,7 +1052,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
 #' @param annotlist Pathway annotations
 #' @return Full null permulation statistics and p-values for gene correlations and pathway enrichment
 #' @export
-getEnrichPermsContinuous=function(corperms, realenrich, annotlist){
+getEnrichPerms=function(corperms, realenrich, annotlist){
   numperms=ncol(corperms$corP)
   #sort real enrichments
   groups=length(realenrich)
