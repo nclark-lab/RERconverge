@@ -1198,6 +1198,10 @@ getNullCor=function(traitvec, RERmat, trimmedtree, genetrees, type="simperm", wi
   out
 }
 
+#'Generates a permuted continuous phenotype given an observed continuous phenotype
+#' @param namedvec A named numeric vector with phenotype values for each speices
+#' @return A vector with permuted phenotype values
+#' @export
 permutevec=function(namedvec){
   #returns permuted vec
   n=names(namedvec)
@@ -1206,6 +1210,11 @@ permutevec=function(namedvec){
   vec
 }
 
+#'Generates a simulated continuous phenotype given an observed continuous phenotype and a phylogeny
+#' @param namedvec A named numeric vector with phenotype values for each speices
+#' @param treewithbranchlengths A rooted phylogenetic tree with the same species as namedvec and branch lengths representing average evolutionary rate. The master tree from \code{\link{readTrees}} may be rooted and used for this parameter.
+#' @return A vector with simulated phenotype values
+#' @export
 simulatevec=function(namedvec, treewithbranchlengths){
   #returns simulated vec
   #tree must be rooted and fully dichotomous
@@ -1221,6 +1230,11 @@ simulatevec=function(namedvec, treewithbranchlengths){
   vec
 }
 
+#'Generates a permulated continuous phenotype given an observed continuous phenotype and a phylogeny
+#' @param namedvec A named numeric vector with phenotype values for each speices
+#' @param treewithbranchlengths A rooted phylogenetic tree with the same species as namedvec and branch lengths representing average evolutionary rate. The master tree from \code{\link{readTrees}} may be rooted and used for this parameter.
+#' @return A vector with permulated phenotype values
+#' @export
 simpermvec=function(namedvec, treewithbranchlengths){
   #returns sim/perm vec
   #tree must be rooted and fully dichotomous
@@ -1241,3 +1255,72 @@ simpermvec=function(namedvec, treewithbranchlengths){
 }
 
 
+
+#PGLS functions
+####################
+
+#'Generates a permulated phylogenetic tree with specified number of foreground branches.  User may specify the number of foreground branches that are internal branches.
+#' @param trees treesObj output from \code{\link{readTrees}}
+#' @param root Species on which to root the master tree
+#' @param phenvec Named vector of 1's and 0's representing phenotype values for each species
+#' @param fgnum Total number of foreground species - only required if internal foreground branches are required
+#' @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
+#' @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
+#' @return A tree with permulated phenotype values
+#' @export
+simBinPheno=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
+  blsum=0
+  if(is.null(fgnum)){
+    fgnum=sum(phenvec)
+  }
+  tips=fgnum-internal
+  while(blsum!=fgnum){
+    t=root.phylo(trees$masterTree, root, resolve.root = T)
+    t=drop.tip(t, drop)
+    rm=ratematrix(t, phenvec)
+    sims=sim.char(t, rm, nsim = 1)
+    nam=rownames(sims)
+    s=as.data.frame(sims)
+    simulatedvec=s[,1]
+    names(simulatedvec)=nam
+    top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
+    t=foreground2Tree(top, trees, clade="all", plotTree = F)
+    blsum=sum(t$edge.length)
+  }
+  # plot(t)
+  return(t)
+}
+
+#'Generates a permulated phenotype vector whose phylogeny matches a desired structure.  User may specify the number of foreground branches that are internal branches.
+#' @param trees treesObj output from \code{\link{readTrees}}
+#' @param root Species on which to root the master tree
+#' @param phenvec Named vector of 1's and 0's representing phenotype values for each species
+#' @param fgnum Total number of foreground species - only required if internal foreground branches are required
+#' @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
+#' @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
+#' @return A vector of permulated foreground species
+#' @export
+simBinPhenoVec=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
+  blsum=0
+  if(is.null(fgnum)){
+    fgnum=sum(phenvec)
+  }
+  tips=fgnum-internal
+  while(blsum!=fgnum){
+    t=root.phylo(trees$masterTree, root, resolve.root = T)
+    t=drop.tip(t, drop)
+    rm=ratematrix(t, phenvec)
+    sims=sim.char(t, rm, nsim = 1)
+    nam=rownames(sims)
+    s=as.data.frame(sims)
+    simulatedvec=s[,1]
+    names(simulatedvec)=nam
+    top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
+    t=foreground2Tree(top, trees, clade="all", plotTree = F)
+    blsum=sum(t$edge.length)
+  }
+  # plot(t)
+  return(top)
+}
+
+####################

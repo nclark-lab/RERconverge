@@ -374,3 +374,39 @@ combperms=RERconverge::combinePermData(perms, perm2)
 
 Subsequent analyses should include subsetting observed significant pathways and genes according to parametric statistics based on significance according to permulation statistics.
 
+
+
+# Permulated Phenotype Vectors for PGLS
+
+Permmulations may be used to evaluate statistical behavior of other phylogenetic methods, such as PGLS.  We briefly demonstrate a strategy by which to generate permulated continuous and binary phenotype vectors to supply to PGLS.
+
+Permulation of continuous phenotypes requires only phenotype values and a rooted phylogenetic tree.  For completion, we include functions to generate permulated, simulated, and permuted phenotype vectors (note that permutations do not require a phylogeny).
+
+```{r}
+mt=toyTrees$masterTree
+mt=root.phylo(mt, outgroup="Platypus", resolve.root=T)
+
+permulatedphenotype=simpermvec(logAdultWeightcm, mt)
+simulatedphenotype=simulatevec(logAdultWeightcm, mt)
+permutedphenotype=permutevec(logAdultWeightcm)
+
+```
+
+Permulation of binary phenotypes requires observed phenotype values, a rooted phylogenetic tree, and information about the internal organization of foreground branches. We include both functions to generate a simple permulated tree and a permulated phenotype vector. This strategy is based on the CC permulation method.
+
+```{r}
+marinespecs=c("Manatee", "Dolphin", "Killer_whale", "Seal", "Walrus")
+allspecs=toyTrees$masterTree$tip.label
+marinephen=ifelse(allspecs %in% marinespecs, 1, 0)
+names(marinephen)=allspecs
+
+permbintree=simBinPheno(toyTrees, "Platypus", marinephen, fgnum=6, internal=1)
+permbinpheno=simBinPhenoVec(toyTrees, "Platypus", marinephen, fgnum=6, internal=1)
+
+```
+
+
+
+
+
+
