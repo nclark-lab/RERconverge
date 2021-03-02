@@ -1,0 +1,76 @@
+Workflow to create trees for phastCONS conserved non-coding elements across 63 mammals (62 in UCSC 100way + blind mole-rat)
+
+
+Programs/Software to be installed: 
+        Biopython
+        seqmagick        
+        PAML
+
+
+1. Downloading phastCONS regions from UCSC genome browser:
+        Table browser settings:
+                clade: Mammal
+                genome: Human
+                assembly: hg19
+                group: Comparative genomics
+                track: Cons 46-way
+                table: Mammal El(phastConsElements46wayPlacental)
+                region: genome
+                Intersection:
+                        group: Genes and Gene Predictions
+                        tracK GENCODE V28lift37
+                        table: Basic(wgEncodeGencodeBasicV28lift37)
+                        Combination: All phastConsElements46wayPlacental records that have no overlap with GENCODE V28lift37
+
+
+        downloaded as phastcons46way.raw.bed
+
+
+2. Initial pre-processing:
+        Script: cleanphastcons46.R
+        parameters: retain elements with score > 350; merge elements less than 10 bp apart; retain elements longer than 40bp
+        Output: phastcons46way.final.bed
+
+
+3. Identify blind mole-rat (nannospalax_galili) ortholog for each phastCONS element:
+Download chain/net files for pairwise genome alignment between hg38 and nannospalax_galili: 
+hsap_grch38.v.ngal_s.galili_v1.0.lastz_net.tar.gz in ftp://ftp.ensembl.org/pub/release-97/maf/ensembl-compara/pairwise_alignments/
+        into hg38sgalraw/
+Combine individual lastz nets in hg38sgalraw/ into 1 per chromosome and build index based on hg38: 
+        Script: createchrlevelmafs.R
+        Output: chromosome-wise maf files of pairwise alignment between hg38 and nannospalax_galili, with hg38 as index
+
+
+4. LiftOver phastCONS elements from hg19 to hg38 and create the phastCONS bed files one per chromosome:
+        Script: cleanliftoverhg19tohg38.R
+        Output: ./data/chrwisephastcons/chr#.phastcons.hg38.bed; one for each chromosome
+
+
+5. Obtain fasta and phylip alignment between hg38 and nannospalax_galili:
+        Script: createelementwisealignmenthg38nannospalaxgalili.R
+        Output: ./data/chrwisephastcons/chr#/*.fasta; one per phastCONS element.
+
+
+Delete element alignments that are empty sequences.
+
+
+6. Create directory structure prior to running tree generation script:
+        Script: create.chrwise.py
+                Arg1: phastcons bed file
+        Creates chr#/<phastCONSelement>/<phastCONSelement>.bed for every phastCONS element
+
+
+7. Create PAML tree from for each phastCONS using 100way alignment and pairwise alignment between human and nannospalax_galili
+        Script: prunetrimalnmultiple.addspalaxortholog.getpamltrees.py
+                Arg1: input bed file with (subset of) phastCONS CNEs
+                Arg2: round1 - arbitrary round number
+                Arg3: location of 100-way alignment files directory (currently in /zfs1/nclark/rap119/100way_maf/)
+                Arg4: location of chrwisephastcons directory containing pairwise hg38 and nannospalax_galili alignments (for genome-wide phastCONS CNEs see /zfs1/nclark/rap119/pairwisehumanspalax/chrwisephastconsFULL/)
+
+
+8. Gather all phastCONS region trees in a CNE \t Tree file:
+        Script: collectpamltrees.py
+                Arg1: input bed file with (subset of) phastCONS CNEs
+                Arg2: round1 - arbitrary round number
+                Arg3: condition for minimum number of species 
+                Arg4: output file name
