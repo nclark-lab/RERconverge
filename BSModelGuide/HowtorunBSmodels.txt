@@ -1,0 +1,79 @@
+What you need to make:
+
+alnfof.txt: a file that contains the names of all genes to test with the .phy extension
+
+
+
+
+
+
+Script files:
+
+Round #1 with foreground species (test for species-specific positive selection):
+codeml_templateBS1
+codeml_templateBS2
+codeml_templateM1
+
+Round #2 with no foreground species (test for treewide positive selection):
+codeml_templateM1
+codeml_templateM2
+codeml_templateM8
+codeml_templateM8A
+
+At the top of all template files are the following lines to edit for specific genes:
+
+seqfile: alignment file with species of interest
+treefile: phylogenetic tree.  Branch lengths are irrelevant, species set should match the species of interest in seqfile.  Foreground species are indicated as #1 after species name
+outfile: chosen name of the output file
+
+
+
+
+
+
+
+--------------------------------------Instructions--------------------------------------
+
+Step 1:
+	Select genes of interest
+	make alnfof.txt with filenames of genes of interest
+	
+Step 2:
+	Trim aligns and trees to desired species set using TrimAlnsofinterest.R
+	In script, specify desired species set, foreground, and file locations
+
+Step 3:
+	Similarly, run MakeNumberedTrees.R to make trees with specified foreground
+	
+Step 4:
+	Run MakeTemplatesAndBash.R to fill in templates and write the bash file to run them all
+	
+Step 5 (optional):
+	If you are running the models somewhere other than where you generated the above files (i.e. moving everything to a cluster or server),
+	maintain the file organizational structure and move numberedtrees, trimmedalns, bashfile, and writtentemplates and run the bashfile
+
+Step 6:
+	Run ExtractOutput to make csv files with lnl and statistics
+	
+Step 7:
+	Run MakeTreesAndFiles to remove foreground species from alns and trees to test for tree-wide positive selection
+	
+Step 8:
+	Run MakeRound2Bash to make bash file
+	
+Step 9 (optional):
+	If you are running the models somewhere other than where you generated the above files (i.e. moving everything to a cluster or server),
+	maintain the file organizational structure and move trimmedtrees, trimmedalns, bashfile, and writtentemplates and run the bashfile
+	
+Step 10:
+
+	
+	
+	
+	
+	
+	
+
+
+
+
