@@ -1323,4 +1323,35 @@ simBinPhenoVec=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL)
   return(top)
 }
 
+
+
 ####################
+
+#'Plots changes in number of statistically significant rate acceleration or deceleration versus the number of permulations
+#' @param res correlation statistic output from \code{\link{correlateWithBinaryPhenotype}} or \code{\link{correlateWithContinuousPhenotype}}
+#' @param perm.out output from \code{\link{getPermsBinary}} or \code{\link{getPermsContinuous}}
+#' @param interval interval of number of permulations (e.g., interval = 10 means that number of positives with be calculated for number of permulations = 10, 20, 30, ...)
+#' @param pvalthres p-value threshold for identifying statistically significant rate acceleration or deceleration
+#' @param output.res Boolean defining whether to output a list object containing changes in the number of identified elements with changing number of permulations (default=FALSE)
+#' @return A list containing changes in the number of identified elements with changing number of permulations (default=NULL)
+#' @export
+plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, output.res=FALSE){
+  numperms_list = seq(interval, length(perm.out$corRho), interval)
+
+  num_signif = NULL
+  for (i in 1:length(numperms_list)){
+    perm.i = list("corP"=perm.out$corP[,1:numperms_list[i]], "corRho"=perm.out$corRho[,1:numperms_list[i]], "corStat"=perm.out$corStat[,1:numperms_list[i]])
+    permpval = permpvalcor(res, perm.i)
+    num_signif = c(num_signif, length(which(permpval <= pvalthres)))
+  }
+  plot(numperms_list, num_signif, pch=19, xlab="no. of permulations", ylab="no. of significant elements", ylim=c(0, max(num_signif+1)))
+
+  if (output.res == TRUE){
+    out = list("num.permulations"=numperms_list, "num.significant"=num_signif)
+  } else {
+    out = NULL
+  }
+  out
+}
+
+
