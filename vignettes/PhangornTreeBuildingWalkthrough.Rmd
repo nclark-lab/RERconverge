@@ -2,7 +2,9 @@
 title: "Tree Estimation with phangorn"
 author: "Amanda Kowalczyk"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -18,7 +20,7 @@ Tree building functions require two inputs: a master tree topology and alignment
 An example master tree file is included at *extdata/mastertree.tree*
 Example alignment files are included at *extdata/ExampleAlignments/*
 
-```{r}
+```{r results='hide', message = FALSE, warning = FALSE}
 
 library(RERconverge)
 rerpath = find.package('RERconverge')
@@ -30,7 +32,7 @@ outputfn=paste(rerpath,"/extdata/ExampleTrees.trees",sep="")
 
 ## Run phangorn tree building
 
-The function `estimatePhangornTreeAll` estimates branch lengths for all sequences included in the specified alignment directory.  The user must specify, at minimum, the alignment director, a master tree file, and a desired output file.  Default function behaviors assume alignments are amino acid sequences in fasta format, and other arguments should be specified for other file and sequence types.
+The function `estimatePhangornTreeAll` estimates branch lengths for all sequences included in the specified alignment directory.  This process is relatively slow - for example, it takes a couple minutes per gene to estimate branch lengths for most genes.  The user must specify, at minimum, the alignment director, a master tree file, and a desired output file.  Default function behaviors assume alignments are amino acid sequences in fasta format, and other arguments should be specified for other file and sequence types.
 
 * `alndir`: filepath to the directory that contains alignments.  Alignment format may be any type specifiable to the phangorn `read.phyDat` function (phylip, interleaved, sequential, clustal, fasta, or nexus)
 * `treefile`: filepath to master tree text file in Newick format
@@ -40,7 +42,9 @@ The function `estimatePhangornTreeAll` estimates branch lengths for all sequence
 * `submodel`: string specifying the substitution model to use when estimating tree branch lengths. Defaults to "LG", and options include "JC", "F81", "K80", "HKY", "SYM", and "GTR" - see phangorn documentation for additional options.
 * `...`: other parameters, such as those specifying model fit parameters, are passed on to phangorn functions `pml` and `optim.pml`.
 
-```{r}
+**The code below takes a few mintues to run**
+
+```{r results='hide', message = FALSE, warning = FALSE}
 
 estimatePhangornTreeAll(alndir=alignmentfn, treefile=mastertreefn, output.file=outputfn)
 
