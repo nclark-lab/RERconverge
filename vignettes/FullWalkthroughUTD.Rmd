@@ -39,7 +39,9 @@ The analysis requires two sources of data as input:
         * a vector of foreground species names OR
         * a Newick tree with branch lengths 0 for background branches and values between 0 and 1 for foreground branches (for a basic analysis, set all foreground branches to 1) OR
         * the user can specify foreground branches (which will be set to 1) using an interactive tool (see below)
-  
+
+We now provide tools for users to estimate approximate maximum likelihood trees from nucleotide or amino acid alignments using the `pml` and `optim.pml` functions from the [phangorn](https://cran.r-project.org/web/packages/phangorn/index.html) package [@Schliep2011].
+
 When choosing a dataset to work with, consider the availability and accuracy of both genomic and phenotypic data, and be sure to select a valid convergent phenotype that is observed in multiple independent clades in your phylogeny, and at high and low levels for continuous traits. 
   
 For a more detailed description of data formatting requirements and examples, please see the relevant sections of the walkthrough.
