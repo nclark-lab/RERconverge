@@ -1049,24 +1049,28 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
 
 #'Adaptively calculates permulation p-value for a single element
 #' @param rer a row matrix for the given element (e.g., a row from the matrix output from \code{\link{getAllResiduals}})
-#' @param permulated_foregrounds a list containing n sets of permulated foreground species names
+#' @param permulated_trees a list containing n sets of permulated trees (e.g., output from \code{\link{generatePermulatedBinPhen}})
 #' @param observed_stats computed statistics for the observed trait (e.g., output from \code{\link{getAllCor}}, \code{\link{correlateWithBinaryPhenotype}}, or \code{\link{correlateWithContinuousPhenotype}})
 #' @param alpha the significance level to control (default = 0.05)
+#' @param mode "binary" for binary permulations, "continuous" for continuous permulations (default = "binary")
 #' @return out data frame containing permPval (permulation p-value) and the corrected score (negative signifies deceleration, positive signifies acceleration)
 #' @export
-adaptivePermulation=function(rer, permulated_foregrounds, observed_stats, alpha=0.05){
+adaptivePermulation=function(rer, permulated_trees, observed_stats, alpha=0.05, mode="binary"){
   dim(rer) = c(1, length(rer))
   observed_score = observed_stats$Rho
 
-  max_permulations = length(permulated_foregrounds)
+  max_permulations = length(permulated_trees)
   maxnum_extreme = round(alpha*max_permulations)
 
-  permulated_scores = rep(NA, length(permulated_foregrounds))
+  permulated_scores = rep(NA, length(permulated_trees))
 
-  for (k in 1:length(permulated_foregrounds)){
-    #print(k)
-    perm_path = foreground2Paths(permulated_foregrounds[k][[1]], trees, clade="terminal")
-    perm_cor = correlateWithBinaryPhenotype(rer, perm_path)
+  for (k in 1:length(permulated_trees)){
+    perm_path = tree2Paths(permulated_trees[k][[1]], trees)
+    if (mode == "binary"){
+      perm_cor = correlateWithBinaryPhenotype(rer, perm_path)
+    } else if (mode == "continuous"){
+      perm_cor = correlateWithContinuousPhenotype(rer, perm_path)
+    }
     permulated_scores[k] = perm_cor$Rho
     computed_permulated_scores = permulated_scores[!is.na(permulated_scores)]
 
@@ -1081,7 +1085,7 @@ adaptivePermulation=function(rer, permulated_foregrounds, observed_stats, alpha=
         ind_extreme = which(one_sided_null_scores >= observed_score)
       }
 
-      if (length(ind_extreme) > maxnum_extreme || k == length(permulated_foregrounds)){
+      if (length(ind_extreme) > maxnum_extreme || k == length(permulated_trees)){
         permPval = min(maxnum_extreme+1, length(ind_extreme)+1)/(length(one_sided_null_scores)+1)
         score = -log10(permPval)*sign(observed_score - median_null_scores)
         break
