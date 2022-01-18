@@ -1046,6 +1046,51 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
   data
 }
 
+
+#'Adaptively calculates permulation p-value for a single element
+#' @param rer a row matrix for the given element (e.g., a row from the matrix output from \code{\link{getAllResiduals}})
+#' @param permulated_foregrounds a list containing n sets of permulated foreground species names
+#' @param observed_stats computed statistics for the observed trait (e.g., output from \code{\link{getAllCor}}, \code{\link{correlateWithBinaryPhenotype}}, or \code{\link{correlateWithContinuousPhenotype}})
+#' @param alpha the significance level to control (default = 0.05)
+#' @return permPval permulation (empirical) p-value
+#' @export
+adaptiveBinaryPermulation=function(rer, permulated_foregrounds, observed_stats, alpha=0.05){
+  dim(rer) = c(1, length(rer))
+  observed_score = observed_stats$Rho
+
+  max_permulations = length(permulated_foregrounds)
+  maxnum_extreme = round(alpha*max_permulations)
+
+  permulated_scores = rep(NA, length(permulated_foregrounds))
+
+  for (k in 1:length(permulated_foregrounds)){
+    #print(k)
+    perm_path = foreground2Paths(permulated_foregrounds[k][[1]], trees, clade="terminal")
+    perm_cor = correlateWithBinaryPhenotype(rer, perm_path)
+    permulated_scores[k] = perm_cor$Rho
+    computed_permulated_scores = permulated_scores[!is.na(permulated_scores)]
+
+    if (length(computed_permulated_scores) >= 2* maxnum_extreme){
+      median_null_scores = median(computed_permulated_scores)
+
+      if (observed_score <= median_null_scores){
+        one_sided_null_scores = computed_permulated_scores[which(computed_permulated_scores <= median_null_scores)]
+        ind_extreme = which(one_sided_null_scores <= observed_score)
+      } else if (observed_score > median_null_scores){
+        one_sided_null_scores = computed_permulated_scores[which(computed_permulated_scores > median_null_scores)]
+        ind_extreme = which(one_sided_null_scores >= observed_score)
+      }
+
+      if (length(ind_extreme) > maxnum_extreme || k == length(permulated_foregrounds)){
+        permPval = min(maxnum_extreme+1, length(ind_extreme)+1)/(length(one_sided_null_scores)+1)
+        break
+      }
+    }
+  }
+  permPval
+}
+
+
 #'Performs enrichment statistic permulations using existing gene correlation permulations
 #' @param corperms Gene correlation permulations from \code{\link{getPermsContinuous}}
 #' @param realenrich Pathway enrichment results using observed phenotype obtained from `correlateWithContinuousPhenotype` or `correlateWithBinaryPhenotype`
@@ -1353,5 +1398,6 @@ plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, outpu
   }
   out
 }
+
 
 
