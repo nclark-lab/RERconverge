@@ -4,19 +4,27 @@
 \alias{adaptivePermulation}
 \title{Adaptively calculates permulation p-value for a single element}
 \usage{
-adaptivePermulation(rer, permulated_foregrounds, observed_stats, alpha = 0.05)
+adaptivePermulation(
+  rer,
+  permulated_trees,
+  observed_stats,
+  alpha = 0.05,
+  mode = "binary"
+)
 }
 \arguments{
 \item{rer}{a row matrix for the given element (e.g., a row from the matrix output from \code{\link{getAllResiduals}})}
 
-\item{permulated_foregrounds}{a list containing n sets of permulated foreground species names}
+\item{permulated_trees}{a list containing n sets of permulated trees (e.g., output from \code{\link{generatePermulatedBinPhen}})}
 
 \item{observed_stats}{computed statistics for the observed trait (e.g., output from \code{\link{getAllCor}}, \code{\link{correlateWithBinaryPhenotype}}, or \code{\link{correlateWithContinuousPhenotype}})}
 
 \item{alpha}{the significance level to control (default = 0.05)}
+
+\item{mode}{"binary" for binary permulations, "continuous" for continuous permulations (default = "binary")}
 }
 \value{
-permPval permulation (empirical) p-value
+out data frame containing permPval (permulation p-value) and the corrected score (negative signifies deceleration, positive signifies acceleration)
 }
 \description{
 Adaptively calculates permulation p-value for a single element
