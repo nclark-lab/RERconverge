@@ -1052,7 +1052,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
 #' @param permulated_foregrounds a list containing n sets of permulated foreground species names
 #' @param observed_stats computed statistics for the observed trait (e.g., output from \code{\link{getAllCor}}, \code{\link{correlateWithBinaryPhenotype}}, or \code{\link{correlateWithContinuousPhenotype}})
 #' @param alpha the significance level to control (default = 0.05)
-#' @return permPval permulation (empirical) p-value
+#' @return out data frame containing permPval (permulation p-value) and the corrected score (negative signifies deceleration, positive signifies acceleration)
 #' @export
 adaptivePermulation=function(rer, permulated_foregrounds, observed_stats, alpha=0.05){
   dim(rer) = c(1, length(rer))
@@ -1083,11 +1083,12 @@ adaptivePermulation=function(rer, permulated_foregrounds, observed_stats, alpha=
 
       if (length(ind_extreme) > maxnum_extreme || k == length(permulated_foregrounds)){
         permPval = min(maxnum_extreme+1, length(ind_extreme)+1)/(length(one_sided_null_scores)+1)
+        score = -log10(permPval)*sign(observed_score - median_null_scores)
         break
       }
     }
   }
-  permPval
+  out = data.frame("permPval"=permPval, "score"=score)
 }
 
 
