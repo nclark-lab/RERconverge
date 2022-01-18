@@ -1054,7 +1054,7 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
 #' @param alpha the significance level to control (default = 0.05)
 #' @return permPval permulation (empirical) p-value
 #' @export
-adaptiveBinaryPermulation=function(rer, permulated_foregrounds, observed_stats, alpha=0.05){
+adaptivePermulation=function(rer, permulated_foregrounds, observed_stats, alpha=0.05){
   dim(rer) = c(1, length(rer))
   observed_score = observed_stats$Rho
 
@@ -1089,6 +1089,9 @@ adaptiveBinaryPermulation=function(rer, permulated_foregrounds, observed_stats, 
   }
   permPval
 }
+
+
+
 
 
 #'Performs enrichment statistic permulations using existing gene correlation permulations
