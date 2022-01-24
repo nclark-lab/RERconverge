@@ -81,7 +81,7 @@ estimatePhangornTree = function(alnfile, treefile, submodel="LG", type = "AA",
   #unroot the tree
   genetree = unroot(genetree)
   #just in case, set all branches to 1 first (pml abhors a vacuum... or a zero)
-  genetree$edge.length = c(rep(1,length(genetree$edge.length)))
+  genetree$edge.length = c(rep(1,nrow(genetree$edge)))
   #Run distance estimation using submodel
   #generate an initial pml tree
   lgptree = pml(genetree, alnPhyDat, model = submodel, k = k, rearrangement="none", ...)
