@@ -38,7 +38,7 @@ Running RERconverge will produce the following outputs:
 
 * **Maria Chikina** - [mchikina](https://github.com/mchikina)
 * **Nathan Clark** - [nclark-lab](https://github.com/nclark-lab)
-* **Amanda Kowalczyk** - [Amylith](https://github.com/Amylith)
+* **Amanda Kowalczyk** - [kowaae22](https://github.com/kowaae22)
 * **Weiguang (Wayne) Mao** - [wgmao](https://github.com/wgmao)
 * **Wynn Meyer** - [sorrywm](https://github.com/sorrywm)
 * **Raghavendran Partha** - [raghavendranpartha](https://github.com/raghavendranpartha)
