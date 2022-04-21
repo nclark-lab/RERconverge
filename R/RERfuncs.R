@@ -24,7 +24,6 @@ require(weights)
 #' @param file The path to the tree file
 #' @param  max.read This function takes a while for a whole genome, so max.read is useful for testing
 #' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
-#' @return A trees object of class "treeObj"
 #' @param  masterTree (optional) User can specify a master tree. Recommended only when
 #' the number of available gene trees with all species is small.
 #' @param  minTreesAll The minimum number of trees with all species present in order to estimate
