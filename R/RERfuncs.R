@@ -1428,7 +1428,7 @@ fixPseudoroot=function(tree, treesObj){
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
+tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical = F){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
 
@@ -1457,7 +1457,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL){
     tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
   }
 
-  treePaths=allPaths(tree)
+  treePaths=allPaths(tree, categorical = categorical)
   map=matchAllNodes(tree,treesObj$masterTree)
 
   #remap the nodes
