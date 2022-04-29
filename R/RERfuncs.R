@@ -614,6 +614,17 @@ correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER
 }
 
 
+#' Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a categorical phenotype made with \code{\link{char2PathsCategorical}}
+#'@param RERmat RER matrix returned by \code{\link{getAllResiduals}}
+#'@param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#'@param method Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA.
+#'@param min.sp Minimum number of species that must be present for a gene
+#'@param min.pos Minimum number of species that must be present in a category
+#'@return A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
+#'@export
+correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos = 2, method = "kw"){
+  getAllCor(RERmat, charP, min.sp, min.pos, method = method)
+}
 
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
