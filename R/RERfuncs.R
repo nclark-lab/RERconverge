@@ -510,8 +510,10 @@ matchNodesInject=function (tr1, tr2){
 
 
 #' @keywords  internal
-allPaths=function(tree){
-  dd=dist.nodes(tree)
+allPaths=function(tree, categorical = F){
+  if (!categorical){
+    dd=dist.nodes(tree)
+  }
   allD=double()
   nn=matrix(nrow=0, ncol=2)
   nA=length(tree$tip.label)+tree$Nnode
@@ -520,7 +522,15 @@ allPaths=function(tree){
   for ( i in 1:nA){
     ia=getAncestors(tree,i)
     if(length(ia)>0){
-      allD=c(allD, dd[i, ia])
+      if(categorical) {
+        # add the state of node i to allD length(ia) times
+        x = which(tree$edge[,2] == i)
+        state = tree$edge.length[x]
+        allD = c(allD, rep(state, length(ia)))
+      }
+      else {
+        allD=c(allD, dd[i, ia])
+      }
       nn=rbind(nn,cbind(rep(i, length(ia)), ia))
       for (j in ia){
         matIndex[i,j]=index
