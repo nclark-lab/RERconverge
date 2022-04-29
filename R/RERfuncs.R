@@ -2370,6 +2370,36 @@ getStat=function(res){
   stat
 }
 
+#' Calculates Rho-signed negative log-base-ten p-value for use in enrichment functions
+
+#' @param res One of the pairwise test outputs from RERconverge correlation functions (correlateWithCategoricalPhenotype, getAllCor)
+#' @param method Same method as used with correlateWithCategoricalPhenotype ("kw" or "aov")
+#' @return A dataframe of Rho-signed negative log-base-ten p-values for all genes, NAs removed
+#' @export
+getPairwiseStat = function (res, method)
+{
+  if(method != "kw" && method != "aov"){
+    warning("method must be kw or aov")
+  }
+  if(method == "kw") {
+    stat = sign(res$Z) * (-log10(res$P.adj))
+  }
+  else if(method == "aov"){
+    stat = sign(res$diff) * (-log10(res$p.adj))
+  }
+  names(stat) = rownames(res)
+  genenames = sub("\\..*", "", names(stat))
+  multname = names(which(table(genenames) > 1))
+  for (n in multname) {
+    ii = which(genenames == n)
+    iimax = which(max(stat[ii]) == max(abs(stat[ii])))
+    stat[ii[-iimax]] = NA
+  }
+  sum(is.na(stat))
+  stat = stat[!is.na(stat)]
+  stat
+}
+
 
 
 varExplainedWithNA=function (dat, val, adjust=T)
