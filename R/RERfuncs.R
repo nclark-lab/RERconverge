@@ -540,6 +540,7 @@ allPaths=function(tree, categorical = F){
   }
   return(list(dist=allD, nodeId=nn, matIndex=matIndex))
 }
+
 #' @keywords  internal
 getAncestors=function(tree, nodeN){
   if(is.character(nodeN)){
