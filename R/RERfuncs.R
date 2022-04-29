@@ -669,6 +669,22 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
   corout=matrix(nrow=nrow(RERmat), ncol=3)
   rownames(corout)=rownames(RERmat)
 
+  ##############################################################################
+  # make tables for each pairwise comparison & a list for the tables
+  if(method == "aov") {
+    lu = length(unique(charP[!is.na(charP)])) # number of categories
+    n = choose(lu,2) # number of comparisons
+    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("diff", "p.adj")))
+    names(tables) = rep(NA, n)
+  }
+  else if(method == "kw") {
+    lu = length(unique(charP[!is.na(charP)])) # number of categories
+    n = choose(lu,2) # number of comparisons
+    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("Z", "P.adj")))
+    names(tables) = rep(NA, n)
+  }
+  ##############################################################################
+
   colnames(corout)=c("Rho", "N", "P")
 
   for( i in 1:nrow(corout)){
