@@ -693,7 +693,15 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
       if (method!="p"&&sum(charP[ii]!=0)<min.pos){
         next
       }
-
+      ##########################################################################
+      #check that there are >= min.pos species in each category
+      if(method =="kw" || method =="aov") {
+        counts = table(charP[ii])
+        if(length(counts) < 2 || min(counts) < min.pos) {
+          next
+        }
+      }
+      ##########################################################################
       if(!weighted){
 
         x=RERmat[i,]
@@ -711,8 +719,74 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           y=charP[indstouse]
         }
 
-        cres=cor.test(x, y, method=method, exact=F)
-        corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
+        #################################################################
+        if(method == "aov") {
+          # ANOVA
+          # make a data frame from x and y
+          yfacts = as.factor(y) #aov requires categories to be factors
+          df = data.frame(x,yfacts)
+          colnames(df) = c("RER", "category")
+          ares = aov(RER ~ category, data = df)
+          ares_Fval = summary(ares)[[1]][1,4]
+          ares_pval = summary(ares)[[1]][1,5]
+          corout[i,1:3]=c(ares_Fval, nb, ares_pval)
+
+          tukey = TukeyHSD(ares)
+
+          # add names to tables that haven't been named yet
+          groups = rownames(tukey[[1]])
+          unnamedinds = which(is.na(names(tables)))
+          if(length(unnamedinds > 0)) {
+            # check for groups not in table already
+            newnamesinds = which(is.na(match(groups, names(tables))))
+            # if there are new groups add them to the next available positions
+            if(length(newnamesinds) > 0) {
+              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+            }
+          }
+
+          # add data to the named tables
+          for(k in 1:length(groups)) {
+            name = groups[k]
+            tables[[name]][i,"diff"] = tukey[[1]][name,1]
+            tables[[name]][i,"p.adj"] = tukey[[1]][name,4]
+          }
+
+        } else if (method == "kw") {
+          # Kruskal Wallis
+          yfacts = as.factor(y)
+          df = data.frame(x,yfacts)
+          colnames(df) = c("RER", "category")
+          kres = kruskal.test(RER ~ category, data = df)
+          kres_Hval = kres$statistic
+          kres_pval = kres$p.value
+          corout[i,1:3] = c(kres_Hval, nb, kres_pval)
+
+          # Dunn test
+          dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
+
+          # add new names to tables
+          groups = dunn$res$Comparison
+          unnamedinds = which(is.na(names(tables)))
+          if(length(unnamedinds > 0)) {
+            # check for groups not in table already
+            newnamesinds = which(is.na(match(groups, names(tables))))
+            # if there are new groups add them to the next available positions
+            if(length(newnamesinds) > 0) {
+              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+            }
+          }
+          # add data to the tables
+          for(k in 1:length(groups)) {
+            name = groups[k]
+            tables[[name]][i,"Z"] = dunn$res$Z[k]
+            tables[[name]][i,"P.adj"] = dunn$res$P.adj[k]
+          }
+          #################################################################
+          else {
+            cres=cor.test(x, y, method=method, exact=F)
+            corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
+          }
       }
       else{
         charPb=(charP[ii]>0)+1-1
@@ -733,7 +807,13 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
 
   corout=as.data.frame(corout)
   corout$p.adj=p.adjust(corout$P, method="BH")
-  corout
+  if (method == "aov" || method == "kw") {
+    for(i in 1:length(tables)) {
+      tables[[i]] = as.data.frame(tables[[i]])
+    }
+    # return corout and tables
+    return(list(corout,tables))
+  } else {corout}
 }
 
 #' main RER computation function
