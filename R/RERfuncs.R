@@ -1163,6 +1163,31 @@ foreground2Tree = function(foreground,treesObj, plotTree=T, clade=c("ancestral",
   res
 }
 
+
+#'turns a named vector of characters into a paths vector to be used with \code{\link{getAllCor}} for categorical traits
+#'@param tipvals the trait/phenotype/character value at the tip, \code{names(tip.vals)} should match some of the \code{mastertree$tip.label}, though a perfect match is not required
+#'@param treesObj A treesObj created by \code{\link{readTrees}}
+#'@param useSpecies Give only a subset of the species to use for ancestral state reconstruction
+#' (e.g., only those species for which the trait can be reliably determined).
+#'@param use_rooted Root the tree first to use the phytools function ace. Otherwise leaves the tree unrooted and uses the castor function asr_mk_model.
+#'@param model Specifies what rate model to use
+#'@param outgroup If use_rooted is true, specifies what to use as the outgroup in order to root the tree
+#'@param plot Plots a phenotype tree
+#'@return A vector of length equal to the number of paths in treesObj
+#'@export
+char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
+                                 use_rooted = FALSE, outgroup = NULL,
+                                 model = "ER", plot = FALSE) {
+  #get tree
+  tree = char2TreeCategorical(tipvals = tipvals, treesObj = treesObj,
+                              useSpecies = useSpecies, use_rooted = use_rooted,
+                              outgroup = outgroup, model = model, plot = plot)
+  # get paths
+  paths = tree2Paths(tree, treesObj, useSpecies = useSpecies,
+                     categorical = T)
+  return(paths)
+}
+
 #' @keywords internal
 inferUnidirectionalForegroundClades <- function(tree, fgd = NULL, ancestralOnly = F){
   finaltree <- tree
