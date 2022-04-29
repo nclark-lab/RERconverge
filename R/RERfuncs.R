@@ -1188,6 +1188,82 @@ char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
   return(paths)
 }
 
+
+#' Creates a categorical trait tree from a set of tip species.
+#'@param tipvals the trait/phenotype/character value at the tip, \code{names(tip.vals)} should match some of the \code{mastertree$tip.label}, though a perfect match is not required
+#'@param treesObj A treesObj created by \code{\link{readTrees}}
+#'@param useSpecies Give only a subset of the species to use for ancestral state reconstruction
+#' (e.g., only those species for which the trait can be reliably determined).
+#'@param use_rooted Root the tree first to use the phytools function ace. Otherwise leaves the tree unrooted and uses the castor function asr_mk_model.
+#'@param model Specifies what rate model to use
+#'@param outgroup If use_rooted is true, specifies what to use as the outgroup in order to root the tree
+#'@param plot Plots a phenotype tree
+#'@return A tree with edge.lengths representing phenotypic states
+#'@export
+char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
+                                use_rooted = FALSE, outgroup = NULL,
+                                model = "ER", plot = FALSE) {
+  # get masterTree from treesObj
+  mastertree = treesObj$masterTree
+
+  #remove species not in phenotype list
+  cm = intersect(mastertree$tip.label, names(tipvals))
+  mastertree = pruneTree(mastertree, cm)
+  #put tipvals in same order as tiplabels on tree
+  tipvals = tipvals[mastertree$tip.label]
+
+  # categories must be converted to integers for non rooted and getting states
+  intlabels = map_to_state_space(tipvals)
+
+  if(use_rooted) #use ace from phytools that requires tree to be rooted
+  {
+    rooted_tree = root(mastertree, outgroup = outgroup, resolve.root = TRUE)
+
+    # rooting adds a zero branch length that must be changed to nonzero
+    min = min(rooted_tree$edge.length[2:length(rooted_tree$edge.length)])
+    rooted_tree$edge.length[1] = min
+
+    # run ace
+    res = ace(tipvals, rooted_tree, model= model, type = "discrete")
+
+    # get ancestral states
+    states = rep(0,length(res$lik.anc[,1]))
+    for(i in 1:length(states)){
+      # the ancestral state is the one with the max likelihood
+      states[i] = which.max(res$lik.anc[i,])
+    }
+  }
+
+  else # use castor function (does not require tree to be rooted)
+  {
+    n = length(unique(tipvals))
+    res = asr_mk_model(mastertree, intlabels$mapped_states, Nstates = n,
+                       rate_model = model, root_prior = "auto")
+
+    # get ancestral states
+    states = rep(0,length(res$ancestral_likelihoods[,1]))
+    for(i in 1:length(states)){
+      # the ancestral state is the one with the max likelihood
+      states[i] = which.max(res$ancestral_likelihoods[i,])
+    }
+  }
+
+  #add tip states at the beginning
+  states = c(intlabels$mapped_states, states)
+
+  # map states onto the phenotype tree
+  tree = mastertree
+  tree$edge.length = states[tree$edge[,2]]
+
+  # plot the phenotype tree if desired
+  if(plot) {
+    plotBranchbyTrait(mastertree, tree$edge.length, mode = "edges",
+                      palette="rainbow", cex = 0.25, edge.width = 1)
+  }
+
+  return(tree)
+}
+
 #' @keywords internal
 inferUnidirectionalForegroundClades <- function(tree, fgd = NULL, ancestralOnly = F){
   finaltree <- tree
