@@ -1216,6 +1216,9 @@ char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
 char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
                                 use_rooted = FALSE, outgroup = NULL,
                                 model = "ER", plot = FALSE) {
+  if(use_rooted && is.null(outgroup)) {
+    warning("Must supply an outgroup when use_rooted is TRUE")
+  }
   # get masterTree from treesObj
   mastertree = treesObj$masterTree
 
