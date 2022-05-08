@@ -696,13 +696,13 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
   if(method == "aov") {
     lu = length(unique(charP[!is.na(charP)])) # number of categories
     n = choose(lu,2) # number of comparisons
-    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("diff", "p.adj")))
+    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("Rho", "P")))
     names(tables) = rep(NA, n)
   }
   else if(method == "kw") {
     lu = length(unique(charP[!is.na(charP)])) # number of categories
     n = choose(lu,2) # number of comparisons
-    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("Z", "P.adj")))
+    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("Rho", "P")))
     names(tables) = rep(NA, n)
   }
   ##############################################################################
@@ -770,8 +770,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           # add data to the named tables
           for(k in 1:length(groups)) {
             name = groups[k]
-            tables[[name]][i,"diff"] = tukey[[1]][name,1]
-            tables[[name]][i,"p.adj"] = tukey[[1]][name,4]
+            tables[[name]][i,"Rho"] = tukey[[1]][name,1]
+            tables[[name]][i,"P"] = tukey[[1]][name,4]
           }
 
         } else if (method == "kw") {
@@ -801,8 +801,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           # add data to the tables
           for(k in 1:length(groups)) {
             name = groups[k]
-            tables[[name]][i,"Z"] = dunn$res$Z[k]
-            tables[[name]][i,"P.adj"] = dunn$res$P.adj[k]
+            tables[[name]][i,"Rho"] = dunn$res$Z[k]
+            tables[[name]][i,"P"] = dunn$res$P.adj[k]
           }
           #################################################################
           else {
@@ -2369,38 +2369,6 @@ getStat=function(res){
 
   stat
 }
-
-#' Calculates Rho-signed negative log-base-ten p-value for use in enrichment functions
-
-#' @param res One of the pairwise test outputs from RERconverge correlation functions (correlateWithCategoricalPhenotype, getAllCor)
-#' @param method Same method as used with correlateWithCategoricalPhenotype ("kw" or "aov")
-#' @return A dataframe of Rho-signed negative log-base-ten p-values for all genes, NAs removed
-#' @export
-getPairwiseStat = function (res, method)
-{
-  if(method != "kw" && method != "aov"){
-    warning("method must be kw or aov")
-  }
-  if(method == "kw") {
-    stat = sign(res$Z) * (-log10(res$P.adj))
-  }
-  else if(method == "aov"){
-    stat = sign(res$diff) * (-log10(res$p.adj))
-  }
-  names(stat) = rownames(res)
-  genenames = sub("\\..*", "", names(stat))
-  multname = names(which(table(genenames) > 1))
-  for (n in multname) {
-    ii = which(genenames == n)
-    iimax = which(max(stat[ii]) == max(abs(stat[ii])))
-    stat[ii[-iimax]] = NA
-  }
-  sum(is.na(stat))
-  stat = stat[!is.na(stat)]
-  stat
-}
-
-
 
 varExplainedWithNA=function (dat, val, adjust=T)
 {
