@@ -8,7 +8,7 @@ Description: RERConverge is a set of software written in R that estimates the co
 License: GNU General Public License v3.0
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Depends: RColorBrewer, gplots,  phytools, geiger, knitr, Rcpp, RcppArmadillo, weights, phangorn, ggplot2, dplyr
 Imports: Rcpp (>= 0.11.0), ape
 LinkingTo: Rcpp, RcppArmadillo, ape
