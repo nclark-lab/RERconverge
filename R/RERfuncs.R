@@ -806,11 +806,11 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
             tables[[name]][i,"Rho"] = dunn$res$Z[k]
             tables[[name]][i,"P"] = dunn$res$P.adj[k]
           }
-          else {
-            cres=cor.test(x, y, method=method, exact=F)
-            corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
-          }
-      }
+        }
+        else {
+          cres=cor.test(x, y, method=method, exact=F)
+          corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
+        }
       else{
         charPb=(charP[ii]>0)+1-1
 
