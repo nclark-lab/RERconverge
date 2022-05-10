@@ -31,8 +31,6 @@ master tree edge lengths (default 20).}
 }
 \value{
 A trees object of class "treeObj"
-
-A trees object of class "treeObj"
 }
 \description{
 reads trees from a 2 column , tab seperated, file

@@ -4,7 +4,7 @@
 \alias{tree2Paths}
 \title{Generate a phenotype paths vector from a phenotype tree}
 \usage{
-tree2Paths(tree, treesObj, binarize = NULL, useSpecies = NULL)
+tree2Paths(tree, treesObj, binarize = NULL, useSpecies = NULL, categorical = F)
 }
 \arguments{
 \item{tree}{A phenotype tree, with branch length encoding a phenotype.}
