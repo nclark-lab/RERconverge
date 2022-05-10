@@ -1252,8 +1252,7 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
 
   else # use castor function (does not require tree to be rooted)
   {
-    n = length(unique(tipvals))
-    res = asr_mk_model(mastertree, intlabels$mapped_states, Nstates = n,
+    res = asr_mk_model(mastertree, intlabels$mapped_states, Nstates = intlabels$Nstates,
                        rate_model = model, root_prior = "auto")
 
     # get ancestral states
