@@ -1231,6 +1231,10 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
   # categories must be converted to integers for non rooted and getting states
   intlabels = map_to_state_space(tipvals)
 
+  # print out the mapping to integers
+  print("The integer labels corresponding to each category are:")
+  print(intlabels$name2index)
+
   if(use_rooted) #use ace from phytools that requires tree to be rooted
   {
     rooted_tree = root(mastertree, outgroup = outgroup, resolve.root = TRUE)
