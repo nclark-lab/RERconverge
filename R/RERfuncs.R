@@ -1244,7 +1244,7 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
     rooted_tree$edge.length[1] = min
 
     # run ace
-    res = ace(tipvals, rooted_tree, model= model, type = "discrete")
+    res = ace(intlabels$mapped_states, rooted_tree, model= model, type = "discrete")
 
     # get ancestral states
     states = rep(0,length(res$lik.anc[,1]))
