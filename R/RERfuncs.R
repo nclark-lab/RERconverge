@@ -636,6 +636,9 @@ correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER
 #'@return A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
 #'@export
 correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos = 2, method = "kw"){
+  if(!(method %in% c("kw", "aov"))) {
+    warning("Invalid method. The method must be kw or aov")
+  }
   getAllCor(RERmat, charP, min.sp, min.pos, method = method)
 }
 
