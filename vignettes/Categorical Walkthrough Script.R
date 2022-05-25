@@ -2,8 +2,10 @@
 
 # Read in the inputs
 
+# make sure you are in the directory that contains the files you are reading in
+
 # read in the trees
-trees=readRDS("zoonomiatrees.rds") 
+trees=readRDS("zoonomiatrees.rds")
 
 # read in the phenotype data
 phenvals = readRDS("sleepPhenvals.rds")
@@ -19,12 +21,12 @@ RERmat = readRDS("sleepPhenRERs.rds")
 # Generate paths using char2PathsCategorical (castor method, default)
 # this is using equal rate transitions between all states (but you can change that with model = )
 # this will print out which numbers map to which state
-charP = char2PathsCategorical(phenvals, trees, useSpecies = allspecs, 
+charP = char2PathsCategorical(phenvals, trees, useSpecies = allspecs,
                               plot = TRUE)
 
 # or Generate paths using char2PathsCategorical (rooted, phytools version)
-charP = char2PathsCategorical(phenvals, trees, useSpecies = allspecs, 
-                              use_rooted = TRUE, outgroup = "REFERENCE", 
+charP = char2PathsCategorical(phenvals, trees, useSpecies = allspecs,
+                              use_rooted = TRUE, outgroup = "REFERENCE",
                               plot = TRUE)
 
 # Correlate gene evolution with categorical trait using KW/Dunn (default)
@@ -42,7 +44,7 @@ cors = correlateWithCategoricalPhenotype(RERmat, charP, method = "aov")
 allresults = cors[[1]]
 pairwise_tables = cors[[2]]
 
-# Enrichment Analysis 
+# Enrichment Analysis
   # same as before, the res object is either "allresults" or cors[[1]]
   # or it is any of the tables in "pairwise_tables" i.e. pairwise_tables[[1]]
 
@@ -53,7 +55,7 @@ annots = readRDS("allannots.rds")
 enrichments = fastwilcoxGMTall(getStat(allresults), annots, outputGeneVals=T)
 
 # the third table is for the pairwise comparison between nocturnal and diurnal species
-di_noc_enrichments = fastwilcoxGMTall(getStat(pairwise_tables[[3]]), 
+di_noc_enrichments = fastwilcoxGMTall(getStat(pairwise_tables[[3]]),
                                       annots, outputGeneVals=T)
 
 
