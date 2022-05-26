@@ -51,11 +51,11 @@ RERconverge can be cited as follows:
 
 #### Description of software:
 
-Kowalczyk A, Meyer WK, Partha R, Mao W, Clark NL, Chikina M. RERconverge: an R package for associating evolutionary rates with convergent traits. Bioinformatics. 2019;35(22): 4815–4817, [https://doi.org/10.1093/bioinformatics/btz468] (https://doi.org/10.1093/bioinformatics/btz468)
+Kowalczyk A, Meyer WK, Partha R, Mao W, Clark NL, Chikina M. RERconverge: an R package for associating evolutionary rates with convergent traits. Bioinformatics. 2019;35(22): 4815–4817, [https://doi.org/10.1093/bioinformatics/btz468](https://doi.org/10.1093/bioinformatics/btz468)
 
 #### Detailed description of latest methods:
 
-Partha R, Kowalczyk A, Clark N, Chikina M. Robust methods for detecting convergent shifts in evolutionary rates. Mol Biol Evol. 2019;36(8): 1817–1830. [https://doi.org/10.1093/molbev/msz107] (https://doi.org/10.1093/molbev/msz107)
+Partha R, Kowalczyk A, Clark N, Chikina M. Robust methods for detecting convergent shifts in evolutionary rates. Mol Biol Evol. 2019;36(8): 1817–1830. [https://doi.org/10.1093/molbev/msz107](https://doi.org/10.1093/molbev/msz107)
 
 The following are the first demonstrations of analyses using the methods in RERconverge:
 
