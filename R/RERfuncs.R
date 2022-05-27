@@ -1288,6 +1288,12 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
 
     # plot using the plot.phylo function
     plot(mastertree, cex = 0.25, edge.color = edge_colors)
+
+    # add a legend
+    legend(x = "bottomright",
+           legend = intlabels$state_names,
+           col = colors,
+           lwd = 2)
   }
 
   return(tree)
