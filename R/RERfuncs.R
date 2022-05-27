@@ -1279,8 +1279,15 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
 
   # plot the phenotype tree if desired
   if(plot) {
-    plotBranchbyTrait(mastertree, tree$edge.length, mode = "edges",
-                      palette="rainbow", cex = 0.25, edge.width = 1)
+    # generate color palette
+    colors = palette()[1:intlabels$Nstates]
+
+    # generate a colors vector of the same length as edge.length with the colors mapped accordingly
+    edge_colors = tree$edge.length
+    edge_colors = sapply(edge_colors, function(x){colors[x]})
+
+    # plot using the plot.phylo function
+    plot(mastertree, cex = 0.25, edge.color = edge_colors)
   }
 
   return(tree)
