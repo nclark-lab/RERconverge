@@ -883,6 +883,73 @@ linearizeCorResults=function(cor_result){
   return(vec.cor)
 }
 
+
+#'Produces one binary permulation based on ranking of simulated branch lengths
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param root_sp The species to root the tree on
+#' @param fg_vec a vector containing the foreground species
+#' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
+#' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @return A binary permulated tree
+#' @export
+simBinPhenoRank=function(trees, root_sp, fg_vec, sisters_list=NULL, plotTreeBool=F){
+  mastertree = trees$masterTree
+  tip.labels = mastertree$tip.label
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
+  fg_tree = res$tree
+  pathvec = tree2PathsClades(fg_tree, trees)
+
+  t=root.phylo(trees$masterTree, root_sp, resolve.root = T)
+  ratem=ratematrix(t, pathvec)
+
+
+  x = rnorm(n=length(t$edge.length))
+  sd = sqrt(as.vector(ratem)*t$edge.length)
+
+  y = matrix(0,nrow(t$edge),ncol(t$edge))
+  alpha=0.1
+  n = length(t$tip)
+  for(i in 1:length(x)){
+    if(t$edge[i,1]==(n+1))
+      y[i,1]<-alpha # if at the root
+    else
+      y[i,1]<-y[match(t$edge[i,1],t$edge[,2]),2]
+    y[i,2]<-y[i,1]+x[i]
+  }
+
+  rm(x)
+
+  x<-c(y[1,1],y[,2])
+  names(x)<-c(n+1,t$edge[,2])
+
+  x<-x[as.character(1:(n+t$Nnode))]
+
+  simphentree = t
+  simedge = x[simphentree$edge[,2]]
+  simphentree$edge.length = unname(simedge) + abs(min(simedge)) + 0.001
+
+  numfg= sum(fg_tree$edge.length)
+
+  simedgesort = sort(simphentree$edge.length, decreasing=T)
+  simphenthreshold = simedgesort[numfg]
+
+  bmphentree = simphentree
+  simbinedge = simphentree$edge.length
+  simbinedge[which(simbinedge < simphenthreshold)] = 0
+  simbinedge[which(simbinedge >= simphenthreshold)] = 1
+  bmphentree$edge.length = simbinedge
+
+  if (plotTreeBool){
+    plot(bmphentree)
+  }
+
+  return(bmphentree)
+}
+
+
+
+
+
 #'Combines batches of permulations
 #' @param permdat1 Batch of permulations output from \code{\link{getPermsContinuous}}
 #' @param permdat2 Batch of permulations output from \code{\link{getPermsContinuous}}
