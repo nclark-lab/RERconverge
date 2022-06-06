@@ -988,6 +988,9 @@ plotTreeCategorical = function(tree, category_names = NULL, master = NULL) {
 
   # plot tree using the plot.phylo function
   if(!is.null(master)) {
+    # prune the master tree to only include species in the phenotype tree
+    cm = intersect(master$tip.label, tree$tip.label)
+    master = pruneTree(master, cm)
     plot(master, cex = 0.25, edge.color = edge_colors)
   } else {
     plot(tree, cex = 0.25, edge.color = edge_colors, use.edge.length = FALSE)
