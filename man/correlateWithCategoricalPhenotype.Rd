@@ -21,7 +21,7 @@ correlateWithCategoricalPhenotype(
 
 \item{min.pos}{Minimum number of species that must be present in a category}
 
-\item{method}{Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA.}
+\item{method}{Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA. It must be one of the strings "kw" or "aov".}
 }
 \value{
 A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
