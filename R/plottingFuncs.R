@@ -663,7 +663,17 @@ returnRersAsTreesAll <- function(treesObj, rermat){
 #' @export
 
 plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 'k', xlims = NULL, plot = 1, xextend = 0.2, sortrers = F){
-     if(is.null(rers)){
+  # check if data is categorical
+  if(!is.null(phenv) && length(unique(phenv[!is.na(phenv)])) > 2) {
+    categorical = TRUE
+    if(method != "aov" || method != "kw") {
+      method = "kw"
+    }
+  } else {
+    categorical = FALSE
+  }
+
+  if(is.null(rers)){
       e1 = rermat[index,][!is.na(rermat[index,])]
       colids = !is.na(rermat[index,])
       e1plot <- e1
@@ -683,14 +693,37 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method 
      names(e1plot)[is.na(names(e1plot))]=""
      if(!is.null(phenv)){
       phenvid = phenv[colids]
-      fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)
+
+      if(categorical) {
+        fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = "kw")[[1]]
+      } else {
+        fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method) # get cors (to get rho and p)
+      }
+
       plottitle = paste0(gen, ': rho = ',round(fgdcor$Rho,4),', p = ',round(fgdcor$P,4))
-      fgd = setdiff(names(e1plot)[phenvid == 1],"")
-      df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
-          mutate(mole = as.factor(ifelse(phenvid > 0,2,1)))
+      #fgd = setdiff(names(e1plot)[phenvid == 1],"")
+
+      # make color palette
+      if(categorical){
+        n = length(unique(phenvid))
+        if(n > length(palette())) {
+          pal = colorRampPalette(palette())(n)
+        } else{
+          pal = palette()[1:n]
+        }
+      }
+
+      if(categorical) {
+        df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
+          mutate(mole = as.factor(phenvid))
+      } else {
+        df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
+          mutate(mole = as.factor(ifelse(phenvid > 0,2,1))) # returns vector same length as phenv, if > 0 it is 2, otherwise it is 1, then converts these to factors
+      }
+
      }else{
       plottitle = gen
-      fgd = NULL
+      #fgd = NULL
       df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
           mutate(mole = as.factor(ifelse(0,2,1)))
      }
@@ -708,22 +741,44 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method 
      }else{
           ll=xlims
      }
-     g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(3,3))+ geom_point(aes(size=mole))+
-          scale_color_manual(values = c("deepskyblue3", "brown1"))+
-          scale_x_continuous(limits=ll)+
-          #scale_x_continuous(expand = c(.1,.1))+
-          geom_text(hjust=1, size=5)+
-          ylab("Branches")+
-          xlab("relative rate")+
-          ggtitle(plottitle)+
-          geom_vline(xintercept=0, linetype="dotted")+
-          theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
-                panel.background = element_blank(),
-                axis.text=element_text(size=18,face='bold',colour = 'black'),
-                axis.title=element_text(size=24,face="bold"),
-                plot.title= element_text(size = 24, face = "bold"))+
-          theme(axis.line = element_line(colour = 'black',size = 1))+
-                theme(axis.line.y = element_blank())
+     # create the plot
+     if(categorical) {
+       g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(1,1,1,1))+ geom_point(aes(size=mole))+
+         scale_color_manual(values = pal) +
+         scale_x_continuous(limits=ll)+
+         # scale_x_continuous(expand = c(.1,.1))+
+         # geom_text(hjust=1, size=5)+
+         geom_text(hjust=1, size=2)+
+         ylab("Branches")+
+         xlab("relative rate")+
+         ggtitle(plottitle)+
+         geom_vline(xintercept=0, linetype="dotted")+
+         theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
+               panel.background = element_blank(),
+               axis.text=element_text(size=18,face='bold',colour = 'black'),
+               axis.title=element_text(size=24,face="bold"),
+               plot.title= element_text(size = 24, face = "bold"))+
+         theme(axis.line = element_line(colour = 'black',size = 1))+
+         theme(axis.line.y = element_blank())
+     } else {
+       g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(1,1,1,1))+ geom_point(aes(size=mole))+
+         scale_color_manual(values = c("deepskyblue3", "brown1"))+
+         scale_x_continuous(limits=ll)+
+         # scale_x_continuous(expand = c(.1,.1))+
+         # geom_text(hjust=1, size=5)+
+         geom_text(hjust=1, size=2)+
+         ylab("Branches")+
+         xlab("relative rate")+
+         ggtitle(plottitle)+
+         geom_vline(xintercept=0, linetype="dotted")+
+         theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
+               panel.background = element_blank(),
+               axis.text=element_text(size=18,face='bold',colour = 'black'),
+               axis.title=element_text(size=24,face="bold"),
+               plot.title= element_text(size = 24, face = "bold"))+
+         theme(axis.line = element_line(colour = 'black',size = 1))+
+         theme(axis.line.y = element_blank())
+     }
      if(plot){
       print(g)
      }
