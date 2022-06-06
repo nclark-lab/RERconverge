@@ -1279,21 +1279,22 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
 
   # plot the phenotype tree if desired
   if(plot) {
-    # generate color palette
-    colors = palette()[1:intlabels$Nstates]
-
-    # generate a colors vector of the same length as edge.length with the colors mapped accordingly
-    edge_colors = tree$edge.length
-    edge_colors = sapply(edge_colors, function(x){colors[x]})
-
-    # plot using the plot.phylo function
-    plot(mastertree, cex = 0.25, edge.color = edge_colors)
-
-    # add a legend
-    legend(x = "bottomright",
-           legend = intlabels$state_names,
-           col = colors,
-           lwd = 2)
+    # # generate color palette
+    # colors = palette()[1:intlabels$Nstates]
+    #
+    # # generate a colors vector of the same length as edge.length with the colors mapped accordingly
+    # edge_colors = tree$edge.length
+    # edge_colors = sapply(edge_colors, function(x){colors[x]})
+    #
+    # # plot using the plot.phylo function
+    # plot(mastertree, cex = 0.25, edge.color = edge_colors)
+    #
+    # # add a legend
+    # legend(x = "bottomright",
+    #        legend = intlabels$state_names,
+    #        col = colors,
+    #        lwd = 2)
+    plotTreeCategorical(tree, category_names = intlabels$state_names, master = mastertree)
   }
 
   return(tree)
