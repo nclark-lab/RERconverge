@@ -1,0 +1,277 @@
+---
+title: "Categorical Trait Analysis Walkthrough"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  pdf_document:
+      toc: yes
+  html_document:
+      css: custom.css
+      toc: yes
+authors: Ruby Redlich 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\newpage
+
+This walkthrough describes how to use the updates to RERconverge for analyzing categorical traits. This update builds on existing RERconverge objects. First time users should first read the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+# Overview
+The following document illustrates how to perform a categorical trait analysis after relative evolutionary rates have been calculated. To learn how to calculate relative evolutionary rates using `getAllResiduals` follow the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf). 
+
+**Output** is a list of two data objects. The first is a data frame containing a list of genomic elements with association statistics between the genomic element's evolutionary rate and the phenotype. The second object is a list of data frames for each pairwise test between the phenotype categories. For n phenotype categories, there will be $\binom{n}{2}$ data frames in this list. Each data frame is a list of genomic elements with association statistics describing the difference in relative evolutionary rates of genomic elements between the two categories.
+
+## Data Input Requirements and Formatting
+
+The required inputs are as follows:
+
+1. Phylogenetic trees of the same format described in the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+2. Species-labeled phenotype values
+  * The species labels MUST match the tree tip labels that were used in `getAllResiduals` to calculate the relative evolutionary rates (RERs)
+  * a named numeric vector of categorical trait values 
+
+# Analysis Walkthrough
+
+Follow the steps for installing RERconverge on the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install), up to the "Install from Github" step. Then, load the RERconverge library. 
+
+```{r results='hide', message = FALSE, warning = FALSE, cache=TRUE}
+if (!require("RERconverge", character.only = T, quietly = T)) {
+  require(devtools)
+  install_github("nclark-lab/RERconverge", ref = "New_Functions_For_Categorical_Traits")
+  # ref refers to the branch of RERconverge being installed
+}
+library(RERconverge)
+```
+
+Follow the instructions in the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf) in order to read in gene trees using `readTrees` and calculate evolutionary rates using `getAllResiduals`. That vignette describes how to save the RER object for later using `saveRDS`. Save both the RER object and the trees object. Make sure that you save these objects into your working directory for your project. We will read them in using `readRDS`. We will also read in the phenotype data. 
+
+It is very important that the names of the phenotype data EXACTLY match the names of the species that were used to calculate the relative evolutionary rates in `getAllResiduals`. To ensure this is the case, follow the instructions in the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf). 
+
+```{r, message=FALSE, cache=TRUE}
+# read in the trees
+toyTrees =readRDS("toyTrees.rds") 
+
+# read in the phenotype data
+sleepPattern = readRDS("sleepPattern.rds")
+
+# read in the RERs 
+RERmat = readRDS("sleepRERs.rds")
+```
+
+To use the same data as in this walk through, run the following code to read in the trees, load in the phenotype data, and calculate the relative evolutionary rates. 
+
+```{r, message = FALSE, cache = TRUE}
+
+# find where the package is located on your machine
+rerpath = find.package('RERconverge')
+
+# read in the trees with the given file name
+toytreefile = "subsetMammalGeneTrees.txt" 
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+
+# load the phenotype data into your workspace, this will create a named vector with the name sleepPattern
+data("sleepPattern")
+
+# calculate the relative evolutionary rates with getAllResiduals
+RERmat = getAllResiduals(toyTrees, useSpecies = names(sleepPattern))
+```
+
+Next, we generate the phenotype tree from the species-labeled phenotype vector using `char2TreeCategorical`. 
+
+This function uses existing function from ape or castor in order to infer the likelihoods of ancestral states for all species in the tree. The relevant citations are given below:
+
+Paradis E. & Schliep K. 2019. ape 5.0: an environment for modern phylogenetics and evolutionary analyses in R.
+  Bioinformatics 35: 526-528.
+  
+Louca S, Doebeli M (2017). “Efficient comparative phylogenetics on large trees.” _Bioinformatics_. doi:
+10.1093/bioinformatics/btx701 (URL: https://doi.org/10.1093/bioinformatics/btx701).
+
+This function takes the following inputs:
+
+  * `tipvals`: The named vector of phenotype data
+  * `treesObj`: The trees object containing every gene tree
+  * `useSpecies`: Specifies the subset of species to use in the analysis. This vector of species should match the subset used to calculate RERs.
+  * `use_rooted`: A boolean specifying whether to first root the tree before performing ancestral trait reconstruction. The phytools function `ace` requires a rooted tree as input, therefore when use_rooted is true, the phytools function is used to infer ancestral states. The castor function `asr_mk_model` does not require the tree to be rooted. The default value for `use_rooted` is `FALSE` since the input trees are unrooted.
+  * `outgroup`: When `use_rooted` is `TRUE`, the user must supply an outgroup to use when rooting the tree. The default value is `NULL`. 
+  * `model`: The model used for fitting the transition rate matrix. For more information regarding input options for model when `use_rooted` is `FALSE` see the description of the `rate_model` input from [castor](https://rdrr.io/cran/castor/man/asr_mk_model.html). When `use_rooted` is `TRUE`, reference the documentation from [ape](https://www.rdocumentation.org/packages/ape/versions/5.6-2/topics/ace) for more information regarding the model. The default option is `"ER"`.
+  * `plot`: A boolean specifying whether to plot the phenotype tree.
+
+```{r, cache = TRUE}
+
+allspecs = names(sleepPattern)
+
+# unrooted
+phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
+                              plot = TRUE)
+```
+
+```{r, cache = TRUE}
+# rooted
+allspecs = names(sleepPattern)
+
+phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
+                              use_rooted = TRUE, outgroup = "REFERENCE",
+                              plot = TRUE)
+```
+
+The output of this function is a phenotype tree with the same topology as the master tree. The phenotype states are stored on the branches of the tree as edge lengths. The ancestral trait reconstruction functions use numerical (integer) tip labels. The integers do not have any biological significance and are typically assigned in alphabetical order. The integer values corresponding to the categories in the phenotype vector are printed to the console.  
+
+Additionally, to see the mapping of category names to integers, you can run the castor function that is used within `char2TreeCategorical` as shown below:
+
+```{r, cache = T}
+intlabels = map_to_state_space(sleepPattern)
+print(intlabels$name2index)
+```
+
+## Generating **paths** using `char2PathsCategorical` 
+
+Some of the gene trees are missing species from the analysis. To handle missing species, RERconverge generates paths. For a more detailed discussion of paths see the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf). For categorical traits we use the function `char2PathsCategorical`. This function has the same inputs as `char2TreeCategorical`. 
+
+```{r, cache = TRUE}
+
+allspecs = names(sleepPattern)
+
+# unrooted
+charP = char2PathsCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
+                              plot = TRUE)
+```
+
+```{r, cache = TRUE}
+
+allspecs = names(sleepPattern)
+
+# rooted
+charP = char2PathsCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
+                              use_rooted = TRUE, outgroup = "REFERENCE",
+                              plot = TRUE)
+```
+
+## Visualization
+
+**Visualizing the phenotype tree:** In addition to visualizing the phenotype tree with `char2TreeCategorical` and `char2PathsCategorical` when `plot = TRUE`, the tree can be plotted with `plotTreeCategorical`. The inputs of this functiona are:
+  * `tree`: The phenotype tree returned by `char2TreeCategorical`
+  * `category_names`: If provided, the plot includes a legend with the category names and corresponding colors. The category names MUST be provided in the same numerical order as the mapping from names to integers. This can be done easily using the `intlabels` object returned by `map_to_state_space`. `category_names` can be set to `intlabels$state_names`. Otherwise the default value is `NULL` and no legend is included.
+  * `master`: The master tree in the trees object returned by `readTrees`. This tree will be plotted with its branches colored by the phenotypes stored in the phenotype tree. 
+
+```{r, cache = T}
+# plotting phenotypes without relative evolutionary rates represented by branch length
+plotTreeCategorical(tree = phenTree, category_names = intlabels$state_names)
+
+# plotting phenotypes with branch lengths from the master tree
+plotTreeCategorical(tree = phenTree, category_names = intlabels$state_names, master = toyTrees$masterTree)
+```
+
+
+**Visualizing the relative evolutionary rates:** The relative evolutionary rates for a specific gene can be visualized using the function `plotRers`. For more details regarding reading this plot, see the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf). A negative value indicates a relative evolutionary rate that is below average while a positive value indicates a relative evolutionary rate that is above average. The colors used to distinguish categories match the colors in the phenotype tree that is plotted by `plotTreeCategorical`, `char2TreeCategorical`, or `char2PathsCategorical`. 
+
+The example below will show how to plot the RERs for one of the top genes, `"AQP12B"`. The `plotRers` function takes the following as input:
+  * `RERmat`: The RER matrix returned by `getAllResiduals`.
+  * `gene`: Either the name of the gene or the numerical index of the gene in the RER matrix.
+  * `phenv`: The paths generated by `char2PathsCategorical`.
+
+```{r, cache = T}
+gene = "AQP12B"
+plotRers(RERmat, gene, phenv = charP)
+```
+
+## Correlating gene evolution with categorical trait evolution using `correlateWithCategoricalPhenotype`. 
+
+This function tests for association between the relative evolutionary rates of genes and the evolution of the phenotype. It takes the following as input:
+
+  * `RERmat`: The RER matrix from `getAllResiduals`.
+  * `charP`: The paths vector from `char2PathsCategorical`.
+  * `min.sp`: The minimum number of species in the gene tree in order for that tree to be included in the analysis. The default value is 10.
+  * `min.pos`: The minimum number of species in each category in the gene tree in order for that gene to be included in the analysis. The default value is 2. 
+  * `method`: The input options are `"kw"` for performing a Kruskal-Wallis test (the non parametric option). The pairwise testing is done using a Dunn Test. To use an ANOVA test instead (the parametric option), use `method = "aov"`. In this case hte pairwise testing is done using a Tukey Test. When not specified, the default is `"kw"`.
+  
+The function for performing the Dunn Test comes from the package FSA and is cited below:
+  Ogle, D.H., J.C. Doll, P. Wheeler, and A. Dinno. 2022. FSA: Fisheries Stock Analysis. R package version 0.9.2,
+  https://github.com/droglenc/FSA. 
+
+```{r, warning=FALSE, cache=TRUE}
+# KW/Dunn (default)
+cors = correlateWithCategoricalPhenotype(RERmat, charP)
+```
+
+```{r, warning=FALSE, cache=TRUE}
+# ANOVA/Tukey
+cors = correlateWithCategoricalPhenotype(RERmat, charP, method = "aov")
+```
+
+The output (`cors`) is the two-element list described previously in the [above](#Overview) section. The first element of cors is a table with the following output for each gene: Rho, N, P, and p.adj. Descriptions of each are given in the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+Extract this table as follows:
+```{r, message=FALSE, cache=TRUE}
+allresults = cors[[1]]
+
+# view the first few results
+head(allresults[order(allresults$P),])
+```
+
+The second element in the cors object is a list of tables from the pairwise analysis. Extract this list as follows:
+```{r, message=FALSE, cache=TRUE}
+pairwise_tables = cors[[2]]
+```
+
+Run `names(pairwise_tables)` to see the order of the pairwise comparisons in this list. They are labeled numerically so, for example, the element named `1 - 3` is the data frame with the results of the pairwise comparison between the category mapped to the number `1` and the category mapped to the number `3`. 
+
+Recall that the mapping of category names to integers was printed to the console when `char2TreeCategorical` or `char2PathCategorical` was run. Additionally, recall that you can view the mapping using functions from the castor library as shown below:
+
+```{r}
+intlabels = map_to_state_space(sleepPattern)
+print(intlabels$name2index)
+```
+
+Each data frame in the list `pairwise_tables` contains the following output for each gene:
+
+1. Rho: Though the column is labeled Rho (in order to stay consistent), this is the test statistic returned from either the Dunn test or the Tukey test. For the Dunn test it is known as the Z statistic and for the Tukey test it is the Honest Significant Difference. It represents the relationship between the relative evolutionary rate of a gene and evolution of the phenotype.
+
+2. P: The p-value corrected for pairwise testing, but not corrected for multiple hypothesis testing for the many genes.
+
+```{r}
+# View the top results of the sixth pairwise comparison
+table = pairwise_tables[[6]]
+head(table[order(table$P),])
+```
+
+# Enrichment Walkthrough
+
+The enrichment analysis is performed in the same way as for binary and continuous traits. 
+
+**Input** is the output from the correlation function. This can be `allresults` (`cors[[1]]`) or any of the tables in the list, `pairwise_tables` (`cors[[2]]`). The second input is the pathways of interest with gene symbols (read in as "allannots.rds" in the code below).
+
+**Output** is the enrichment statistics from each pathway including the genes in the pathway and their ranks.
+
+```{r, cache=TRUE}
+
+# read in the annotations
+annots = readRDS("allannots.rds")
+
+# calculate enrichment statistics for the results including all categories
+allenrichments = fastwilcoxGMTall(getStat(allresults), annots, outputGeneVals=T)
+head(allenrichments$GO[order(allenrichments$GO$pval),])
+
+# the sixth table is for the pairwise comparison between diurnal and nocturnal species (with integer labels 3 and 4 respectively)
+di_noc_enrichments = fastwilcoxGMTall(getStat(pairwise_tables[[6]]), annots, outputGeneVals=T)
+head(di_noc_enrichments$GO[order(di_noc_enrichments$GO$pval),])
+```
+
+For a more in depth explanation of performing an enrichment analysis, see the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf). 
+
+# Conclusion
+
+This concludes the walk through of how to use the new functions in RERconverge for analyzing categorical traits. Thank you!
+
+
+
+
+
+
+
+
+
+
+
