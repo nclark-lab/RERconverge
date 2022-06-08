@@ -179,7 +179,7 @@ Alternatively, to use the ape function and root the tree, run the following code
 allspecs = names(sleepPattern)
 
 phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
-                              use_rooted = TRUE, outgroup = "REFERENCE",
+                              use_rooted = TRUE, outgroup = "Human",
                               plot = TRUE)
 ```
 
@@ -226,7 +226,7 @@ allspecs = names(sleepPattern)
 
 # rooted
 charP = char2PathsCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
-                              use_rooted = TRUE, outgroup = "REFERENCE",
+                              use_rooted = TRUE, outgroup = "Human",
                               plot = FALSE)
 ```
 
