@@ -283,7 +283,7 @@ Note that, in this tree, the branch representing the ancestor of the killer whal
 <!-- Determine whether to include the following. It is based on the implementation
  of the interactive tool to select foreground branches. -->
 
-3) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.'
+3) Use the interactive branch selection tool. The following should open a plot of the master tree. When the GUI opens, select the marine foreground branches (Walrus, Seal, Killer whale, Dolphin, Killer whale-Dolphin ancestor, and Manatee), and click 'End selection.' Do not click 'New category'.
 
 ```{r, eval = FALSE}
 marineb3=click_select_foreground_branches(toyTrees$masterTree)
