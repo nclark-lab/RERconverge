@@ -1222,19 +1222,24 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
   if(use_rooted && is.null(outgroup)) {
     warning("Must supply an outgroup when use_rooted is TRUE")
   }
+
+  # get masterTree from treesObj
+  mastertree = treesObj$masterTree
+
+  # prune tree to only include species in useSpecies and print the missing species
+  if (!is.null(useSpecies)) {
+    sp.miss = setdiff(mastertree$tip.label, useSpecies)
+    if (length(sp.miss) > 0) {
+      message(paste0("Species from master tree not present in useSpecies: ",
+                     paste(sp.miss, collapse = ",")))
+    }
+    useSpecies = intersect(mastertree$tip.label, useSpecies)
+    mastertree = pruneTree(mastertree, useSpecies)
+  }
+  tipvals <- tipvals[mastertree$tip.label]
+  intlabels <- map_to_state_space(tipvals)
+
   if(is.null(anctrait)) {
-    # get masterTree from treesObj
-    mastertree = treesObj$masterTree
-
-    #remove species not in phenotype list
-    cm = intersect(mastertree$tip.label, names(tipvals))
-    mastertree = pruneTree(mastertree, cm)
-    #put tipvals in same order as tiplabels on tree
-    tipvals = tipvals[mastertree$tip.label]
-
-    # categories must be converted to integers for non rooted and getting states
-    intlabels = map_to_state_space(tipvals)
-
     # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
     print("The integer labels corresponding to each category are:")
     print(intlabels$name2index)
@@ -1296,26 +1301,12 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
       return(res)
     }
     else {
-      res = treesObj$masterTree
-      if (!is.null(useSpecies)) {
-        sp.miss = setdiff(res$tip.label, useSpecies)
-        if (length(sp.miss) > 0) {
-          message(paste0("Species from master tree not present in useSpecies: ",
-                         paste(sp.miss, collapse = ",")))
-        }
-        useSpecies = intersect(useSpecies, res$tip.label)
-        res = pruneTree(res, useSpecies)
-      } else {
-        useSpecies = res$tip.label
-      }
-
-      tipvals <- tipvals[useSpecies]
-      intlabels <- map_to_state_space(tipvals)
-
       j <- which(intlabels$state_names == anctrait)
       if(length(j) < 1) {
         warning("The ancestral trait provided must match one of the traits in the phenotype vector.")
       }
+
+      res = mastertree
       res$edge.length <- rep(j,length(res$edge.length))
 
       traits <- intlabels$state_names
