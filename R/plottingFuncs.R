@@ -991,9 +991,25 @@ plotTreeCategorical = function(tree, category_names = NULL, master = NULL) {
     # prune the master tree to only include species in the phenotype tree
     cm = intersect(master$tip.label, tree$tip.label)
     master = pruneTree(master, cm)
-    plot(master, cex = 0.25, edge.color = edge_colors)
+    # plot(master, cex = 0.25, edge.color = edge_colors)
+    if(!is.null(node_states)) {
+      node_colors = node_states
+      node_colors = sapply(node_colors, function(x){colors[x]})
+      plot(master, cex = 0.25, edge.color = edge_colors, node.color = node_colors)
+    } else {
+      plot(master, cex = 0.25, edge.color = edge_colors)
+    }
   } else {
-    plot(tree, cex = 0.25, edge.color = edge_colors, use.edge.length = FALSE)
+    # plot(tree, cex = 0.25, edge.color = edge_colors, use.edge.length = FALSE)
+      if(!is.null(node_states)) {
+        node_colors = node_states
+        node_colors = sapply(node_colors, function(x){colors[x]})
+        plot(tree, cex = 0.25, edge.color = edge_colors, use.edge.length = FALSE,
+             node.depth = 2, node.color = node_colors)
+      } else {
+        plot(tree, cex = 0.25, edge.color = edge_colors, use.edge.length = FALSE,
+             node.depth = 2)
+      }
   }
 
   # add a legend if category names are provided in the order of the numerical labels

@@ -1283,7 +1283,7 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
     # plot the phenotype tree if desired
     if(plot) {
       plotTreeCategorical(tree, category_names = intlabels$state_names,
-                          master = mastertree)
+                          master = mastertree, node_states = states)
     }
     return(tree)
   }
