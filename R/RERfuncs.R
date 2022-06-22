@@ -711,9 +711,6 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
   for( i in 1:nrow(corout)){
 
     if(((nb<-sum(ii<-(!is.na(charP)&!is.na(RERmat[i,]))))>=min.sp)){
-      if (method!="p"&&sum(charP[ii]!=0)<min.pos){
-        next
-      }
       ##########################################################################
       #check that there are >= min.pos species in each category
       if(method =="kw" || method =="aov") {
@@ -723,6 +720,9 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
         }
       }
       ##########################################################################
+      else if (method!="p"&&sum(charP[ii]!=0)<min.pos){
+        next
+      }
       if(!weighted){
 
         x=RERmat[i,]
@@ -831,6 +831,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
   if (method == "aov" || method == "kw") {
     for(i in 1:length(tables)) {
       tables[[i]] = as.data.frame(tables[[i]])
+      # add adjusted p-values
+      tables[[i]]$p.adj = p.adjust(tables[[i]]$P, method = "BH")
     }
     # return corout and tables
     return(list(corout,tables))
