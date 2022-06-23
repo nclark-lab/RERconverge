@@ -1214,7 +1214,8 @@ char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
 #'@export
 char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
                                 use_rooted = FALSE, outgroup = NULL,
-                                model = "ER", plot = FALSE, anctrait = NULL) {
+                                model = "ER", root_prior = "auto",
+                                plot = FALSE, anctrait = NULL) {
   if(use_rooted && is.null(outgroup)) {
     warning("Must supply an outgroup when use_rooted is TRUE")
   }
@@ -1263,7 +1264,7 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
     else # use castor function (does not require tree to be rooted)
     {
       res = asr_mk_model(mastertree, intlabels$mapped_states, Nstates = intlabels$Nstates,
-                         rate_model = model, root_prior = "auto")
+                         rate_model = model, root_prior = root_prior)
 
       # get ancestral states
       states = rep(0,length(res$ancestral_likelihoods[,1]))
