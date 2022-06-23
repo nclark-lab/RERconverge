@@ -1216,9 +1216,6 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
                                 use_rooted = FALSE, outgroup = NULL,
                                 model = "ER", root_prior = "auto",
                                 plot = FALSE, anctrait = NULL) {
-  if(use_rooted && is.null(outgroup)) {
-    warning("Must supply an outgroup when use_rooted is TRUE")
-  }
 
   # get masterTree from treesObj
   mastertree = treesObj$masterTree
@@ -1232,25 +1229,31 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
     }
     useSpecies = intersect(mastertree$tip.label, useSpecies)
     mastertree = pruneTree(mastertree, useSpecies)
+  }else{
+    # if no useSpecies provided, prune the tree to only include species for which there is phenotype data
+    mastertree = pruneTree(mastertree, intersect(mastertree$tip.label, names(tipvals)))
   }
-  tipvals <- tipvals[mastertree$tip.label]
-  intlabels <- map_to_state_space(tipvals)
 
   if(is.null(anctrait)) {
-    # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
-    print("The integer labels corresponding to each category are:")
-    print(intlabels$name2index)
-
-    if(use_rooted) #use ace from ape that requires tree to be rooted
-    {
-      rooted_tree = root(mastertree, outgroup = outgroup, resolve.root = TRUE)
-
-      # rooting adds a zero branch length that must be changed to nonzero
+    if(use_rooted && is.null(outgroup)){
+      # use multi2di instead
+      rooted_tree = multi2di(mastertree, random = FALSE)
+      # change 0 branch length to min branch length in tree
       min = min(rooted_tree$edge.length[2:length(rooted_tree$edge.length)])
       rooted_tree$edge.length[1] = min
 
-      # run ace
-      # res = ace(tipvals, rooted_tree, model= model, type = "discrete")
+      # multi2di should only add one extra node near the root
+      if(rooted_tree$Nnode - mastertree$Nnode > 1) {
+        stop("Error: try providing an outgroup or set use_rooted = FALSE")
+      }
+
+      tipvals <- tipvals[rooted_tree$tip.label]
+      intlabels <- map_to_state_space(tipvals)
+
+      # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
+      print("The integer labels corresponding to each category are:")
+      print(intlabels$name2index)
+
       res = ace(intlabels$mapped_states, rooted_tree, model= model, type = "discrete")
 
       # get ancestral states
@@ -1259,34 +1262,98 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
         # the ancestral state is the one with the max likelihood
         states[i] = which.max(res$lik.anc[i,])
       }
-    }
+      # add tip states at the beginning
+      states = c(intlabels$mapped_states, states)
 
-    else # use castor function (does not require tree to be rooted)
-    {
-      res = asr_mk_model(mastertree, intlabels$mapped_states, Nstates = intlabels$Nstates,
-                         rate_model = model, root_prior = root_prior)
+      tr1 = rooted_tree
+      tr1$edge.length = states[tr1$edge[,2]]
 
-      # get ancestral states
-      states = rep(0,length(res$ancestral_likelihoods[,1]))
-      for(i in 1:length(states)){
-        # the ancestral state is the one with the max likelihood
-        states[i] = which.max(res$ancestral_likelihoods[i,])
+      # code similar to multi2di.simmap from phytools
+      M = rbind(matchLabels(rooted_tree, mastertree),
+                matchNodes(rooted_tree, mastertree))
+
+      tr2 = mastertree
+      for(i in 1:nrow(M)){
+        if(!is.na(M[i,2])){
+          edge_to_set = which(tr2$edge[,2] == M[i,2])
+          edge_to_get = which(tr1$edge[,2] == M[i,1])
+          tr2$edge.length[edge_to_set] = tr1$edge.length[edge_to_get]
+        }
+        else {
+          if(getParent(tr1, M[i,1]) != find_root(tr1)) {
+            stop("Error: try providing an outgroup or set use_rooted = FALSE")
+          }
+        }
       }
+      if(plot) {
+        plotTreeCategorical(tr2, category_names = intlabels$state_names,
+                            master = mastertree)
+      }
+      return(tr2)
     }
 
-    #add tip states at the beginning
-    states = c(intlabels$mapped_states, states)
+    else {
+      if(use_rooted) #use ace from ape that requires tree to be rooted
+      {
+        rooted_tree = root(mastertree, outgroup = outgroup, resolve.root = TRUE)
 
-    # map states onto the phenotype tree
-    tree = mastertree
-    tree$edge.length = states[tree$edge[,2]]
+        # rooting adds a zero branch length that must be changed to nonzero
+        min = min(rooted_tree$edge.length[2:length(rooted_tree$edge.length)])
+        rooted_tree$edge.length[1] = min
 
-    # plot the phenotype tree if desired
-    if(plot) {
-      plotTreeCategorical(tree, category_names = intlabels$state_names,
-                          master = mastertree, node_states = states)
+        tipvals <- tipvals[rooted_tree$tip.label]
+        intlabels <- map_to_state_space(tipvals)
+
+        # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
+        print("The integer labels corresponding to each category are:")
+        print(intlabels$name2index)
+
+        # run ace
+        # res = ace(tipvals, rooted_tree, model= model, type = "discrete")
+        res = ace(intlabels$mapped_states, rooted_tree, model= model, type = "discrete")
+
+        # get ancestral states
+        states = rep(0,length(res$lik.anc[,1]))
+        for(i in 1:length(states)){
+          # the ancestral state is the one with the max likelihood
+          states[i] = which.max(res$lik.anc[i,])
+        }
+      }
+
+      else # use castor function (does not require tree to be rooted)
+      {
+        tipvals <- tipvals[mastertree$tip.label]
+        intlabels <- map_to_state_space(tipvals)
+
+        # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
+        print("The integer labels corresponding to each category are:")
+        print(intlabels$name2index)
+
+        res = asr_mk_model(mastertree, intlabels$mapped_states, Nstates = intlabels$Nstates,
+                           rate_model = model, root_prior = root_prior)
+
+        # get ancestral states
+        states = rep(0,length(res$ancestral_likelihoods[,1]))
+        for(i in 1:length(states)){
+          # the ancestral state is the one with the max likelihood
+          states[i] = which.max(res$ancestral_likelihoods[i,])
+        }
+      }
+
+      #add tip states at the beginning
+      states = c(intlabels$mapped_states, states)
+
+      # map states onto the phenotype tree
+      tree = mastertree
+      tree$edge.length = states[tree$edge[,2]]
+
+      # plot the phenotype tree if desired
+      if(plot) {
+        plotTreeCategorical(tree, category_names = intlabels$state_names,
+                            master = mastertree, node_states = states)
+      }
+      return(tree)
     }
-    return(tree)
   }
   else {
     # If there are <= 2 categories, return a binary phenotype tree
