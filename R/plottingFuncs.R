@@ -968,9 +968,11 @@ plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NUL
 #' @param tree The phenotype tree returned by \code{\link{char2TreeCategorical}}
 #' @param category_names The names of the categories in order of the corresponding numerical labels
 #' @param master If provided, the tree will be plotted using the branch lengths of that tree, coloring branches by the phenotype in the phenotype tree. The master tree and phenotype tree should have the same topology and the same species. If not provided, use.edge.length is set to FALSE.
+#' @param node_states A vector of the phenotype state at each node in the tree (in order of the nodes). If provided, vertical lines representing nodes in the tree are colored by state. It must be numerical and the integers must have the same mapping to the category names as in the phenotype tree.
 #' @return A plot of a phylogenetic tree with branches colored by phenotype category.
 #' @export
-plotTreeCategorical = function(tree, category_names = NULL, master = NULL) {
+plotTreeCategorical = function(tree, category_names = NULL, master = NULL,
+                               node_states = NULL) {
   # generate a color palette
   n = length(unique(tree$edge.length))
   if(n > length(palette())) {
