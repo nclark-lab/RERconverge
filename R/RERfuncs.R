@@ -1365,6 +1365,8 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
       return(res)
     }
     else {
+      tipvals <- tipvals[mastertree$tip.label]
+      intlabels <- map_to_state_space(tipvals)
       j <- which(intlabels$state_names == anctrait)
       if(length(j) < 1) {
         warning("The ancestral trait provided must match one of the traits in the phenotype vector.")
