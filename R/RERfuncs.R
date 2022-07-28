@@ -931,72 +931,71 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
       else if(method != "p" && sum(phens != 0) < min.pos) {
         next
       }
-      if (!weighted) {
-        x = rer
-        if (!is.null(winsorizeRER)) {
-          x = win(x, winsorizeRER)
-        }
-        if (!is.null(winsorizetrait)) {
-          y = win(phens, winsorizetrait)
-        }
-        else {
-          y = phens
-        }
-        if (method == "aov") {
-          yfacts = as.factor(y)
-          df = data.frame(x, yfacts)
-          colnames(df) = c("RER", "category")
-          ares = aov(RER ~ category, data = df)
-          ares_Fval = summary(ares)[[1]][1, 4]
-          ares_pval = summary(ares)[[1]][1, 5]
-          corout[i, 1:3] = c(ares_Fval, nb, ares_pval)
-          tukey = TukeyHSD(ares)
-          groups = rownames(tukey[[1]])
-          unnamedinds = which(is.na(names(tables)))
-          if (length(unnamedinds > 0)) {
-            newnamesinds = which(is.na(match(groups,
-                                             names(tables))))
-            if (length(newnamesinds) > 0) {
-              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-            }
-          }
-          for (k in 1:length(groups)) {
-            name = groups[k]
-            tables[[name]][i, "Rho"] = tukey[[1]][name,
-                                                  1]
-            tables[[name]][i, "P"] = tukey[[1]][name,
-                                                4]
+
+      x = rer
+      if (!is.null(winsorizeRER)) {
+        x = win(x, winsorizeRER)
+      }
+      if (!is.null(winsorizetrait)) {
+        y = win(phens, winsorizetrait)
+      }
+      else {
+        y = phens
+      }
+      if (method == "aov") {
+        yfacts = as.factor(y)
+        df = data.frame(x, yfacts)
+        colnames(df) = c("RER", "category")
+        ares = aov(RER ~ category, data = df)
+        ares_Fval = summary(ares)[[1]][1, 4]
+        ares_pval = summary(ares)[[1]][1, 5]
+        corout[i, 1:3] = c(ares_Fval, nb, ares_pval)
+        tukey = TukeyHSD(ares)
+        groups = rownames(tukey[[1]])
+        unnamedinds = which(is.na(names(tables)))
+        if (length(unnamedinds > 0)) {
+          newnamesinds = which(is.na(match(groups,
+                                           names(tables))))
+          if (length(newnamesinds) > 0) {
+            names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
           }
         }
-        else if (method == "kw") {
-          yfacts = as.factor(y)
-          df = data.frame(x, yfacts)
-          colnames(df) = c("RER", "category")
-          kres = kruskal.test(RER ~ category, data = df)
-          kres_Hval = kres$statistic
-          kres_pval = kres$p.value
-          corout[i, 1:3] = c(kres_Hval, length(phens), kres_pval)
-          dunn = dunnTest(RER ~ category, data = df,
-                          method = "bonferroni")
-          groups = dunn$res$Comparison
-          unnamedinds = which(is.na(names(tables)))
-          if (length(unnamedinds > 0)) {
-            newnamesinds = which(is.na(match(groups,
-                                             names(tables))))
-            if (length(newnamesinds) > 0) {
-              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-            }
-          }
-          for (k in 1:length(groups)) {
-            name = groups[k]
-            tables[[name]][i, "Rho"] = dunn$res$Z[k]
-            tables[[name]][i, "P"] = dunn$res$P.adj[k]
+        for (k in 1:length(groups)) {
+          name = groups[k]
+          tables[[name]][i, "Rho"] = tukey[[1]][name,
+                                                1]
+          tables[[name]][i, "P"] = tukey[[1]][name,
+                                              4]
+        }
+      }
+      else if (method == "kw") {
+        yfacts = as.factor(y)
+        df = data.frame(x, yfacts)
+        colnames(df) = c("RER", "category")
+        kres = kruskal.test(RER ~ category, data = df)
+        kres_Hval = kres$statistic
+        kres_pval = kres$p.value
+        corout[i, 1:3] = c(kres_Hval, length(phens), kres_pval)
+        dunn = dunnTest(RER ~ category, data = df,
+                        method = "bonferroni")
+        groups = dunn$res$Comparison
+        unnamedinds = which(is.na(names(tables)))
+        if (length(unnamedinds > 0)) {
+          newnamesinds = which(is.na(match(groups,
+                                           names(tables))))
+          if (length(newnamesinds) > 0) {
+            names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
           }
         }
-        else {
-          cres = cor.test(x, y, method = method, exact = F)
-          corout[i, 1:3] = c(cres$estimate, nb, cres$p.value)
+        for (k in 1:length(groups)) {
+          name = groups[k]
+          tables[[name]][i, "Rho"] = dunn$res$Z[k]
+          tables[[name]][i, "P"] = dunn$res$P.adj[k]
         }
+      }
+      else {
+        cres = cor.test(x, y, method = method, exact = F)
+        corout[i, 1:3] = c(cres$estimate, nb, cres$p.value)
       }
     }
   }
