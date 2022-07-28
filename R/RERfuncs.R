@@ -839,6 +839,186 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
   } else {corout}
 }
 
+#'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype vector for phenotype values at the tips of the tree
+#' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
+#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override
+#' @param min.sp Minimum number of species that must be present for a gene
+#' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
+#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.
+#' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme trait values at each end to the value closest to 0.
+#' @note  winsorize is in terms of number of observations at each end, NOT quantiles
+#' @return A list object with correlation values, p-values, and the number of data points used for each tree
+#' @export
+getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
+                                 min.sp = 10, min.pos = 2, winsorizeRER = NULL,
+                                 winsorizetrait = NULL)
+{
+  # if method is auto, set the method
+  if (method == "auto") {
+    # lu = length(unique(charP))
+    lu = length(unique(phenvals))
+    if (lu == 2) {
+      method = "k"
+      message("Setting method to Kendall")
+    }
+    else if (lu <= 5) {
+      method = "s"
+      message("Setting method to Spearman")
+    }
+    else {
+      method = "p"
+      message("Setting method to Pearson")
+      if (is.null(winsorizeRER)) {
+        message("Setting winsorizeRER=3")
+        winsorizeRER = 3
+      }
+      if (is.null(winsorizetrait)) {
+        message("Setting winsorizetrait=3")
+        winsorizetrait = 3
+      }
+    }
+  }
+
+  # define the function, win
+  win = function(x, w) {
+    xs = sort(x[!is.na(x)], decreasing = T)
+    xmax = xs[w]
+    xmin = xs[length(xs) - w + 1]
+    x[x > xmax] = xmax
+    x[x < xmin] = xmin
+    x
+  }
+
+  # make the matrix to store the results
+  corout = matrix(nrow = nrow(RERmat), ncol = 3)
+  rownames(corout) = rownames(RERmat)
+
+  # generate tables for the pairwise tests if trait is categorical
+  if (method == "aov" || method == "kw") {
+    lu = length(unique(phenvals[!is.na(phenvals)]))
+    n = choose(lu, 2)
+    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
+                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho",
+                                                                  "P")))
+    names(tables) = rep(NA, n)
+  }
+
+  # name the columns of corout
+  colnames(corout) = c("Rho", "N", "P")
+
+  # for each gene in the analysis...
+  for (i in 1:nrow(corout)) {
+    rer = RERmat[i,]
+    # get rid of NA values
+    rer = rer[!is.na(rer)]
+    # get rid of unnamed values (internal nodes)
+    rer = rer[!is.na(names(rer))]
+
+    # get the groups
+    phens = phenvals
+    # get rid of species that don't have an RER value
+    # opposite (in phens but not in rer) already caught above
+    phens = phens[names(rer)]
+
+    if((nb <- length(phens)) >= min.sp) {
+      # for a binary or categorical trait, test that # species in fgd or per category is > min.pos
+      if (method == "kw" || method == "aov") {
+        counts = table(phens)
+        if (length(counts) < 2 || min(counts) < min.pos) {
+          next
+        }
+      }
+      else if(method != "p" && sum(phens != 0) < min.pos) {
+        next
+      }
+      if (!weighted) {
+        x = rer
+        if (!is.null(winsorizeRER)) {
+          x = win(x, winsorizeRER)
+        }
+        if (!is.null(winsorizetrait)) {
+          y = win(phens, winsorizetrait)
+        }
+        else {
+          y = phens
+        }
+        if (method == "aov") {
+          yfacts = as.factor(y)
+          df = data.frame(x, yfacts)
+          colnames(df) = c("RER", "category")
+          ares = aov(RER ~ category, data = df)
+          ares_Fval = summary(ares)[[1]][1, 4]
+          ares_pval = summary(ares)[[1]][1, 5]
+          corout[i, 1:3] = c(ares_Fval, nb, ares_pval)
+          tukey = TukeyHSD(ares)
+          groups = rownames(tukey[[1]])
+          unnamedinds = which(is.na(names(tables)))
+          if (length(unnamedinds > 0)) {
+            newnamesinds = which(is.na(match(groups,
+                                             names(tables))))
+            if (length(newnamesinds) > 0) {
+              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+            }
+          }
+          for (k in 1:length(groups)) {
+            name = groups[k]
+            tables[[name]][i, "Rho"] = tukey[[1]][name,
+                                                  1]
+            tables[[name]][i, "P"] = tukey[[1]][name,
+                                                4]
+          }
+        }
+        else if (method == "kw") {
+          yfacts = as.factor(y)
+          df = data.frame(x, yfacts)
+          colnames(df) = c("RER", "category")
+          kres = kruskal.test(RER ~ category, data = df)
+          kres_Hval = kres$statistic
+          kres_pval = kres$p.value
+          corout[i, 1:3] = c(kres_Hval, length(phens), kres_pval)
+          dunn = dunnTest(RER ~ category, data = df,
+                          method = "bonferroni")
+          groups = dunn$res$Comparison
+          unnamedinds = which(is.na(names(tables)))
+          if (length(unnamedinds > 0)) {
+            newnamesinds = which(is.na(match(groups,
+                                             names(tables))))
+            if (length(newnamesinds) > 0) {
+              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+            }
+          }
+          for (k in 1:length(groups)) {
+            name = groups[k]
+            tables[[name]][i, "Rho"] = dunn$res$Z[k]
+            tables[[name]][i, "P"] = dunn$res$P.adj[k]
+          }
+        }
+        else {
+          cres = cor.test(x, y, method = method, exact = F)
+          corout[i, 1:3] = c(cres$estimate, nb, cres$p.value)
+        }
+      }
+    }
+  }
+
+  # format and return the output
+  corout = as.data.frame(corout)
+  corout$p.adj = p.adjust(corout$P, method = "BH")
+  if (method == "aov" || method == "kw") {
+    for (i in 1:length(tables)) {
+      # convert to a data frame
+      tables[[i]] = as.data.frame(tables[[i]])
+      # add an adjusted p value
+      tables[[i]]$p.adj = p.adjust(tables[[i]]$P, method = "BH")
+    }
+    return(list(corout, tables))
+  }
+  else {
+    corout
+  }
+}
+
+
 #' main RER computation function
 #' @param treesObj A treesObj created by \code{\link{readTrees}}
 #' @param a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.
