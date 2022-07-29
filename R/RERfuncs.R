@@ -916,8 +916,12 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 
     # get the groups
     phens = phenvals
-    # get rid of species that don't have an RER value
-    # opposite (in phens but not in rer) already caught above
+
+    # find which species are in phens and rers
+    keep = intersect(names(phens), names(rer))
+    # remove the rer values for species not in phens
+    rer = rer[keep]
+    # put phens in the same order as the rer values
     phens = phens[names(rer)]
 
     if((nb <- length(phens)) >= min.sp) {
