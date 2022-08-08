@@ -1385,6 +1385,315 @@ char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
   return(paths)
 }
 
+#' the function root from ape modified to return additional information about node matching and which edges are inverted
+#' ape citation: Paradis E. & Schliep K. 2019. ape 5.0: an environment for modern phylogenetics and evolutionary analyses in R.Bioinformatics 35: 526-528.
+#' @keywords internal
+Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
+                 interactive = FALSE, edgelabel = FALSE, ...)
+{
+  if (!inherits(phy, "phylo"))
+    stop('object not of class "phylo"')
+  phy <- reorder(phy)
+  n <- length(phy$tip.label)
+  ROOT <- n + 1L
+
+  if (interactive) {
+    node <- identify(phy)$nodes
+    cat("You have set resolve.root =", resolve.root, "\n")
+  }
+
+  ## added to solve some issues (2021-04-15):
+  if (!interactive && is.null(node) && length(outgroup) > 1 && resolve.root)
+    phy <- unroot(phy)
+  ## -> the condition check should insure compatibility
+
+  e1 <- phy$edge[, 1L]
+  e2 <- phy$edge[, 2L]
+  wbl <- !is.null(phy$edge.length)
+
+  if (!is.null(node)) {
+    if (node <= n) {
+      print(n)
+      stop("incorrect node#: should be greater than the number of taxa")
+    }
+    outgroup <- NULL
+    newroot <- node
+  } else {
+    if (is.numeric(outgroup)) {
+      if (any(outgroup > n))
+        stop("incorrect taxa#: should not be greater than the number of taxa")
+    }
+    if (is.character(outgroup)) {
+      outgroup <- match(outgroup, phy$tip.label)
+      if (anyNA(outgroup))
+        stop("specified outgroup not in labels of the tree")
+    }
+    if (length(outgroup) == n) return(phy)
+    outgroup <- sort(outgroup) # used below
+
+    ## First check that the outgroup is monophyletic, unless it has only one tip
+    if (length(outgroup) > 1) {
+      pp <- prop.part(phy)
+      ingroup <- (1:n)[-outgroup]
+      newroot <- 0L
+      for (i in 2:phy$Nnode) {
+        if (identical(pp[[i]], ingroup)) {
+          ## inverted with the next if (... (2013-06-16)
+          newroot <- e1[which(e2 == i + n)]
+          break
+        }
+        if (identical(pp[[i]], outgroup)) {
+          newroot <- i + n
+          break
+        }
+      }
+      if (!newroot)
+        stop("the specified outgroup is not monophyletic")
+      MRCA.outgroup <- i + n
+    } else newroot <- e1[which(e2 == outgroup)]
+  }
+
+  N <- Nedge(phy)
+  oldNnode <- phy$Nnode
+
+  Nclade <- tabulate(e1)[ROOT] # degree of the root node
+  ## if only 2 edges connect to the root, we have to fuse them:
+  fuseRoot <- Nclade == 2
+
+  if (newroot == ROOT) {
+    if (!resolve.root) return(phy) # else (resolve.root == TRUE)
+    if (length(outgroup) > 1) outgroup <- MRCA.outgroup
+    if (!is.null(node))
+      stop("ambiguous resolution of the root node: please specify an explicit outgroup")
+
+    k <- which(e1 == ROOT) # find the basal edges
+    if (length(k) > 2) {
+      i <- which(e2 == outgroup) # outgroup is always of length 1 here
+      j <- k[k != i]
+      newnod <- oldNnode + n + 1L
+      phy$edge[j, 1] <- newnod
+
+      phy$edge <- rbind(c(ROOT, newnod), phy$edge)
+      if (wbl) phy$edge.length <- c(0, phy$edge.length)
+
+      phy$Nnode <- phy$Nnode + 1L
+    }
+  } else {
+    phy$root.edge <- NULL # just in case
+
+    INV <- logical(N)
+    w <- which(e2 == newroot)
+    anc <- e1[w]
+    i <- w
+
+    nod <- anc
+
+    if (nod != ROOT) {
+      INV[w] <- TRUE
+      i <- w - 1L
+      repeat {
+        if (e2[i] == nod) {
+          if (e1[i] == ROOT) break
+          INV[i] <- TRUE
+          nod <- e1[i]
+        }
+        i <- i - 1L
+      }
+    }
+
+    ## we keep the edge leading to the old root if needed:
+    if (!fuseRoot) INV[i] <- TRUE
+
+    ## bind the other clades...
+
+    if (fuseRoot) { # do we have to fuse the two basal edges?
+      k <- which(e1 == ROOT)
+      k <- if (k[2] > w) k[2] else k[1]
+      phy$edge[k, 1] <- phy$edge[i, 2]
+      if (wbl)
+        phy$edge.length[k] <- phy$edge.length[k] + phy$edge.length[i]
+    }
+
+    if (fuseRoot) phy$Nnode <- oldNnode - 1L
+
+    ## added after discussion with Jaime Huerta Cepas (2016-07-30):
+    if (edgelabel) {
+      phy$node.label[e1[INV] - n] <- phy$node.label[e2[INV] - n]
+      phy$node.label[newroot - n] <- ""
+    }
+
+    phy$edge[INV, ] <- phy$edge[INV, 2:1]
+
+    if (fuseRoot) {
+      phy$edge <- phy$edge[-i, ]
+      if (wbl) phy$edge.length <- phy$edge.length[-i]
+      N <- N - 1L
+    }
+
+    if (resolve.root) {
+      newnod <- oldNnode + n + 1L
+      if (length(outgroup) == 1L) {
+        wh <- which(phy$edge[, 2] == outgroup)
+        #phy$edge[1] <- newnod
+        k <- which(phy$edge[, 1] == newroot) # wh should be among k
+        phy$edge[k[k != wh], 1] <- newnod
+        o <- c((1:N)[-wh], wh)
+        phy$edge <- rbind(c(newroot, newnod), phy$edge[o, ])
+        if (wbl) phy$edge.length <- c(0, phy$edge.length[o])
+      } else {
+        wh <- which(phy$edge[, 1] == newroot)
+        phy$edge[wh[-1], 1] <- newnod
+        s1 <- 1:(wh[2] - 1)
+        s2 <- wh[2]:N
+        phy$edge <-
+          rbind(phy$edge[s1, ], c(newroot, newnod), phy$edge[s2, ])
+        if (wbl)
+          phy$edge.length <- c(phy$edge.length[s1], 0, phy$edge.length[s2])
+      }
+      phy$Nnode <- phy$Nnode + 1L
+    }
+  }
+  ## The block below renumbers the nodes so that they conform
+  ## to the "phylo" format
+  newNb <- integer(n + phy$Nnode)
+  newNb[newroot] <- n + 1L
+  sndcol <- phy$edge[, 2] > n
+  newNb[sort(phy$edge[sndcol, 2])] <- n + 2:phy$Nnode
+  phy$edge[sndcol, 2] <- newNb[phy$edge[sndcol, 2]]
+  phy$edge[, 1] <- newNb[phy$edge[, 1]]
+
+  if (!is.null(phy$node.label)) {
+    newNb <- newNb[-(1:n)]
+    if (fuseRoot) {
+      newNb <- newNb[-1]
+      phy$node.label <- phy$node.label[-1]
+    }
+    phy$node.label <- phy$node.label[order(newNb)]
+    if (resolve.root) {
+      phy$node.label[is.na(phy$node.label)] <- phy$node.label[1]
+      phy$node.label[1] <- "Root"
+    }
+  }
+  attr(phy, "order") <- NULL
+  reorder.phylo(phy)
+
+  # make a map of old node numbers to new node numbers
+  map = cbind((n + 1L):(n + oldNnode), newNb[(n + 1L):(n + oldNnode)])
+  colnames(map) = c("old", "new")
+  # return the extra info
+  return(list(phy = phy, map = map, flipped_edges = INV))
+}
+
+#' Calculates ancestral likelihoods of ancestral states for discrete characters
+#' @param tree An object of class "phylo"
+#' @param tips The phenotype data for the species at the tips of the tree. Must be in the same order as tree$tip.label
+#' @param Q A transition rate matrix fit on the tree and tips
+#' @return A matrix of ancestral likelihoods with rows in the same order as the internal nodes in the tree
+asymmRerootingMethod <- function(tree, tips, Q) {
+
+  ntips = length(tree$tip.label)
+  # matrix to store the likelihoods
+  marg_anc_liks = matrix(nrow = tree$Nnode, ncol = nrow(Q))
+  # convert tips to a matrix
+  tips = to.matrix(tips, sort(unique(tips)))
+
+  # loop through the internal nodes
+  nodes = unique(tree$edge[,1]) # get the internal nodes
+
+  for(n in nodes) {
+    # reroot at node n
+    trInfo = Root(tree, node = n)
+
+    # check if it's the original tree
+    if(inherits(trInfo, "phylo")) {
+      # this is the original tree
+      tr = reorder(trInfo, order = "postorder")
+
+      # matrix to store likelihoods during pruning algorithm
+      liks = matrix(nrow = tr$Nnode, ncol = nrow(Q))
+      # add tips to liks
+      liks = rbind(tips, liks)
+
+      # loop through the internal nodes
+      parents = unique(tr$edge[,1])
+      for(i in 1:length(parents)) {
+        # get children of parent node
+        p = parents[i]
+        cc = tr$edge[,2][which(tr$edge[,1] == p)] # children nodes
+        ee = tr$edge.length[which(tr$edge[,1] == p)] # edge lengths
+
+        v = vector(mode = "list", length = length(cc))
+        for(c in 1:length(cc)) {
+          P = expm(Q * ee[c])
+          v[[c]] = P %*% liks[cc[c],]
+        }
+        ll = Reduce("*",v)[,1]
+        liks[p,] =  ll/sum(ll)  # normalize and store in liks
+      }
+
+      # add the root likelihood to marg_anc_liks
+      marg_anc_liks[(n - ntips),] = liks[n,] # n is the root
+
+    }
+    else { # not the original tree
+      # get the re-rooted tree
+      tr = trInfo$phy
+      map = trInfo$map
+
+      # reorder - postorder traversal for pruning algorihtm
+      tr = reorder(tr, order = "postorder")
+
+      # matrix to store likelihoods during pruning algorithm
+      liks = matrix(nrow = tr$Nnode, ncol = nrow(Q))
+      # add tips to liks
+      liks = rbind(tips, liks)
+
+      # loop through the internal nodes
+      parents = unique(tr$edge[,1])
+      for(i in 1:length(parents)) {
+        # get children of parent node
+        p = parents[i]
+        oldP = map[,1][which(map[,2] == p)]
+
+        cc = tr$edge[,2][which(tr$edge[,1] == p)] # children nodes
+        oldcc = sapply(cc, function(x){
+          if(x <= ntips) x
+          else map[,1][which(map[,2] == x)]
+        })
+
+        ee = tr$edge.length[which(tr$edge[,1] == p)] # edge lengths
+
+        v = vector(mode = "list", length = length(cc))
+        for(c in 1:length(cc)) {
+          # find the edge defined by oldP and oldcc[c]
+          oldEdge = which(apply(tree$edge,1,function(x){oldP %in% x && oldcc[c] %in% x}))
+
+          # determine if flipped or not flipped
+          if(length(oldEdge > 0)) { # if the oldEdge exists
+            flipped = trInfo$flipped_edges[oldEdge]
+          } else {
+            flipped = FALSE
+          }
+
+          # if flipped reverse the dot product between P and liks
+          P = expm(Q * ee[c])
+          if(flipped) {
+            v[[c]] = t(liks[cc[c],] %*% P) # take transpose so it has one column with multiple rows
+          } else {
+            v[[c]] = P %*% liks[cc[c],]
+          }
+        }
+        ll = Reduce("*",v)[,1]
+        liks[p,] =  ll/sum(ll)  # normalize and store in liks
+      }
+
+      # add the root likelihood to marg_anc_liks
+      root = min(parents)
+      marg_anc_liks[(n - ntips),] = liks[root,] # n is the root in the old tree
+    }
+  }
+  return(marg_anc_liks)
+}
 
 #' Creates a categorical trait tree from a set of tip species.
 #'@param tipvals the trait/phenotype/character value at the tip, \code{names(tip.vals)} should match some of the \code{mastertree$tip.label}, though a perfect match is not required
@@ -1398,15 +1707,12 @@ char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
 #'@param anctrait The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.
 #'@return A tree with edge.lengths representing phenotypic states
 #'@export
-char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
-                                use_rooted = FALSE, outgroup = NULL,
-                                model = "ER", root_prior = "auto",
-                                plot = FALSE, anctrait = NULL) {
-
-  # get masterTree from treesObj
+char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL, use_rooted = FALSE,
+                                  outgroup = NULL, model = "ER", root_prior = "auto", plot = FALSE,
+                                  anctrait = NULL)
+{
+  # get the master tree and prune to include useSpecies/species with phenotype data
   mastertree = treesObj$masterTree
-
-  # prune tree to only include species in useSpecies and print the missing species
   if (!is.null(useSpecies)) {
     sp.miss = setdiff(mastertree$tip.label, useSpecies)
     if (length(sp.miss) > 0) {
@@ -1415,165 +1721,201 @@ char2TreeCategorical = function(tipvals, treesObj, useSpecies = NULL,
     }
     useSpecies = intersect(mastertree$tip.label, useSpecies)
     mastertree = pruneTree(mastertree, useSpecies)
-  }else{
-    # if no useSpecies provided, prune the tree to only include species for which there is phenotype data
-    mastertree = pruneTree(mastertree, intersect(mastertree$tip.label, names(tipvals)))
   }
-
-  if(is.null(anctrait)) {
-    if(use_rooted && is.null(outgroup)){
-      # use multi2di instead
+  else {
+    mastertree = pruneTree(mastertree, intersect(mastertree$tip.label,
+                                                 names(tipvals)))
+  }
+  # use ASR to infer phenotype tree
+  if (is.null(anctrait)) {
+    if (use_rooted && is.null(outgroup)) { # convert to dichotomous tree
+      # this method only works for trees in which the only point of multichotomy is the root (like the zoonomia trees)
       rooted_tree = multi2di(mastertree, random = FALSE)
-      # change 0 branch length to min branch length in tree
-      min = min(rooted_tree$edge.length[2:length(rooted_tree$edge.length)])
-      rooted_tree$edge.length[1] = min
-
-      # multi2di should only add one extra node near the root
-      if(rooted_tree$Nnode - mastertree$Nnode > 1) {
+      # min = min(rooted_tree$edge.length[2:length(rooted_tree$edge.length)])
+      min = min(rooted_tree$edge.length[which(rooted_tree$edge.length != 0)])
+      rooted_tree$edge.length[which(rooted_tree$edge.length == 0)] = min
+      if (rooted_tree$Nnode - mastertree$Nnode > 1) { # if the rooted tree has more than one additionl node, this won't work
         stop("Error: try providing an outgroup or set use_rooted = FALSE")
       }
-
       tipvals <- tipvals[rooted_tree$tip.label]
       intlabels <- map_to_state_space(tipvals)
-
-      # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
       print("The integer labels corresponding to each category are:")
       print(intlabels$name2index)
-
-      res = ace(intlabels$mapped_states, rooted_tree, model= model, type = "discrete")
-
-      # get ancestral states
-      states = rep(0,length(res$lik.anc[,1]))
-      for(i in 1:length(states)){
-        # the ancestral state is the one with the max likelihood
-        states[i] = which.max(res$lik.anc[i,])
+      res = ace(intlabels$mapped_states, rooted_tree,
+                model = model, type = "discrete")
+      states = rep(0, length(res$lik.anc[, 1]))
+      for (i in 1:length(states)) {
+        states[i] = which.max(res$lik.anc[i, ])
       }
-      # add tip states at the beginning
+      root_state = states[1] # store root state since it doesn't get mapped onto the edge lengths
       states = c(intlabels$mapped_states, states)
-
       tr1 = rooted_tree
-      tr1$edge.length = states[tr1$edge[,2]]
-
-      # code similar to multi2di.simmap from phytools
+      tr1$edge.length = states[tr1$edge[, 2]]
       M = rbind(matchLabels(rooted_tree, mastertree),
                 matchNodes(rooted_tree, mastertree))
-
       tr2 = mastertree
-      for(i in 1:nrow(M)){
-        if(!is.na(M[i,2])){
-          edge_to_set = which(tr2$edge[,2] == M[i,2])
-          edge_to_get = which(tr1$edge[,2] == M[i,1])
+      for (i in 1:nrow(M)) {
+        if (!is.na(M[i, 2])) {
+          edge_to_set = which(tr2$edge[, 2] == M[i, 2])
+          edge_to_get = which(tr1$edge[, 2] == M[i, 1])
           tr2$edge.length[edge_to_set] = tr1$edge.length[edge_to_get]
         }
         else {
-          if(getParent(tr1, M[i,1]) != find_root(tr1)) {
-            stop("Error: try providing an outgroup or set use_rooted = FALSE")
+          if (getParent(tr1, M[i, 1]) != find_root(tr1)) {
+            stop("Error matching nodes between rooted and unrooted tree: try providing an outgroup or set use_rooted = FALSE")
           }
         }
       }
-      if(plot) {
-        plotTreeCategorical(tr2, category_names = intlabels$state_names,
-                            master = mastertree)
-      }
-      return(tr2)
+      # put states in correct order for plotting later
+      ntip = length(tr2$tip.label)
+      unrooted_states = tr2$edge.length[order(tr2$edge[,2])[(ntip + 1):nrow(tr2$edge)]]
+      unrooted_states = c(intlabels$mapped_states, root_state, unrooted_states)
+      tree = tr2
     }
-
-    else {
-      if(use_rooted) #use ace from ape that requires tree to be rooted
-      {
-        rooted_tree = root(mastertree, outgroup = outgroup, resolve.root = TRUE)
-
-        # rooting adds a zero branch length that must be changed to nonzero
-        min = min(rooted_tree$edge.length[2:length(rooted_tree$edge.length)])
-        rooted_tree$edge.length[1] = min
-
-        tipvals <- tipvals[rooted_tree$tip.label]
-        intlabels <- map_to_state_space(tipvals)
-
-        # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
-        print("The integer labels corresponding to each category are:")
-        print(intlabels$name2index)
-
-        # run ace
-        # res = ace(tipvals, rooted_tree, model= model, type = "discrete")
-        res = ace(intlabels$mapped_states, rooted_tree, model= model, type = "discrete")
-
-        # get ancestral states
-        states = rep(0,length(res$lik.anc[,1]))
-        for(i in 1:length(states)){
-          # the ancestral state is the one with the max likelihood
-          states[i] = which.max(res$lik.anc[i,])
-        }
+    else if(use_rooted && !is.null(outgroup)) { # root via an outgroup
+      rooted_tree = Root(mastertree, outgroup = outgroup,
+                         resolve.root = TRUE) # use the modified ape::root.phylo function that returns additional information
+      map = rooted_tree$map
+      rooted_tree = rooted_tree$phy
+      # min = min(rooted_tree$edge.length[2:length(rooted_tree$edge.length)])
+      # rooted_tree$edge.length[1] = min
+      min = min(rooted_tree$edge.length[which(rooted_tree$edge.length != 0)])
+      rooted_tree$edge.length[which(rooted_tree$edge.length == 0)] = min
+      tipvals <- tipvals[rooted_tree$tip.label]
+      intlabels <- map_to_state_space(tipvals)
+      print("The integer labels corresponding to each category are:")
+      print(intlabels$name2index)
+      res = ace(intlabels$mapped_states, rooted_tree,
+                model = model, type = "discrete")
+      states = rep(0, length(res$lik.anc[, 1]))
+      for (i in 1:length(states)) {
+        states[i] = which.max(res$lik.anc[i, ])
       }
-
-      else # use castor function (does not require tree to be rooted)
-      {
-        tipvals <- tipvals[mastertree$tip.label]
-        intlabels <- map_to_state_space(tipvals)
-
-        # PRINT THE CATEGORY TO INTERGER MAPPING TO THE CONSOLE #
-        print("The integer labels corresponding to each category are:")
-        print(intlabels$name2index)
-
-        res = asr_mk_model(mastertree, intlabels$mapped_states, Nstates = intlabels$Nstates,
-                           rate_model = model, root_prior = root_prior)
-
-        # get ancestral states
-        states = rep(0,length(res$ancestral_likelihoods[,1]))
-        for(i in 1:length(states)){
-          # the ancestral state is the one with the max likelihood
-          states[i] = which.max(res$ancestral_likelihoods[i,])
-        }
-      }
-
-      #add tip states at the beginning
+      root_state = states[1] # store root state since it doesn't get mapped onto branches
       states = c(intlabels$mapped_states, states)
-
-      # map states onto the phenotype tree
-      tree = mastertree
-      tree$edge.length = states[tree$edge[,2]]
-
-      # plot the phenotype tree if desired
-      if(plot) {
-        plotTreeCategorical(tree, category_names = intlabels$state_names,
-                            master = mastertree, node_states = states)
+      # map states onto the rooted tree
+      tr1 = rooted_tree
+      tr1$edge.length = states[tr1$edge[, 2]]
+      tr2 = mastertree # make a copy of the unrooted tree to map states onto
+      tr2$edge.length = intlabels$mapped_states[tr2$edge[,2]] # map tip states first
+      for (i in 1:nrow(map)) { # map internal states
+        # map[,2] is in the rooted tree (tr1)
+        # map[,1] is in the unrooted tree (tr2)
+        edge_to_set = which(tr2$edge[, 2] == map[i,1])
+        edge_to_get = which(tr1$edge[, 2] == map[i,2])
+        if(length(edge_to_get) > 0 && length(edge_to_set) > 0){
+          tr2$edge.length[edge_to_set] = tr1$edge.length[edge_to_get]
+        } else {
+          if(length(edge_to_set) > 0 && map[i,2] == length(tr1$tip.label) + 1) {
+            # if corresponding node in tr1 to node in t2 is the root of tr1, use the stored root state
+            tr2$edge.length[edge_to_set] = root_state
+          }
+        }
       }
-      return(tree)
+      # check if there are NA values or edge lengths that didn't get assigned a state in tr2$edge.length
+      if(sum(is.na(tr2$edge.length)) > 0 || sum(! tr2$edge.length %in% unique(intlabels$mapped_states)) > 0) {
+        stop("Error matching nodes between rooted and unrooted tree. Try again with outgroup = NULL or with use_rooted = FALSE.")
+      }
+      # put states in correct order for plotting later
+      ntip = length(tr2$tip.label)
+      unrooted_states = tr2$edge.length[order(tr2$edge[,2])[(ntip + 1):nrow(tr2$edge)]]
+      unrooted_states = c(intlabels$mapped_states, root_state, unrooted_states)
+      tree = tr2
     }
+    else { # use the unrooted tree
+      tipvals <- tipvals[mastertree$tip.label]
+      intlabels <- map_to_state_space(tipvals)
+      print("The integer labels corresponding to each category are:")
+      print(intlabels$name2index)
+
+      # DETERMINE VALUE OF REROOT
+      if(is.character(model)) {
+        if(model == "ARD") {reroot = FALSE} else {reroot = TRUE}
+      } else {
+        if(!isSymmetric(model)){
+          reroot = FALSE
+        } else {
+          reroot = TRUE
+        }
+      }
+
+      # REROOT == TRUE
+      if(reroot) {
+        res = asr_mk_model(mastertree, intlabels$mapped_states,
+                           Nstates = intlabels$Nstates, rate_model = model,
+                           root_prior = root_prior)
+      }
+      # REROOT == FALSE
+      else {
+        Q = fit_mk(mastertree, tip_states = intlabels$mapped_states,
+                   Nstates = intlabels$Nstates, rate_model = model,
+                   root_prior = root_prior)$transition_matrix
+        message("using new asymmetrical rerooting method, please wait...")
+        ancliks = asymmRerootingMethod(mastertree, intlabels$mapped_states, Q)
+        res = list(ancestral_likelihoods = ancliks)
+      }
+
+      states = rep(0, length(res$ancestral_likelihoods[, 1]))
+      for (i in 1:length(states)) {
+        states[i] = which.max(res$ancestral_likelihoods[i,])
+      }
+      states = c(intlabels$mapped_states, states)
+      tree = mastertree
+      tree$edge.length = states[tree$edge[, 2]]
+    }
+
+    # convert to binary tree if necessary, plot, & return tree
+    if(length(unique(tipvals)) == 2) {
+      if(sum(! unique(tipvals) %in% c(TRUE,FALSE)) > 0) { # check that the two categories are TRUE/FALSE
+        message("Returning categorical tree for binary phenotype because phenotype values are not TRUE/FALSE")
+      } else {
+        tree$edge.length = ifelse(tree$edge.length == 2, 1, 0)
+        print("There are only 2 categories: returning a binary phenotype tree.")
+        if (plot) {
+          plotTree(tree)
+        }
+        return(tree)
+      }
+    }
+    if (plot) {
+      plotTreeCategorical(tree, category_names = intlabels$state_names,
+                          master = mastertree, node_states = unrooted_states)
+    }
+    return(tree)
   }
   else {
-    # If there are <= 2 categories, return a binary phenotype tree
-    if(length(unique(tipvals)) <= 2) {
+    if (length(unique(tipvals)) <= 2) {
       fgspecs <- names(tipvals)[tipvals != anctrait]
-      res <- foreground2Tree(fgspecs, treesObj, plotTree = plot, clade = 'terminal',
-                             useSpecies = useSpecies)
+      res <- foreground2Tree(fgspecs, treesObj, plotTree = plot,
+                             clade = "terminal", useSpecies = useSpecies)
       print("There are only 2 categories: returning a binary phenotype tree.")
+      if(plot) {
+        plotTree(res)
+      }
       return(res)
     }
     else {
       tipvals <- tipvals[mastertree$tip.label]
       intlabels <- map_to_state_space(tipvals)
       j <- which(intlabels$state_names == anctrait)
-      if(length(j) < 1) {
+      if (length(j) < 1) {
         warning("The ancestral trait provided must match one of the traits in the phenotype vector.")
       }
-
       res = mastertree
-      res$edge.length <- rep(j,length(res$edge.length))
-
+      res$edge.length <- rep(j, length(res$edge.length))
       traits <- intlabels$state_names
-
-      for(trait in traits) {
-        if(trait == anctrait) {
+      for (trait in traits) {
+        if (trait == anctrait) {
           next
         }
-        i <-  which(intlabels$state_names == trait)
-        res$edge.length[nameEdges(res) %in% names(tipvals)[tipvals == trait]] = i
+        i <- which(intlabels$state_names == trait)
+        res$edge.length[nameEdges(res) %in% names(tipvals)[tipvals ==
+                                                             trait]] = i
       }
       names(res$edge.length) = nameEdges(res)
-
-      if(plot) {
-        plotTreeCategorical(res, category_names = traits, master = treesObj$masterTree)
+      if (plot) {
+        plotTreeCategorical(res, category_names = traits,
+                            master = treesObj$masterTree)
       }
       print("Category names are mapped to integers as follows:")
       print(intlabels$name2index)
