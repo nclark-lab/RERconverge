@@ -439,13 +439,15 @@ getPercentMatch <- function(sim, recon, confidence_threshold = NULL) {
 #' @keywords internal
 getBoxPlot <- function(tree, Q, rate_models, nsims = 100,
                        root_prior = get_stationary_distribution(Q),
-                       confidence_threshold) {
+                       confidence_threshold, use_simmap,
+                       simmap_nsims) {
   N = length(rate_models)
 
   # make a matrix to store percent matches to generate the boxplot
   res = matrix(nrow = nsims, ncol = N, dimnames = list(NULL, names(rate_models)))
 
   for(i in 1:nsims) {
+    print(i)
     # simulate evolution - ensure all states are represented in tips of the sim
     sim = simulate_mk_model(tree, Q)
     # sometimes, it might never be able to simulate every state at the tips, stop trying after nsims times
@@ -460,25 +462,67 @@ getBoxPlot <- function(tree, Q, rate_models, nsims = 100,
       return(NULL)
     }
 
+    # if using make.simmap, tip states must match labels of the transition matrix
+    if(use_simmap) {
+      tips = as.character(sim$tip_states)
+      names(tips) = tree$tip.label
+    }
+
     # reconstruct the simulated tree under the different rate models
     for(j in 1:N) {
       rm = rate_models[[j]]
 
-      # determine value of reroot
-      if(is.character(rm)) {
-        if(rm == "ARD") {reroot = FALSE} else {reroot = TRUE}
-      } else {
-        if(!isSymmetric(rm)){
-          reroot = FALSE
+      # if use_simmap, reconstruct with make.simmap
+      if(use_simmap) {
+        # fit a transition matrix under the rate model
+        fit = fit_mk(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
+                     rate_model = rm, root_prior = root_prior)
+
+        tm = fit$transition_matrix
+
+        dimnames(tm) = list(as.character(1:nrow(tm)), as.character(1:nrow(tm)))
+
+        # reconstruct with make.simmap
+        S = make.simmap(tree, x = tips, nsim = simmap_nsims, Q = tm,
+                        pi = root_prior, message = FALSE)
+
+        # get ancestral likelihoods
+        M = summary(S, plot = FALSE)$ace[1:tree$Nnode,]
+
+        # make a recon object that will work in getPercentMatch
+        recon = list(ancestral_likelihoods = M)
+      }
+      else { # use MLE to obtain ancestral likelihoods
+
+        # determine value of reroot
+        if(is.character(rm)) {
+          if(rm == "ARD") {reroot = FALSE} else {reroot = TRUE}
         } else {
-          reroot = TRUE
+          if(!isSymmetric(rm)){
+            reroot = FALSE
+          } else {
+            reroot = TRUE
+          }
+        }
+
+        if(reroot) {
+          recon = asr_mk_model(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
+                               rate_model = rm, reroot = reroot,
+                               root_prior = root_prior)
+        }
+        else {
+          fit = fit_mk(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
+                       rate_model = rm, root_prior = root_prior)
+
+          tm = fit$transition_matrix
+
+          liks = getAncLiks(tree, tipvals = sim$tip_states, Q = tm,
+                            root_prior = root_prior)
+
+          recon = list(ancestral_likelihoods = liks)
         }
       }
-
-      recon = asr_mk_model(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
-                           rate_model = rm, reroot = reroot,
-                           root_prior = root_prior)
-
+      # get match_correct and store in results table
       match_correct = getPercentMatch(sim, recon, confidence_threshold = confidence_threshold)
       res[i,j] = match_correct
     }
@@ -487,7 +531,6 @@ getBoxPlot <- function(tree, Q, rate_models, nsims = 100,
   data = stack(as.data.frame(res))
   colnames(data) = c("percent_correct", "rate_model")
   plot <- ggplot(data, aes(x = rate_model, y = percent_correct, color = rate_model)) + geom_boxplot()
-
   return(plot)
 }
 

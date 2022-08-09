@@ -19,6 +19,7 @@ require(phangorn)
 require(weights)
 require("castor")
 require(FSA)
+require(Matrix)
 
 #' reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
