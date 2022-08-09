@@ -8,10 +8,10 @@ char2TreeCategorical(
   tipvals,
   treesObj,
   useSpecies = NULL,
-  use_rooted = FALSE,
-  outgroup = NULL,
   model = "ER",
-  plot = FALSE
+  root_prior = "auto",
+  plot = FALSE,
+  anctrait = NULL
 )
 }
 \arguments{
@@ -22,16 +22,14 @@ char2TreeCategorical(
 \item{useSpecies}{Give only a subset of the species to use for ancestral state reconstruction
 (e.g., only those species for which the trait can be reliably determined).}
 
-\item{use_rooted}{Root the tree first to use the phytools function ace. Otherwise leaves the tree unrooted and uses the castor function asr_mk_model.}
-
-\item{outgroup}{If use_rooted is true, specifies what to use as the outgroup in order to root the tree}
-
 \item{model}{Specifies what rate model to use}
 
 \item{plot}{Plots a phenotype tree}
+
+\item{anctrait}{The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.}
 }
 \value{
-A tree with edge.lengths representing phenotypic states
+A tree with edge.length representing phenotype states
 }
 \description{
 Creates a categorical trait tree from a set of tip species.

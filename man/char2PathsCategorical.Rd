@@ -11,7 +11,8 @@ char2PathsCategorical(
   use_rooted = FALSE,
   outgroup = NULL,
   model = "ER",
-  plot = FALSE
+  plot = FALSE,
+  anctrait = NULL
 )
 }
 \arguments{
@@ -29,6 +30,8 @@ char2PathsCategorical(
 \item{model}{Specifies what rate model to use}
 
 \item{plot}{Plots a phenotype tree}
+
+\item{anctrait}{The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.}
 }
 \value{
 A vector of length equal to the number of paths in treesObj
