@@ -1870,8 +1870,12 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
       }
       names(res$edge.length) = nameEdges(res)
       if (plot) {
+        # get states for plotting
+        states = res$edge.length[order(res$edge[,2])]
+        states = c(j, states) # add root since it's not included in res$edge.length (no edge leading to the root)
         plotTreeCategorical(res, category_names = traits,
-                            master = treesObj$masterTree)
+                            master = treesObj$masterTree,
+                            node_states = states)
       }
       print("Category names are mapped to integers as follows:")
       print(intlabels$name2index)
