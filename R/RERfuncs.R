@@ -1373,12 +1373,10 @@ foreground2Tree = function(foreground,treesObj, plotTree=T, clade=c("ancestral",
 #'@return A vector of length equal to the number of paths in treesObj
 #'@export
 char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
-                                 use_rooted = FALSE, outgroup = NULL,
                                  model = "ER", plot = FALSE, anctrait = NULL) {
   #get tree
   tree = char2TreeCategorical(tipvals = tipvals, treesObj = treesObj,
-                              useSpecies = useSpecies, use_rooted = use_rooted,
-                              outgroup = outgroup, model = model, plot = plot,
+                              useSpecies = useSpecies, model = model, plot = plot,
                               anctrait = anctrait)
   # get paths
   paths = tree2Paths(tree, treesObj, useSpecies = useSpecies,
