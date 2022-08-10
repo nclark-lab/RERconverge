@@ -329,7 +329,7 @@ getRelativeEntropies <- function(P, M) {
   return(entropies)
 }
 
-# returns states at each node corresponding to the state with the max likelihood
+#' returns the states at each node corresponding to the state with the max likelihood
 #' @param ancliks a table of ancestral likelihoods with rows in node order and columns corresponding to phenotype states
 #' @param confidence_threshold the default is NULL, but if provided it will only obtain states from nodes whose max likelihood is greater than or equal to the confidence threshold
 #' @return a vector of states for the internal nodes in order of the internal nodes
@@ -883,6 +883,7 @@ searchRateModels <- function(treesObj, phenvals, pthreshold = 0.05,
   return(list(models = M, stats = tab))
 }
 
+#' Filters a list of rate models based on a boolean expression expressing filtering criteria
 #' @param models a list of rate models
 #' @param criteria a function that is passed to sapply specifying the desired criteria to filter by. It should take one argument, a rate model, and should be a boolean expression expressing criteria for the rate model.
 #' @return returns a subset of the list of rate models that match the criteria specified in the criteria function
