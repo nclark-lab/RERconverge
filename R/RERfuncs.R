@@ -1757,7 +1757,7 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
       des = cc[c]
       if(des > ntips) { # if the child node is an internal node, update likelihood
         P = expm(Q * ee[c])
-        tmp <- t(liks[p, ] / (P %*% liks[des, ])) # from ace, flip dot product and take transpose
+        tmp <- Matrix::t(liks[p, ] / (P %*% liks[des, ])) # from ace, but flip dot product and take transpose
         ll <- (tmp %*% P) * liks[des, ] # from ace
         ll = ll[1,]
         liks[des,] = ll/sum(ll)
