@@ -334,7 +334,7 @@ getRelativeEntropies <- function(P, M) {
 #' @param confidence_threshold the default is NULL, but if provided it will only obtain states from nodes whose max likelihood is greater than or equal to the confidence threshold
 #' @return a vector of states for the internal nodes in order of the internal nodes
 #' @export
-getAncStates <- function(ancliks, confidence_threshold = NULL) {
+getStatesAtNodes <- function(ancliks, confidence_threshold = NULL) {
   if(is.null(confidence_threshold)) {
     states = rep(0, length(ancliks[,1]))
     for (i in 1:length(states)) {
@@ -402,8 +402,8 @@ visCompareTwoRateModels <- function(A, B, treesObj, phenvals, mode = "entropy",
     names(relative_entropies) = 1:tree$Nnode + length(tree$tip.label)
     return(list(relative_entropies = sapply(relative_entropies,function(x){round(x,5)}), anc_liks1 = arA, anc_liks2 = arB))
   } else if (mode == "match") {
-    statesA = getAncStates(arA)
-    statesB = getAncStates(arB)
+    statesA = getStatesAtNodes(arA)
+    statesB = getStatesAtNodes(arB)
     res = cbind(statesA,statesB)
     rownames(res) = 1:tree$Nnode + length(tree$tip.label)
     mismatched_nodes = which(statesA != statesB) + length(tree$tip.label)
@@ -425,10 +425,10 @@ visCompareTwoRateModels <- function(A, B, treesObj, phenvals, mode = "entropy",
 getPercentMatch <- function(sim, recon, confidence_threshold = NULL) {
   if(is.null(confidence_threshold)) {
     Nnodes = length(sim$node_states)
-    states = getAncStates(recon$ancestral_likelihoods)
+    states = getStatesAtNodes(recon$ancestral_likelihoods)
     return(sum(states == sim$node_states) / Nnodes)
   } else {
-    states = getAncStates(recon$ancestral_likelihoods,
+    states = getStatesAtNodes(recon$ancestral_likelihoods,
                        confidence_threshold = confidence_threshold)
     Nnodes = sum(!is.na(states))
     return(sum(states == sim$node_states, na.rm = TRUE) / Nnodes)
