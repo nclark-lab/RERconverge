@@ -1809,7 +1809,7 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
     print("The integer labels corresponding to each category are:")
     print(intlabels$name2index)
 
-    ancliks = getAncLiks(tree, intlabels$mapped_states, rate_model = model,
+    ancliks = getAncLiks(mastertree, intlabels$mapped_states, rate_model = model,
                          root_prior = root_prior)
 
     states = rep(0, nrow(ancliks))
