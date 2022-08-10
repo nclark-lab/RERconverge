@@ -1697,9 +1697,9 @@ asymmRerootingMethod <- function(tree, tips, Q) {
   return(marg_anc_liks)
 }
 
-#' Returns ancestral likelihoods at each node. Based on code from ace in ape and rerootingMethod in phytools
+#' Returns ancestral likelihoods at each node. Based on code from ace in ape and fitMk/rerootingMethod in phytools
 #' @param tree Object of class phylo that has been pruned to only contain the species in tipvals
-#' @param tipvals The phenotype data for the extant species in the tree in the same order as tree$tip.label
+#' @param tipvals The phenotype data for the extant species in the tree in the same order as tree$tip.label and mapped to integers
 #' @param Q A transition matrix, if NULL the transition matrix is fit with fit_mk from castor package
 #' @param rate_model The rate model to use for fitting the transition matrix if one is not provided
 #' @param root_prior The root prior used when fitting the transition matrix if one is not provided
@@ -1718,9 +1718,12 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
 
   # get transition matrix, Q
   if(is.null(Q)) {
-    intlabels = map_to_state_space(tipvals)
-    Q = fit_mk(trees = tree, Nstates = intlabels$Nstates,
-               tip_states = intlabels$mapped_states,
+    # intlabels = map_to_state_space(tipvals)
+    # Q = fit_mk(trees = tree, Nstates = intlabels$Nstates,
+    #            tip_states = intlabels$mapped_states,
+    #            rate_model = rate_model, root_prior = root_prior)$transition_matrix
+    Q = fit_mk(trees = tree, Nstates = length(unique(tipvals)),
+               tip_states = tipvals,
                rate_model = rate_model, root_prior = root_prior)$transition_matrix
   }
 
