@@ -60,6 +60,8 @@ The required inputs are as follows:
 
 # Analysis Walkthrough
 
+## Installation
+
 Follow the steps for installing RERconverge on the
 [wiki](https://github.com/nclark-lab/RERconverge/wiki/install), up to
 the "Install from Github" step. Then, load the RERconverge library.
@@ -88,8 +90,10 @@ evolutionary rates in `getAllResiduals`. To ensure this is the case,
 follow the instructions in the "RERconverge Analysis Walkthrough"
 [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
 
+To use your own data that has already been saved in your working
+directory use the following code to read in the .rds files replacing the
+names of the files here with the names of your files:
 
-To use your own data that has already been saved in your working directory use the following code to read in the .rds files:
 ```{r message=FALSE, cache=TRUE, eval=FALSE}
 # read in the trees
 toyTrees =readRDS("toyTrees.rds") 
@@ -122,12 +126,15 @@ data("sleepPattern")
 RERmat = getAllResiduals(toyTrees, useSpecies = names(sleepPattern))
 ```
 
+## Inferring the Phenotype Tree
+
 Next, we generate the phenotype tree from the species-labeled phenotype
 vector using `char2TreeCategorical`.
 
-This function uses existing function from ape or castor in order to
-infer the likelihoods of ancestral states for all species in the tree.
-The relevant citations are given below:
+This function uses code from castor and internally calls the function
+`getAncLiks` which borrows heavily from the function `ace` in ape and
+from the functions `fitMk` and `rerootingMethod` in phytools. The
+relevant citations are given below:
 
 Paradis E. & Schliep K. 2019. ape 5.0: an environment for modern
 phylogenetics and evolutionary analyses in R. Bioinformatics 35:
@@ -137,57 +144,87 @@ Louca S, Doebeli M (2017). "Efficient comparative phylogenetics on large
 trees." *Bioinformatics*. doi: 10.1093/bioinformatics/btx701 (URL:
 <https://doi.org/10.1093/bioinformatics/btx701>).
 
+Revell, L. J. (2012) phytools: An R package for phylogenetic comparative
+biology (and other things). Methods Ecol. Evol. 3 217-223.
+<doi:10.1111/j.2041-210X.2011.00169.x>
+
+For more information on choosing a rate model (see parameter `model`
+below) refer to the "Ancestral State Reconstruction for Binary and
+Categorical Traits" [vignette](INSERT%20LINK%20HERE).
+
 This function takes the following inputs:
 
--   `tipvals`: The named vector of phenotype data
+-   `tipvals`: The named vector of phenotype data. This may be
+    categorical data or binary data. If the binary phenotype data is of
+    type logical (TRUE/FALSE), `char2TreeCategorical` automatically
+    returns the inferred ancestral states as a binary tree with branch
+    lengths of 1 and 0.
 -   `treesObj`: The trees object containing every gene tree
 -   `useSpecies`: Specifies the subset of species to use in the
     analysis. This vector of species should match the subset used to
     calculate RERs.
--   `use_rooted`: A boolean specifying whether to first root the tree
-    before performing ancestral trait reconstruction. The ape function
-    `ace` requires a rooted tree as input, therefore when use_rooted is
-    true, the ape function is used to infer ancestral states. The castor
-    function `asr_mk_model` does not require the tree to be rooted. The
-    default value for `use_rooted` is `FALSE` since the input trees are
-    unrooted.
--   `outgroup`: When `use_rooted` is `TRUE`, the user must supply an
-    outgroup to use when rooting the tree. The default value is `NULL`.
--   `model`: The model used for fitting the transition rate matrix. For
-    more information regarding input options for model when `use_rooted`
-    is `FALSE` see the description of the `rate_model` input from
-    [castor](https://rdrr.io/cran/castor/man/asr_mk_model.html). When
-    `use_rooted` is `TRUE`, reference the documentation from
+-   `model`: A character or matrix describing the model used for fitting
+    the transition rate matrix. The default option is `"ER"`, short for
+    equal rates indicating that all transitions between states occur at
+    the same rate. `"SYM"` (symmetric) and `"ARD"` (all rates different)
+    are also options. For more information, reference the ace
+    documentation in
     [ape](https://www.rdocumentation.org/packages/ape/versions/5.6-2/topics/ace)
-    for more information regarding the model. The default option is
-    `"ER"`.
+    or the "Ancestral State Reconstruction for Binary and Categorical
+    Traits" [vignette](INSERT%20LINK%20HERE), which provides an in depth
+    tutorial for selecting a rate model.
 -   `plot`: A boolean specifying whether to plot the phenotype tree.
+-   `anctrait`: If provided, the states of ancestral species will be
+    assigned to this trait rather than being inferred using maximum
+    likelihood methods. If provided, it MUST be one of the traits in the
+    phenotype vector. The default value is `NULL`.
 
-By default, the castor function which does not require rooting the tree is used:
+The code below shows how to obtain a phenotype tree using
+`char2TreeCategorical`.
+
 ```{r, cache = TRUE}
 
 allspecs = names(sleepPattern)
 
 # unrooted
-phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
-                              plot = TRUE)
+phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs, model = "SYM",
+                                plot = TRUE)
 ```
 
-Alternatively, to use the ape function and root the tree, run the following code:
-```{r, cache = TRUE, eval = FALSE}
-# rooted
+By default, `char2TreeCategorical` infers the ancestral states of
+species in the tree such that internal species can be assigned to any of
+the categories. However, there may be phenotypes in which it makes more
+sense for all ancestral species to belong to one category with some of
+the extant species belonging to the remaining categories. This is
+analogous to using the `clade = terminal` option in `foreground2Tree`
+for binary traits. (See the "RERconverge Analysis Walkthrough
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
+for a more detailed discussion of the `clade` argument.)
+
+By providing an ancestral trait via the `anctrait` argument,
+`char2TreeCategorical` will not infer the ancestral states of species.
+Instead, all ancestral species will be assigned to the ancestral trait
+while the extant species will be assigned to categories according to the
+named phenotype vector. The ancestral trait must be one of the traits in
+the phenotype vector, thus it is important to ensure that it is spelled
+the same and contains the same pattern of capitalization. When using
+this option with a trait that contains only two categories, the output
+will be a binary phenotype tree (the same output as `foreground2Tree`
+with `clade = terminal`), and the function will prompt you to proceed as
+appropriate for a binary trait analysis.
+
+```{r, eval = FALSE}
 allspecs = names(sleepPattern)
 
-phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
-                              use_rooted = TRUE, outgroup = "Human",
-                              plot = TRUE)
+phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs, plot = TRUE,
+                                anctrait = "NOCTURNAL")
 ```
 
-The output of this function is a phenotype tree with the same topology
-as the master tree. The phenotype states are stored on the branches of
-the tree as edge lengths. The ancestral trait reconstruction functions
-use numerical (integer) tip labels. The integers do not have any
-biological significance and are typically assigned in alphabetical
+The output of `char2TreeCategorical` is a phenotype tree with the same
+topology as the master tree. The phenotype states are stored on the
+branches of the tree as edge lengths. The ancestral trait reconstruction
+functions use numerical (integer) tip labels. The integers do not have
+any biological significance and are typically assigned in alphabetical
 order. The integer values corresponding to the categories in the
 phenotype vector are printed to the console.
 
@@ -200,10 +237,45 @@ intlabels = map_to_state_space(sleepPattern)
 print(intlabels$name2index)
 ```
 
+**Note:** `char2TreeCategorical` can automatically detect a binary
+phenotype and return the inferred phenotype tree as a binary tree (with
+branch lengths of 1 and 0). This binary tree is not necessarily
+equivalent to the binary tree returned by `foreground2Tree` because it
+uses different methods for inferring ancestral states.
+
+### Interactive Phenotype Tree Construction
+
+Alternatively, RERconverge provides an interactive selection tool. To
+open the interactive selection tool run
+`click_select_foreground_branches` as shown below. Running this function
+should open a plot of the master tree.
+
+```{r, eval=FALSE}
+phenTree = click_select_foreground_branches(toyTrees$masterTree)
+```
+
+Before making any selections, all the branches are automatically
+assigned to category 1. Begin by selecting branches corresponding to
+category 2. To select branches for the next category click the "New
+Category" button and select the corresponding branches. These will be
+assigned to category 3 and so on.
+
+IMPORTANT: When using this approach, there is no method that maps
+category names to numbers. Please keep track of the order in which you
+add the categories as `map_to_state_space` will NOT give the correct
+mapping. When finished, click "End Selection". If you only select
+foreground branches for one category, this function will automatically
+return a binary phenotype tree in which the branch lengths are "1"s and
+"0"s, and it will prompt you to use `correlateWithBinaryPhenotype`
+instead. In this case, you should also generate paths as described in
+the "RERconverge Analysis Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
+for binary traits.
+
 ## Generating **paths** using `char2PathsCategorical`
 
-Some of the gene trees are missing species from the analysis. To handle
-missing species, RERconverge generates paths. For a more detailed
+Some of the gene trees are missing species from the master tree. To
+handle missing species, RERconverge generates paths. For a more detailed
 discussion of paths see the "RERconverge Analysis Walkthrough"
 [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
 For categorical traits we use the function `char2PathsCategorical`. This
@@ -214,21 +286,25 @@ function has the same inputs as `char2TreeCategorical`.
 allspecs = names(sleepPattern)
 
 # unrooted
-charP = char2PathsCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
+charP = char2PathsCategorical(sleepPattern, toyTrees, useSpecies = allspecs, model = "ER", 
                               plot = FALSE)
 ```
 
-Alternatively, to use the rooted option run the code below: 
+Alternatively, you can generate paths directly from a phenotype tree
+generated by `char2TreeCategorical` or
+`click_select_foreground_branches` using the function `tree2Paths`.
 
-```{r, cache = TRUE, eval = FALSE}
+IMPORTANT: The phenotype tree MUST have the same topology as the master
+tree or a subset of the master tree. This is always the case when using
+`click_select_foreground_branches` or `char2TreeCategorical`.
 
-allspecs = names(sleepPattern)
-
-# rooted
-charP = char2PathsCategorical(sleepPattern, toyTrees, useSpecies = allspecs,
-                              use_rooted = TRUE, outgroup = "Human",
-                              plot = FALSE)
+```{r, eval=FALSE}
+charP = tree2Paths(phenTree, trees, useSpecies = names(sleepPattern), categorical = TRUE)
 ```
+
+(To see how to use `tree2Paths` on binary trees reference the
+"RERconverge Analysis Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).)
 
 ## Visualization
 
@@ -251,13 +327,23 @@ The inputs of this functiona are:
     `readTrees`. This tree will be plotted with its branches colored by
     the phenotypes stored in the phenotype tree.
 
+-   `node_states`: The states at each node (in order of the nodes in the
+    tree). If provided, these are used to color the vertical bars
+    corresponding to each node in the tree. The default is `NULL`.
+
 ```{r, cache = T}
+
+# get the states from the edges of the phenotype tree
+root_state = 3 # DIURNAL (3) is the state at the root
+states = c(root_state, phenTree$edge.length[order(phenTree$edge[,2])])
+
 # plotting phenotypes without relative evolutionary rates represented by branch length
-plotTreeCategorical(tree = phenTree, category_names = intlabels$state_names)
+plotTreeCategorical(tree = phenTree, category_names = intlabels$state_names,
+                    node_states = states)
 
 # plotting phenotypes with branch lengths from the master tree
 plotTreeCategorical(tree = phenTree, category_names = intlabels$state_names,
-                    master = toyTrees$masterTree)
+                    master = toyTrees$masterTree, node_states = states)
 ```
 
 **Visualizing the relative evolutionary rates:** The relative
@@ -275,7 +361,7 @@ the colors in the phenotype tree that is plotted by
 The example below will show how to plot the RERs for one of the top
 genes, `"AQP12B"`. The `plotRers` function takes the following as input:
 
--    `RERmat`: The RER matrix returned by `getAllResiduals`.
+-   `RERmat`: The RER matrix returned by `getAllResiduals`.
 
 -   `gene`: Either the name of the gene or the numerical index of the
     gene in the RER matrix.
@@ -293,9 +379,10 @@ plotRers(RERmat, gene, phenv = charP)
 
 ## Correlating gene evolution with categorical trait
 
-To correlate gene evolution with categorical trait evolution we use the function `correlateWithCategoricalPhenotype`. The function tests for association between the relative evolutionary
-rates of genes and the evolution of the phenotype. It takes the
-following as input:
+To correlate gene evolution with categorical trait evolution we use the
+function `correlateWithCategoricalPhenotype`. The function tests for
+association between the relative evolutionary rates of genes and the
+evolution of the phenotype. It takes the following as input:
 
 -   `RERmat`: The RER matrix from `getAllResiduals`.
 -   `charP`: The paths vector from `char2PathsCategorical`.
@@ -389,8 +476,16 @@ head(table[order(table$P),])
 The enrichment analysis is performed in the same way as for binary and
 continuous traits.
 
-You will need to download the gene sets and gene symbols from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt. Follow the instructions in the "RERconverge Analysis Walkthrough"
-[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf) in order to properly download and save the gmt file in your current working directory. The "RERconverge Analysis Walkthrough" may say to download the file named c2.all.v6.2.symbols.gmt, however if that is not available, c2.all.v7.5.1.symbols.gmt will work. Ensure that the name of the gmt file in your working directory is "gmtfile.gmt".
+You will need to download the gene sets and gene symbols from
+[GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as
+gmtfile.gmt. Follow the instructions in the "RERconverge Analysis
+Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
+in order to properly download and save the gmt file in your current
+working directory. The "RERconverge Analysis Walkthrough" may say to
+download the file named c2.all.v6.2.symbols.gmt, however if that is not
+available, c2.all.v7.5.1.symbols.gmt will work. Ensure that the name of
+the gmt file in your working directory is "gmtfile.gmt".
 
 **Input** is the output from the correlation function. This can be
 `allresults` (`cors[[1]]`) or any of the tables in the list,
