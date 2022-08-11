@@ -187,7 +187,7 @@ The code below shows how to obtain a phenotype tree using
 allspecs = names(sleepPattern)
 
 # unrooted
-phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs, model = "SYM",
+phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs, model = "ER",
                                 plot = TRUE)
 ```
 
