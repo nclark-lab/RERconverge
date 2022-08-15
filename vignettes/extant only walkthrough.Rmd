@@ -1,0 +1,199 @@
+---
+title: "Calculation of Association Statistics from Extant Species Only"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: 
+  pdf_document:
+      toc: yes
+  html_document:
+      css: custom.css
+      toc: yes
+authors: Ruby Redlich 
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\newpage
+
+This walkthrough demonstrates how to perform an RERconverge analysis
+using only the data at the tips of the tree, skipping the phylogenetic
+inference step of a typical RERconverge analysis. This walkthrough
+builds on existing RERconverge objects. First time users should first
+read the "RERconverge Analysis Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
+for information on installation, setup, and getting started.
+
+# Overview
+
+Typically, we recommend including ancestral states in an RERconverge
+analysis because incorporating evolutionary information can strengthen
+the statistical power of the analysis. However, there may be phenotypes
+in which ancestral states are not as informative and could add noise to
+the results. In that case, we present a method for calculating
+association statistics between relative evolutionary rates and phenotype
+values using only the extant species in the tree.
+
+## Data and Input Requirements
+
+The required inputs are as follows:
+
+1.  Phylogenetic trees of the same format described in the "RERconverge
+    Analysis Walkthrough"
+    [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+2.  Species-labeled phenotype values
+
+-   The species labels MUST match the tree tip labels that will be used
+    in `getAllResiduals` to calculate the relative evolutionary rates
+    (RERs)
+-   a named vector of binary, continuous, or categorical trait values
+
+# Analysis Walkthrough
+
+## Reading in Trees and Calculating Relative Evolutionary Rates
+
+Refer to the "RERconverge Analysis Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
+to learn how to read in gene trees using `readTrees` and calculate
+evolutionary rates using `getAllResiduals`.
+
+Running the code below will read in some example trees that come with
+the RERconverge package that we will use for this walkthrough.
+
+```{r results = 'hide', fig.show = 'hide', message = FALSE, cache = TRUE, warning = FALSE}
+# check RERconverge is properly installed
+library(RERconverge)
+
+# find where the package is located on your machine
+rerpath = find.package('RERconverge')
+
+# read in the trees with the given file name
+toytreefile = "subsetMammalGeneTrees.txt" 
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+
+# calculate the relative evolutionary rates with getAllResiduals
+RERmat = getAllResiduals(toyTrees)
+```
+
+## Binary Traits
+
+We will continue our analysis for binary traits. First, we define
+foreground species for the marine binary phenotype and generate a named
+phenotype vector.
+
+```{r}
+# define the foreground species
+marineextantforeground = c("Walrus","Seal","Killer_whale","Dolphin","Manatee")
+
+# make a phenotype vector for the species in the tree
+# the phenotype values must be numeric (0 and 1 instead of TRUE and FALSE)
+marinephenvals = rep(0, length(toyTrees$masterTree$tip.label))
+names(marinephenvals) = toyTrees$masterTree$tip.label
+# set the foreground species to true
+marinephenvals[marineextantforeground] = 1
+```
+
+Finally, we calculate statistics using `getAllCorExtantOnly` which takes
+the following as input:
+
+-   `RERmat`: The RER matrix returned by `getAllResiduals`.
+
+-   `phenvals`: the named phenotype vector with names matching those
+    used to calculated RERs in `getAllResiduals`.
+
+-   `method`: set to `"k"` for binary traits to calculate Kendall rank
+    coefficients, `"p"` for continuous traits to use a Pearson
+    correlation, and `"aov"` or `"kw"` for categorical traits to use an
+    ANOVA or Kruskal Wallis test respectively.
+
+-   `min.sp`: The minimum number extant species in the gene tree for
+    that gene to be included in the analysis.
+
+-   `min.pos`: The minimum number of extant foreground species in the
+    gene tree for that gene to be included in the analysis.
+
+-   `winsorizeRER/winsorizetrait`: pulls the most extreme N values
+    (default N=3) in both the positive and negative tails to the value
+    of the N+1 most extreme value. This process mitigates the effect of
+    extreme outliers before calculating correlations.
+
+```{r}
+# set method to k to use a Kendall rank test since this is a binary phenotype
+cors = getAllCorExtantOnly(RERmat, marinephenvals, method = "k")
+
+# view the top results
+head(cors[order(cors$P),])
+```
+
+For further analysis of the gene results, such as calculating functional
+enrichments, refer to the "RERconverge Analysis Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+## Continuous Traits
+
+We will follow much the same steps for continuous traits as we did for
+binary traits. First, ensure that you followed the instructions above
+for reading in the gene trees and calculating relative evolutionary
+rates.
+
+Next, we will load in some example data provided by RERconverge for the
+mammal body weight phenotype and calculate association statistics.
+
+```{r}
+# load in the example data
+data("logAdultWeightcm")
+
+# set mehtod to p to use a Pearson correlation since this is a continuous phenotype
+cors = getAllCorExtantOnly(RERmat, phenvals = logAdultWeightcm, method = "p")
+
+# view the top results
+head(cors[order(cors$P),])
+```
+
+For further analysis of the gene results, such as calculating functional
+enrichments, refer to the "RERconverge Analysis Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+## Categorical Traits
+
+Once again, we will follow very similar steps for categorical traits as
+for both binary and continuous traits. First, ensure that you followed
+the instructions above for reading in the gene trees and calculating
+relative evolutionary rates.
+
+Next, we will load in some example data provided by RERconverge for the
+sleep pattern phenotype and calculate association statistics.
+
+```{r}
+# load in the example data
+data("sleepPattern")
+
+# set mehtod to kw to use a Kruskal Wallis test since this is a categorical phenotype
+cors = getAllCorExtantOnly(RERmat, phenvals = sleepPattern, method = "kw")
+```
+
+Finally, we can view the results for all categories or for the pairwise
+comparisons between categories.
+
+```{r}
+# the first element of cors is a table of association statistics for the Kruskal Wallis or ANOVA test across categories
+all_categories_results = cors[[1]]
+# view top results
+head(all_categories_results[order(all_categories_results$P),])
+
+# the second element of cors is a list of tables of pairwise comparisons between categories
+pairwise_tests = cors[[2]]
+names(pairwise_tests)
+# view top results of pairwie test between diurnal and nocturnal species
+head(pairwise_tests[[6]][order(pairwise_tests[[6]]$P),])
+```
+
+# Conclusion
+
+This concludes the walkthrough on how to calculate association
+statistics between phenotype and relative evolutionary rates with only
+the extant species in the tree.
