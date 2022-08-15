@@ -8,8 +8,6 @@ char2PathsCategorical(
   tipvals,
   treesObj,
   useSpecies = NULL,
-  use_rooted = FALSE,
-  outgroup = NULL,
   model = "ER",
   plot = FALSE,
   anctrait = NULL
@@ -22,10 +20,6 @@ char2PathsCategorical(
 
 \item{useSpecies}{Give only a subset of the species to use for ancestral state reconstruction
 (e.g., only those species for which the trait can be reliably determined).}
-
-\item{use_rooted}{Root the tree first to use the phytools function ace. Otherwise leaves the tree unrooted and uses the castor function asr_mk_model.}
-
-\item{outgroup}{If use_rooted is true, specifies what to use as the outgroup in order to root the tree}
 
 \item{model}{Specifies what rate model to use}
 
