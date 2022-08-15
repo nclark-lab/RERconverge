@@ -1880,6 +1880,19 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
   }
 }
 
+#' Returns a list of states in node order from a phenotype tree
+#' @param phenTree The phenotype tree returned by char2TreeCategorical
+#' @param root_state The state of the root node, this is not stored along the edge lengths of the tree
+#' @param tipvals The states of the tips of the tree in order of phenTree$tip.label
+#' @return Returns a vector of the category states of species in order of the nodes in the tree
+#' @export
+getStatesFromPhenTree <- function(phenTree, root_state, tipvals) {
+  ntips = length(phenTree$tip.label)
+  node_states = phenTree$edge.length[order(phenTree$edge[,2])][(ntips + 1):(phenTree$Nnode + ntips - 1)]
+  states = c(tipvals, root_state, node_states)
+  return(states)
+}
+
 #' @keywords internal
 inferUnidirectionalForegroundClades <- function(tree, fgd = NULL, ancestralOnly = F){
   finaltree <- tree
