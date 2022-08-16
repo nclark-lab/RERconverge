@@ -437,10 +437,9 @@ getPercentMatch <- function(sim, recon, confidence_threshold = NULL) {
 
 # helper function that returns a boxplot for boxPlotTest function
 #' @keywords internal
-getBoxPlot <- function(tree, Q, rate_models, nsims = 100,
+getBoxPlot <- function(tree, Q, rate_models, nsims,
                        root_prior = get_stationary_distribution(Q),
-                       confidence_threshold, use_simmap,
-                       simmap_nsims) {
+                       confidence_threshold) {
   N = length(rate_models)
 
   # make a matrix to store percent matches to generate the boxplot
@@ -462,66 +461,38 @@ getBoxPlot <- function(tree, Q, rate_models, nsims = 100,
       return(NULL)
     }
 
-    # if using make.simmap, tip states must match labels of the transition matrix
-    if(use_simmap) {
-      tips = as.character(sim$tip_states)
-      names(tips) = tree$tip.label
-    }
-
     # reconstruct the simulated tree under the different rate models
     for(j in 1:N) {
       rm = rate_models[[j]]
 
-      # if use_simmap, reconstruct with make.simmap
-      if(use_simmap) {
-        # fit a transition matrix under the rate model
+      # determine value of reroot
+      if(is.character(rm)) {
+        if(rm == "ARD") {reroot = FALSE} else {reroot = TRUE}
+      } else {
+        if(!isSymmetric(rm)){
+          reroot = FALSE
+        } else {
+          reroot = TRUE
+        }
+      }
+
+      if(reroot) { # if symmetrical, use asr_mk_model because it is faster
+        recon = asr_mk_model(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
+                             rate_model = rm, reroot = reroot,
+                             root_prior = root_prior)
+      }
+      else { # otherwise, use getAncLiks becaue it works on asymmetrical models
         fit = fit_mk(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
                      rate_model = rm, root_prior = root_prior)
 
         tm = fit$transition_matrix
 
-        dimnames(tm) = list(as.character(1:nrow(tm)), as.character(1:nrow(tm)))
+        liks = getAncLiks(tree, tipvals = sim$tip_states, Q = tm,
+                          root_prior = root_prior)
 
-        # reconstruct with make.simmap
-        S = make.simmap(tree, x = tips, nsim = simmap_nsims, Q = tm,
-                        pi = root_prior, message = FALSE)
-
-        # get ancestral likelihoods
-        M = summary(S, plot = FALSE)$ace[1:tree$Nnode,]
-
-        # make a recon object that will work in getPercentMatch
-        recon = list(ancestral_likelihoods = M)
+        recon = list(ancestral_likelihoods = liks)
       }
-      else { # use MLE to obtain ancestral likelihoods
 
-        # determine value of reroot
-        if(is.character(rm)) {
-          if(rm == "ARD") {reroot = FALSE} else {reroot = TRUE}
-        } else {
-          if(!isSymmetric(rm)){
-            reroot = FALSE
-          } else {
-            reroot = TRUE
-          }
-        }
-
-        if(reroot) {
-          recon = asr_mk_model(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
-                               rate_model = rm, reroot = reroot,
-                               root_prior = root_prior)
-        }
-        else {
-          fit = fit_mk(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
-                       rate_model = rm, root_prior = root_prior)
-
-          tm = fit$transition_matrix
-
-          liks = getAncLiks(tree, tipvals = sim$tip_states, Q = tm,
-                            root_prior = root_prior)
-
-          recon = list(ancestral_likelihoods = liks)
-        }
-      }
       # get match_correct and store in results table
       match_correct = getPercentMatch(sim, recon, confidence_threshold = confidence_threshold)
       res[i,j] = match_correct
