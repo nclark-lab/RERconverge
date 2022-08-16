@@ -1762,7 +1762,7 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
   }
   liks = liks[-(1:ntips),]
   if(sum(is.nan(liks)) > 0) {
-    warning("NaN values produced. We recommend trying a different rate model.")
+    warning("NaN values produced. Zero values in the transition rate matrix preventing necessary transitions. Use a different rate model.")
   }
   return(liks)
 }

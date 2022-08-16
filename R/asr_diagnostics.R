@@ -494,7 +494,11 @@ getBoxPlot <- function(tree, Q, rate_models, nsims,
       }
 
       # get match_correct and store in results table
-      match_correct = getPercentMatch(sim, recon, confidence_threshold = confidence_threshold)
+      if(sum(is.nan(liks)) > 0) { # if NaN produced, the rate model was wrong for the tips & can't calculate match_correct
+        match_correct = NA
+      } else {
+        match_correct = getPercentMatch(sim, recon, confidence_threshold = confidence_threshold)
+      }
       res[i,j] = match_correct
     }
   }
