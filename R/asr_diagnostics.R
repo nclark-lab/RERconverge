@@ -480,6 +480,8 @@ getBoxPlot <- function(tree, Q, rate_models, nsims,
         recon = asr_mk_model(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
                              rate_model = rm, reroot = reroot,
                              root_prior = root_prior)
+
+        match_correct = getPercentMatch(sim, recon, confidence_threshold = confidence_threshold)
       }
       else { # otherwise, use getAncLiks becaue it works on asymmetrical models
         fit = fit_mk(tree, tip_states = sim$tip_states, Nstates = nrow(Q),
@@ -491,14 +493,15 @@ getBoxPlot <- function(tree, Q, rate_models, nsims,
                           root_prior = root_prior)
 
         recon = list(ancestral_likelihoods = liks)
+
+        # get match_correct and store in results table
+        if(sum(is.nan(liks)) > 0) { # if NaN produced, the rate model was wrong for the tips & can't calculate match_correct
+          match_correct = NA
+        } else {
+          match_correct = getPercentMatch(sim, recon, confidence_threshold = confidence_threshold)
+        }
       }
 
-      # get match_correct and store in results table
-      if(sum(is.nan(liks)) > 0) { # if NaN produced, the rate model was wrong for the tips & can't calculate match_correct
-        match_correct = NA
-      } else {
-        match_correct = getPercentMatch(sim, recon, confidence_threshold = confidence_threshold)
-      }
       res[i,j] = match_correct
     }
   }
