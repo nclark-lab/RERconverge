@@ -716,7 +716,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
       #check that there are >= min.pos species in each category
       if(method =="kw" || method =="aov") {
         counts = table(charP[ii])
-        if(length(counts) < 2 || min(counts) < min.pos) {
+        num_groups = length(counts) # k in eta^2 calculation for KW test
+        if(num_groups < 2 || min(counts) < min.pos) {
           next
         }
       }
@@ -749,9 +750,13 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           df = data.frame(x,yfacts)
           colnames(df) = c("RER", "category")
           ares = aov(RER ~ category, data = df)
-          ares_Fval = summary(ares)[[1]][1,4]
+          # ares_Fval = summary(ares)[[1]][1,4]
+          # calculate effect size:
+          sumsq = summary(ares)[[1]][1,2]
+          sumsqres = summary(ares)[[1]][2,2]
+          effect_size = sumsq / (sumsq + sumsqres)
           ares_pval = summary(ares)[[1]][1,5]
-          corout[i,1:3]=c(ares_Fval, nb, ares_pval)
+          corout[i,1:3]=c(effect_size, nb, ares_pval)
 
           tukey = TukeyHSD(ares)
 
@@ -782,7 +787,9 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           kres = kruskal.test(RER ~ category, data = df)
           kres_Hval = kres$statistic
           kres_pval = kres$p.value
-          corout[i,1:3] = c(kres_Hval, nb, kres_pval)
+          # calculate effect size
+          effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # (H - k + 1) / (n - k)
+          corout[i,1:3] = c(effect_size, nb, kres_pval)
 
           # Dunn test
           dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
