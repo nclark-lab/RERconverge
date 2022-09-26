@@ -754,6 +754,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           # calculate effect size:
           sumsq = summary(ares)[[1]][1,2]
           sumsqres = summary(ares)[[1]][2,2]
+          # eta2
           effect_size = sumsq / (sumsq + sumsqres)
           ares_pval = summary(ares)[[1]][1,5]
           corout[i,1:3]=c(effect_size, nb, ares_pval)
@@ -788,7 +789,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           kres_Hval = kres$statistic
           kres_pval = kres$p.value
           # calculate effect size
-          effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # (H - k + 1) / (n - k)
+          # effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # eta2: (H - k + 1) / (n - k)
+          effect_size = kres_Hval / (nb - 1) # epsilon squared
           corout[i,1:3] = c(effect_size, nb, kres_pval)
 
           # Dunn test
