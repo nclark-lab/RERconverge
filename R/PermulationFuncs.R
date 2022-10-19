@@ -172,7 +172,7 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
             fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
             nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
           } else {
-            if (length(which(mastertree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
+            if (length(which(trees$masterTree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
               fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
               nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
             } else {
