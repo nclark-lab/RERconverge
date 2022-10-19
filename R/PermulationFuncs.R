@@ -1,3 +1,117 @@
+#'Produces the phenotype inputs for binary permulation functions
+#' @param fgTree A binary phenotype tree containing the phenotype values (branch length = 1 for foreground species, 0 for background species)
+#' @return out A list containing fg_vec and sisters_list for binary permulation functions
+#' @export
+getBinaryPermulationInputsFromTree=function(fgTree){
+  unq_edge_lengths = unique(fgTree$edge.length)
+  if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
+    stop('Phenotype must be binary.')
+  }
+
+  idx_fg_branches = which(fgTree$edge.length == 1)
+  fg_edges = fgTree$edge[idx_fg_branches,]
+  all_edges = fgTree$edge
+
+  num_tip_species = length(fgTree$tip.label)
+  tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+  tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+
+  idx_node_edges = which(fg_edges[,2] > num_tip_species)
+  if (length(idx_node_edges) == 1){
+    edge_i = node_fg_edges
+    node_i = edge_i[2]
+    # find daughters of node_i
+    idx_daugthers_i = which(all_edges[,1] == node_i)
+    daughter_nodeIds = all_edges[idx_daugthers_i,2]
+    daughters = fgTree$tip.label[daughter_nodeIds]
+    sisters_list = list('node_i'=daughters)
+  } else if (length(idx_node_edges) == 0) {
+    sisters_list = NULL
+  } else {
+    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    daughters_info_list = list()
+    parents = NULL
+    for (i in 1:nrow(node_fg_edges)){
+      edge_i = node_fg_edges[i,]
+      # find the daughters of this node
+      idx_daughters_i = which(all_edges[,1] == edge_i[2])
+      daughter_edges = all_edges[idx_daughters_i,]
+      daughters_info_list[[i]] = daughter_edges[,2]
+      parents = c(parents, edge_i[2])
+    }
+    names(daughters_info_list) = parents
+    ### write something to order the branches based on depth
+    tip_fg_ids = tip_fg_edges[,2]
+    depth_order = rep(NA, length(daughters_info_list))
+    names(depth_order) = names(daughters_info_list)
+    order_assigned = NULL
+    while(length(which(is.na(depth_order))) > 0){
+      idx_na = which(is.na(depth_order))
+      if (length(idx_na) > 0){
+        for (j in 1:length(idx_na)){
+          idx_na_j = idx_na[j]
+          parent_j = parents[idx_na_j]
+          daughters_j = daughters_info_list[[idx_na_j]]
+          num_tip_daughters = length(which(daughters_j %in% tip_fg_ids))
+          if (num_tip_daughters == 2){
+            depth_order[idx_na_j] = 1
+            order_assigned = c(order_assigned, parent_j)
+          } else if (num_tip_daughters==1){
+            node_daughter = daughters_j[which(daughters_j > length(mastertree$tip.label))]
+            if (node_daughter %in% order_assigned){
+              depth_order[idx_na_j] = 2
+              order_assigned = c(order_assigned, parent_j)
+            }
+          } else if (num_tip_daughters==0){
+            node_daughters = daughters_j[which(daughters_j > length(mastertree$tip.label))]
+            if (length(which(node_daughters %in% order_assigned)) == 2){
+              node_daughters_depths = depth_order[as.character(node_daughters)]
+              depth_order[idx_na_j] = max(node_daughters_depths) + 1
+              order_assigned = c(order_assigned, parent_j)
+            }
+          }
+        }
+      }
+    }
+
+    # construct the sisters list
+    sisters_list = NULL
+    counter=0
+    unq_depth_order = sort(unique(depth_order))
+    nodes_addressed = tip_fg_ids
+    for (j in 1:length(unq_depth_order)){
+      depth_order_j = depth_order[which(depth_order==unq_depth_order[j])]
+      daughters_info_order_j = daughters_info_list[names(depth_order_j)]
+      for (i in 1:length(daughters_info_order_j)){
+        daughters_i = daughters_info_order_j[[i]]
+        if (length(which(daughters_i <= length(mastertree$tip.label))) == 2){
+          counter = counter+1
+          tip_daughters = mastertree$tip.label[daughters_i]
+          sisters_list[[counter]] = tip_daughters
+          names(sisters_list)[counter] = names(daughters_info_order_j)[i]
+          nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
+        } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 1){
+          counter = counter+1
+          tip_daughter_id = daughters_i[which(daughters_i <= length(mastertree$tip.label))]
+          tip_daughter = mastertree$tip.label[tip_daughter_id]
+          node_daughter_id = daughters_i[which(daughters_i > length(mastertree$tip.label))]
+          sisters_list[[counter]] = c(node_daughter_id, tip_daughter)
+          names(sisters_list)[counter] = names(daughters_info_order_j)[i]
+          nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
+        } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 0){
+          counter = counter+1
+          sisters_list[[counter]] = daughters_i
+          names(sisters_list)[counter] = names(daughters_info_order_j)[i]
+          nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
+        }
+      }
+    }
+  }
+  out = list('fg_vec'=tip_foregrounds, 'sisters_list'=sisters_list)
+  out
+}
+
+
 #'Generates a binary phenotype tree using the list of tip foreground animals, foreground common ancestors, and their phylogenetic relationships
 #' @param fg_vec A vector containing the tip foreground species
 #' @param sisters_list A list containing pairs of "sister species" in the foreground set (put NULL if empty)
