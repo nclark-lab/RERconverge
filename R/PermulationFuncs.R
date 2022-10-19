@@ -57,13 +57,13 @@ getBinaryPermulationInputsFromTree=function(fgTree){
             depth_order[idx_na_j] = 1
             order_assigned = c(order_assigned, parent_j)
           } else if (num_tip_daughters==1){
-            node_daughter = daughters_j[which(daughters_j > length(mastertree$tip.label))]
+            node_daughter = daughters_j[which(daughters_j > length(fgTree$tip.label))]
             if (node_daughter %in% order_assigned){
               depth_order[idx_na_j] = 2
               order_assigned = c(order_assigned, parent_j)
             }
           } else if (num_tip_daughters==0){
-            node_daughters = daughters_j[which(daughters_j > length(mastertree$tip.label))]
+            node_daughters = daughters_j[which(daughters_j > length(fgTree$tip.label))]
             if (length(which(node_daughters %in% order_assigned)) == 2){
               node_daughters_depths = depth_order[as.character(node_daughters)]
               depth_order[idx_na_j] = max(node_daughters_depths) + 1
@@ -84,21 +84,21 @@ getBinaryPermulationInputsFromTree=function(fgTree){
       daughters_info_order_j = daughters_info_list[names(depth_order_j)]
       for (i in 1:length(daughters_info_order_j)){
         daughters_i = daughters_info_order_j[[i]]
-        if (length(which(daughters_i <= length(mastertree$tip.label))) == 2){
+        if (length(which(daughters_i <= length(fgTree$tip.label))) == 2){
           counter = counter+1
-          tip_daughters = mastertree$tip.label[daughters_i]
+          tip_daughters = fgTree$tip.label[daughters_i]
           sisters_list[[counter]] = tip_daughters
           names(sisters_list)[counter] = names(daughters_info_order_j)[i]
           nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
-        } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 1){
+        } else if (length(which(daughters_i <=length(fgTree$tip.label))) == 1){
           counter = counter+1
-          tip_daughter_id = daughters_i[which(daughters_i <= length(mastertree$tip.label))]
-          tip_daughter = mastertree$tip.label[tip_daughter_id]
-          node_daughter_id = daughters_i[which(daughters_i > length(mastertree$tip.label))]
+          tip_daughter_id = daughters_i[which(daughters_i <= length(fgTree$tip.label))]
+          tip_daughter = fgTree$tip.label[tip_daughter_id]
+          node_daughter_id = daughters_i[which(daughters_i > length(fgTree$tip.label))]
           sisters_list[[counter]] = c(node_daughter_id, tip_daughter)
           names(sisters_list)[counter] = names(daughters_info_order_j)[i]
           nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
-        } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 0){
+        } else if (length(which(daughters_i <=length(fgTree$tip.label))) == 0){
           counter = counter+1
           sisters_list[[counter]] = daughters_i
           names(sisters_list)[counter] = names(daughters_info_order_j)[i]

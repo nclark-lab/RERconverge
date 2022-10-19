@@ -3,31 +3,27 @@ rerpath = find.package('RERconverge')
 
 #read trees
 toytreefile = "subsetMammalGeneTrees.txt"
-trees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
 
-fg_vec = c("Killer_whale", "Dolphin", "Walrus", "Seal", "Manatee", 'Sheep','Goat','Tibetan_antelope', 'Cow', 'Pig',
+### test foreground2TreeClades
+fg_vec_test1 = c("Killer_whale", "Dolphin", "Walrus", "Seal", "Manatee", 'Sheep','Goat','Tibetan_antelope', 'Cow', 'Pig',
            'Rhinoceros', 'Horse')
-sisters_list = list("clade1"=c("Killer_whale", "Dolphin"),
+sisters_list_test1 = list("clade1"=c("Killer_whale", "Dolphin"),
                     'clade4'=c('Sheep', 'Goat'), 'clade5'=c('Tibetan_antelope', 'clade4'), 'clade6'=c('clade5', 'Cow'),
                     'clade7'=c('clade6', 'clade1'),
                     'clade8'=c('clade7','Pig'),
                     'clade9'=c('Rhinoceros', 'Horse'))
 root_sp = "Human"
 
-
-#trees = toyTrees
-mastertree = trees$masterTree
-
-
-fgTree = foreground2TreeClades(fg_vec,sisters_list,toyTrees,plotTree=F)
-fgplot1 = plotTreeHighlightBranches(fgTree,
-                                        hlspecies=which(fgTree$edge.length==1),
+#mastertree = trees$masterTree
+fgTree_test1 = foreground2TreeClades(fg_vec_test1,sisters_list_test1,toyTrees,plotTree=F)
+fgplot1 = plotTreeHighlightBranches(fgTree_test1,
+                                        hlspecies=which(fgTree_test1$edge.length==1),
                                         hlcols="blue", main="Marine mammals trait tree")
 
 
-out_test = getPhenotypePermulationInputsFromTree(fgTree)
-
-test_tree = foreground2TreeClades(out_test$fg_vec, out_test$sisters_list, trees, plotTree=T)
+out_test = getPhenotypePermulationInputsFromTree(fgTree_test1)
+test_tree = foreground2TreeClades(out_test$fg_vec, out_test$sisters_list, toyTrees, plotTree=T)
 
 getPhenotypePermulationInputsFromTree=function(fgTree){
   unq_edge_lengths = unique(fgTree$edge.length)
@@ -84,13 +80,13 @@ getPhenotypePermulationInputsFromTree=function(fgTree){
             depth_order[idx_na_j] = 1
             order_assigned = c(order_assigned, parent_j)
           } else if (num_tip_daughters==1){
-            node_daughter = daughters_j[which(daughters_j > length(mastertree$tip.label))]
+            node_daughter = daughters_j[which(daughters_j > length(fgTree$tip.label))]
             if (node_daughter %in% order_assigned){
               depth_order[idx_na_j] = 2
               order_assigned = c(order_assigned, parent_j)
             }
           } else if (num_tip_daughters==0){
-            node_daughters = daughters_j[which(daughters_j > length(mastertree$tip.label))]
+            node_daughters = daughters_j[which(daughters_j > length(fgTree$tip.label))]
             if (length(which(node_daughters %in% order_assigned)) == 2){
               node_daughters_depths = depth_order[as.character(node_daughters)]
               depth_order[idx_na_j] = max(node_daughters_depths) + 1
@@ -111,21 +107,21 @@ getPhenotypePermulationInputsFromTree=function(fgTree){
       daughters_info_order_j = daughters_info_list[names(depth_order_j)]
       for (i in 1:length(daughters_info_order_j)){
         daughters_i = daughters_info_order_j[[i]]
-        if (length(which(daughters_i <= length(mastertree$tip.label))) == 2){
+        if (length(which(daughters_i <= length(fgTree$tip.label))) == 2){
           counter = counter+1
-          tip_daughters = mastertree$tip.label[daughters_i]
+          tip_daughters = fgTree$tip.label[daughters_i]
           sisters_list[[counter]] = tip_daughters
           names(sisters_list)[counter] = names(daughters_info_order_j)[i]
           nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
-        } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 1){
+        } else if (length(which(daughters_i <=length(fgTree$tip.label))) == 1){
           counter = counter+1
-          tip_daughter_id = daughters_i[which(daughters_i <= length(mastertree$tip.label))]
-          tip_daughter = mastertree$tip.label[tip_daughter_id]
-          node_daughter_id = daughters_i[which(daughters_i > length(mastertree$tip.label))]
+          tip_daughter_id = daughters_i[which(daughters_i <= length(fgTree$tip.label))]
+          tip_daughter = fgTree$tip.label[tip_daughter_id]
+          node_daughter_id = daughters_i[which(daughters_i > length(fgTree$tip.label))]
           sisters_list[[counter]] = c(node_daughter_id, tip_daughter)
           names(sisters_list)[counter] = names(daughters_info_order_j)[i]
           nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
-        } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 0){
+        } else if (length(which(daughters_i <=length(fgTree$tip.label))) == 0){
           counter = counter+1
           sisters_list[[counter]] = daughters_i
           names(sisters_list)[counter] = names(daughters_info_order_j)[i]
@@ -139,115 +135,6 @@ getPhenotypePermulationInputsFromTree=function(fgTree){
 }
 
 
-
-### get fg_vec and sisters_list from fgTree
-unq_edge_lengths = unique(fgTree$edge.length)
-if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
-  stop('Phenotype must be binary.')
-}
-
-idx_fg_branches = which(fgTree$edge.length == 1)
-fg_edges = fgTree$edge[idx_fg_branches,]
-all_edges = fgTree$edge
-
-num_tip_species = length(fgTree$tip.label)
-tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
-tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
-
-idx_node_edges = which(fg_edges[,2] > num_tip_species)
-if (length(idx_node_edges) == 1){
-  edge_i = node_fg_edges
-  node_i = edge_i[2]
-  # find daughters of node_i
-  idx_daugthers_i = which(all_edges[,1] == node_i)
-  daughter_nodeIds = all_edges[idx_daugthers_i,2]
-  daughters = fgTree$tip.label[daughter_nodeIds]
-  sisters_list = list('node_i'=daughters)
-} else if (length(idx_node_edges) == 0) {
-  sisters_list = NULL
-} else {
-  node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
-  daughters_info_list = list()
-  parents = NULL
-  for (i in 1:nrow(node_fg_edges)){
-    edge_i = node_fg_edges[i,]
-    # find the daughters of this node
-    idx_daughters_i = which(all_edges[,1] == edge_i[2])
-    daughter_edges = all_edges[idx_daughters_i,]
-    daughters_info_list[[i]] = daughter_edges[,2]
-    parents = c(parents, edge_i[2])
-  }
-  names(daughters_info_list) = parents
-  ### write something to order the branches based on depth
-  tip_fg_ids = tip_fg_edges[,2]
-  depth_order = rep(NA, length(daughters_info_list))
-  names(depth_order) = names(daughters_info_list)
-  order_assigned = NULL
-  while(length(which(is.na(depth_order))) > 0){
-    idx_na = which(is.na(depth_order))
-    if (length(idx_na) > 0){
-      for (j in 1:length(idx_na)){
-        idx_na_j = idx_na[j]
-        parent_j = parents[idx_na_j]
-        daughters_j = daughters_info_list[[idx_na_j]]
-        num_tip_daughters = length(which(daughters_j %in% tip_fg_ids))
-        if (num_tip_daughters == 2){
-          depth_order[idx_na_j] = 1
-          order_assigned = c(order_assigned, parent_j)
-        } else if (num_tip_daughters==1){
-          node_daughter = daughters_j[which(daughters_j > length(mastertree$tip.label))]
-          if (node_daughter %in% order_assigned){
-            depth_order[idx_na_j] = 2
-            order_assigned = c(order_assigned, parent_j)
-          }
-        } else if (num_tip_daughters==0){
-          node_daughters = daughters_j[which(daughters_j > length(mastertree$tip.label))]
-          if (length(which(node_daughters %in% order_assigned)) == 2){
-            node_daughters_depths = depth_order[as.character(node_daughters)]
-            depth_order[idx_na_j] = max(node_daughters_depths) + 1
-            order_assigned = c(order_assigned, parent_j)
-          }
-
-        }
-      }
-    }
-  }
-
-  # construct the sisters list
-  sisters_list = NULL
-  counter=0
-  unq_depth_order = sort(unique(depth_order))
-  nodes_addressed = tip_fg_ids
-  for (j in 1:length(unq_depth_order)){
-    depth_order_j = depth_order[which(depth_order==unq_depth_order[j])]
-    daughters_info_order_j = daughters_info_list[names(depth_order_j)]
-    for (i in 1:length(daughters_info_order_j)){
-      daughters_i = daughters_info_order_j[[i]]
-      if (length(which(daughters_i <= length(mastertree$tip.label))) == 2){
-        counter = counter+1
-        tip_daughters = mastertree$tip.label[daughters_i]
-        sisters_list[[counter]] = tip_daughters
-        names(sisters_list)[counter] = names(daughters_info_order_j)[i]
-        nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
-      } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 1){
-        counter = counter+1
-        tip_daughter_id = daughters_i[which(daughters_i <= length(mastertree$tip.label))]
-        tip_daughter = mastertree$tip.label[tip_daughter_id]
-        node_daughter_id = daughters_i[which(daughters_i > length(mastertree$tip.label))]
-        sisters_list[[counter]] = c(node_daughter_id, tip_daughter)
-        names(sisters_list)[counter] = names(daughters_info_order_j)[i]
-        nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
-      } else if (length(which(daughters_i <=length(mastertree$tip.label))) == 0){
-        counter = counter+1
-        sisters_list[[counter]] = daughters_i
-        names(sisters_list)[counter] = names(daughters_info_order_j)[i]
-        nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
-      }
-    }
-
-  }
-
-}
 
 
 fgOut = foreground2TreeClades(tip_foregrounds,sisters_list,toyTrees,plotTree=F)
@@ -303,7 +190,7 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
             nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
           } else {
             print('--- node has no tip foreground daughters in real tree; node either has 2 ancestral foreground daughters or node is not an ancestral foreground')
-            if (length(which(mastertree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
+            if (length(which(trees$masterTree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
               print('----- node is not an ancestral foreground')
               fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
               nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
