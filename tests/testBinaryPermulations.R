@@ -135,6 +135,7 @@ getPhenotypePermulationInputsFromTree=function(fgTree){
     }
   }
   out = list('fg_vec'=tip_foregrounds, 'sisters_list'=sisters_list)
+  out
 }
 
 
