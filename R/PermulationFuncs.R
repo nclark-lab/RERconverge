@@ -138,73 +138,82 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
   if (length(useSpecies)==0){
     useSpecies = trees$masterTree$tip.label
   }
-  fg_tree = foreground2Tree(fg_vec,trees,plotTree=F,clade="all",useSpecies=useSpecies)
-  edge = fg_tree$edge
-  edge.length=fg_tree$edge.length
 
-  ind.fg.edge = which(edge.length == 1)
-  nodeIds.fg.edge = edge[ind.fg.edge,]
+  if (is.null(sisters_list)){
+    fg.sisters.table=NULL
+    fg_tree = foreground2Tree(fg_vec, trees, plotTree=F, clade="terminal", useSpecies=useSpecies)
+  } else {
+    # Start with a temp phenotype tree assuming that all internal nodes are foregrounds
+    fg_tree = foreground2Tree(fg_vec,trees,plotTree=F,clade="all",useSpecies=useSpecies)
+    edge = fg_tree$edge
+    edge.length=fg_tree$edge.length
 
-  tip.sisters = vector("integer",length=0)
-  for (i in 1:length(sisters_list)){
-    sisters = sisters_list[[i]]
-    nodeId.sisters = which(useSpecies %in% sisters)
-    if (length(nodeId.sisters)>0){
-      tip.sisters = c(tip.sisters,nodeId.sisters)
+    ind.fg.edge = which(edge.length == 1)
+    nodeIds.fg.edge = edge[ind.fg.edge,] # all foreground edges in the temp tree
+
+    tip.sisters = vector("integer",length=0)
+    for (i in 1:length(sisters_list)){
+      sisters = sisters_list[[i]]
+      nodeId.sisters = which(useSpecies %in% sisters)
+      if (length(nodeId.sisters)>0){
+        tip.sisters = c(tip.sisters,nodeId.sisters)
+      }
     }
-  }
-  # Find and correct the pairs
-  fg.sisters.table = matrix(nrow=0,ncol=2)
-  colnames(fg.sisters.table) = c("species1","species2")
-  if (length(as.vector(nodeIds.fg.edge)) > 2){
-    all.nodeId.ca = sort(nodeIds.fg.edge[,1])
-    count_all_nodeId_ca = table(all.nodeId.ca)
-    unq.nodeId.ca = unique(all.nodeId.ca)
-    fg_ca = vector("integer",length=0) # node IDs of the common ancestor foregrounds
-    nodes_addressed = NULL
-    while (length(unq.nodeId.ca) != length(nodes_addressed)){
-      nodeId.ca = sort(all.nodeId.ca[which(!(all.nodeId.ca %in% nodes_addressed))])
-      for (nn in 1:(length(nodeId.ca)-1)){
-        if (nodeId.ca[nn] == nodeId.ca[nn+1]){
-          nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
-          if (length(which(nodeId.desc %in% tip.sisters)) > 0){
-            fg_ca = c(fg_ca,nodeId.ca[nn])
-            fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
-            nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
-          } else {
-            if (length(which(trees$masterTree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
-              fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
+
+    # Find and correct the pairs
+    fg.sisters.table = matrix(nrow=0,ncol=2)
+    colnames(fg.sisters.table) = c("species1","species2")
+    if (length(as.vector(nodeIds.fg.edge)) > 2){
+      all.nodeId.ca = sort(nodeIds.fg.edge[,1])
+      count_all_nodeId_ca = table(all.nodeId.ca)
+      unq.nodeId.ca = unique(all.nodeId.ca)
+      fg_ca = vector("integer",length=0) # node IDs of the common ancestor foregrounds
+      nodes_addressed = NULL
+      while (length(unq.nodeId.ca) != length(nodes_addressed)){
+        nodeId.ca = sort(all.nodeId.ca[which(!(all.nodeId.ca %in% nodes_addressed))])
+        for (nn in 1:(length(nodeId.ca)-1)){
+          if (nodeId.ca[nn] == nodeId.ca[nn+1]){
+            nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
+            if (length(which(nodeId.desc %in% tip.sisters)) > 0){
+              fg_ca = c(fg_ca,nodeId.ca[nn])
+              fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
               nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
             } else {
-              if (length(which(nodeId.desc %in% nodes_addressed)) == 2){
-                fg_ca = c(fg_ca,nodeId.ca[nn])
-                fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
+              if (length(which(trees$masterTree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
+                fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
                 nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+              } else {
+                if (length(which(nodeId.desc %in% nodes_addressed)) == 2){
+                  fg_ca = c(fg_ca,nodeId.ca[nn])
+                  fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
+                  nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                }
               }
             }
-          }
-        } else {
-          nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
-          if (length(nodeId.desc) == 2){
-            if (nodeId.ca[nn] != nodeId.ca[nn-1]){
-              fg_tree$edge.length[which(edge[,2] == nodeId.ca[nn])] = 0
-              nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
-              nodes_addressed = unique(nodes_addressed)
-            }
           } else {
-            nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+            nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
+            if (length(nodeId.desc) == 2){
+              if (nodeId.ca[nn] != nodeId.ca[nn-1]){
+                fg_tree$edge.length[which(edge[,2] == nodeId.ca[nn])] = 0
+                nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                nodes_addressed = unique(nodes_addressed)
+              }
+            } else {
+              nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+            }
           }
         }
       }
+      rownames(fg.sisters.table) = fg_ca
     }
-    rownames(fg.sisters.table) = fg_ca
-    if (plotTree==T){
-      plot(fg_tree)
-    }
+  }
+  if (plotTree==T){
+    plot(fg_tree)
   }
   output.list = list("fg.sisters.table"=fg.sisters.table,"tree"=fg_tree)
   output.list
 }
+
 
 #'Calculates permuted correlation and enrichment statistics for binary phenotype
 #' @param numperms An integer number of permulations
@@ -426,20 +435,28 @@ nameEdgesPerms=function(tree){
 #' @export
 simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
   tip.labels = mastertree$tip.label
-  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
   fg_tree = res$tree
   fg.table = res$fg.sisters.table
 
+  if (!is.null(sisters_list)){
+    fg_tree_info = getBinaryPermulationInputsFromTree(fg_tree)
+    num_tip_sisters_true = unlist(fg_tree_info$sisters_list)
+    num_tip_sisters_true = num_tip_sisters_true[which(num_tip_sisters_true %in% tip.labels)]
+    num_tip_sisters_true = length(num_tip_sisters_true)
+    fg_tree_depth_order = getDepthOrder(fg_tree)
+  }
+
   fgnum = length(which(fg_tree$edge.length == 1))
-  internal = nrow(fg.table)
+  if (!is.null(sisters_list)){
+    internal = nrow(fg.table)
+  } else {
+    internal = 0
+  }
   tips=fgnum-internal # the number of tips
 
-  num.tip.sisters.real = length(which(as.vector(fg.table) <= length(tip.labels)))
-
-  top = NA
-  num.tip.sisters.fake = 10000
-
-  while(num.tip.sisters.fake!= num.tip.sisters.real){
+  testcondition=FALSE
+  while(!testcondition){
     blsum=0
     while(blsum!=fgnum){
       t=root.phylo(trees$masterTree, root_sp, resolve.root = T)
@@ -452,9 +469,18 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
       top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
       t=foreground2Tree(top, trees, clade="all", plotTree = F)
       blsum=sum(t$edge.length)
-
-      t.table = findPairs(t)
-      num.tip.sisters.fake = length(which(as.vector(t.table) <= length(tip.labels)))
+    }
+    t_info = getBinaryPermulationInputsFromTree(t)
+    if (!is.null(sisters_list)){
+      num_tip_sisters_fake = unlist(t_info$sisters_list)
+      num_tip_sisters_fake = num_tip_sisters_fake[which(num_tip_sisters_fake %in% tip.labels)]
+      num_tip_sisters_fake = length(num_tip_sisters_fake)
+      t_depth_order = getDepthOrder(t)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order)) &&
+        (num_tip_sisters_fake == num_tip_sisters_true)
+    } else {
+      t_depth_order = getDepthOrder(t)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order))
     }
   }
   if (plotTreeBool){
@@ -462,6 +488,85 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
   }
   return(t)
 }
+
+#' @keywords internal
+getDepthOrder=function(fgTree){
+  unq_edge_lengths = unique(fgTree$edge.length)
+  if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
+    stop('Phenotype must be binary.')
+  }
+
+  idx_fg_branches = which(fgTree$edge.length == 1)
+  fg_edges = fgTree$edge[idx_fg_branches,]
+  all_edges = fgTree$edge
+
+  num_tip_species = length(fgTree$tip.label)
+  tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+  tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+  node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+
+  idx_node_edges = which(fg_edges[,2] > num_tip_species)
+  if (length(idx_node_edges) == 1){
+    edge_i = node_fg_edges
+    node_i = node_fg_edges[2]
+    # find daughters of node_i
+    idx_daugthers_i = which(all_edges[,1] == node_i)
+    daughter_nodeIds = all_edges[idx_daugthers_i,2]
+    daughters = fgTree$tip.label[daughter_nodeIds]
+    sisters_list = list('node_i'=daughters)
+  } else if (length(idx_node_edges) == 0) {
+    sisters_list = NULL
+  } else {
+    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    daughters_info_list = list()
+    parents = NULL
+    for (i in 1:nrow(node_fg_edges)){
+      edge_i = node_fg_edges[i,]
+      # find the daughters of this node
+      idx_daughters_i = which(all_edges[,1] == edge_i[2])
+      daughter_edges = all_edges[idx_daughters_i,]
+      daughters_info_list[[i]] = daughter_edges[,2]
+      parents = c(parents, edge_i[2])
+    }
+    names(daughters_info_list) = parents
+    ### write something to order the branches based on depth
+    tip_fg_ids = tip_fg_edges[,2]
+    depth_order = rep(NA, length(daughters_info_list))
+    names(depth_order) = names(daughters_info_list)
+    order_assigned = NULL
+    while(length(which(is.na(depth_order))) > 0){
+      idx_na = which(is.na(depth_order))
+      if (length(idx_na) > 0){
+        for (j in 1:length(idx_na)){
+          idx_na_j = idx_na[j]
+          parent_j = parents[idx_na_j]
+          daughters_j = daughters_info_list[[idx_na_j]]
+          num_tip_daughters = length(which(daughters_j %in% tip_fg_ids))
+          if (num_tip_daughters == 2){
+            depth_order[idx_na_j] = 1
+            order_assigned = c(order_assigned, parent_j)
+          } else if (num_tip_daughters==1){
+            node_daughter = daughters_j[which(daughters_j > length(fgTree$tip.label))]
+            if (node_daughter %in% order_assigned){
+              depth_order[idx_na_j] = depth_order[as.character(node_daughter)] + 1
+              order_assigned = c(order_assigned, parent_j)
+            }
+          } else if (num_tip_daughters==0){
+            node_daughters = daughters_j[which(daughters_j > length(fgTree$tip.label))]
+            if (length(which(node_daughters %in% order_assigned)) == 2){
+              node_daughters_depths = depth_order[as.character(node_daughters)]
+              depth_order[idx_na_j] = max(node_daughters_depths) + 1
+              order_assigned = c(order_assigned, parent_j)
+            }
+          }
+        }
+      }
+    }
+  }
+  depth_order
+}
+
+
 
 #'Produces one SSM binary permulation for a gene
 #' @param tree Tree of the gene of interest
