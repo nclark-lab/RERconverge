@@ -126,6 +126,7 @@ foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpec
   fg.tree
 }
 
+
 #'Generates a binary phenotype tree and foreground clades information using the list of tip foreground animals, the presence of foreground common ancestors, and their phylogenetic relationships
 #' @param fg_vec A vector containing the tip foreground species
 #' @param sisters_list A list containing pairs of "sister species" in the foreground set (put NULL if empty)
@@ -439,6 +440,9 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
   fg_tree = res$tree
   fg.table = res$fg.sisters.table
 
+  t=root.phylo(trees$masterTree, root_sp, resolve.root = T)
+  rm=ratematrix(t, pathvec)
+
   if (!is.null(sisters_list)){
     fg_tree_info = getBinaryPermulationInputsFromTree(fg_tree)
     num_tip_sisters_true = unlist(fg_tree_info$sisters_list)
@@ -459,8 +463,6 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
   while(!testcondition){
     blsum=0
     while(blsum!=fgnum){
-      t=root.phylo(trees$masterTree, root_sp, resolve.root = T)
-      rm=ratematrix(t, pathvec)
       sims=sim.char(t, rm, nsim = 1)
       nam=rownames(sims)
       s=as.data.frame(sims)
