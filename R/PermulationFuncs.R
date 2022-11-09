@@ -172,35 +172,40 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
       nodes_addressed = NULL
       while (length(unq.nodeId.ca) != length(nodes_addressed)){
         nodeId.ca = sort(all.nodeId.ca[which(!(all.nodeId.ca %in% nodes_addressed))])
-        for (nn in 1:(length(nodeId.ca)-1)){
-          if (nodeId.ca[nn] == nodeId.ca[nn+1]){
-            nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
-            if (length(which(nodeId.desc %in% tip.sisters)) > 0){
-              fg_ca = c(fg_ca,nodeId.ca[nn])
-              fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
-              nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
-            } else {
-              if (length(which(trees$masterTree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
-                fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
+        if (length(nodeId.ca) == 1){
+          nodes_addressed = c(nodes_addressed, nodeId.ca)
+        } else {
+          for (nn in 1:(length(nodeId.ca)-1)){
+
+            if (nodeId.ca[nn] == nodeId.ca[nn+1]){
+              nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
+              if (length(which(nodeId.desc %in% tip.sisters)) > 0){
+                fg_ca = c(fg_ca,nodeId.ca[nn])
+                fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
                 nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
               } else {
-                if (length(which(nodeId.desc %in% nodes_addressed)) == 2){
-                  fg_ca = c(fg_ca,nodeId.ca[nn])
-                  fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
+                if (length(which(trees$masterTree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
+                  fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
                   nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                } else {
+                  if (length(which(nodeId.desc %in% nodes_addressed)) == 2){
+                    fg_ca = c(fg_ca,nodeId.ca[nn])
+                    fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
+                    nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                  }
                 }
               }
-            }
-          } else {
-            nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
-            if (length(nodeId.desc) == 2){
-              if (nodeId.ca[nn] != nodeId.ca[nn-1]){
-                fg_tree$edge.length[which(edge[,2] == nodeId.ca[nn])] = 0
-                nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
-                nodes_addressed = unique(nodes_addressed)
-              }
             } else {
-              nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+              nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
+              if (length(nodeId.desc) == 2){
+                if (nodeId.ca[nn] != nodeId.ca[nn-1]){
+                  fg_tree$edge.length[which(edge[,2] == nodeId.ca[nn])] = 0
+                  nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                  nodes_addressed = unique(nodes_addressed)
+                }
+              } else {
+                nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+              }
             }
           }
         }
