@@ -18,6 +18,7 @@ getBinaryPermulationInputsFromTree=function(fgTree){
 
   idx_node_edges = which(fg_edges[,2] > num_tip_species)
   if (length(idx_node_edges) == 1){
+    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
     edge_i = node_fg_edges
     node_i = edge_i[2]
     # find daughters of node_i
@@ -184,7 +185,7 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
                 fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
                 nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
               } else {
-                if (length(which(trees$masterTree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
+                if (length(which(fg_tree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
                   fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
                   nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
                 } else {
@@ -514,17 +515,13 @@ getDepthOrder=function(fgTree){
 
   idx_node_edges = which(fg_edges[,2] > num_tip_species)
   if (length(idx_node_edges) == 1){
-    edge_i = node_fg_edges
-    node_i = node_fg_edges[2]
-    # find daughters of node_i
-    idx_daugthers_i = which(all_edges[,1] == node_i)
-    daughter_nodeIds = all_edges[idx_daugthers_i,2]
-    daughters = fgTree$tip.label[daughter_nodeIds]
-    sisters_list = list('node_i'=daughters)
-  } else if (length(idx_node_edges) == 0) {
+    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    node_fg_edges = t(as.data.frame(node_fg_edges))
+  }
+  if (length(idx_node_edges) == 0) {
     sisters_list = NULL
   } else {
-    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    #node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
     daughters_info_list = list()
     parents = NULL
     for (i in 1:nrow(node_fg_edges)){
@@ -602,21 +599,31 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
     fg_tree = res$tree
     fg.table = res$fg.sisters.table
 
+    t=root.phylo(tree, root_sp, resolve.root = T)
+    rm=ratematrix(t, pathvec)
+
+    if (!is.null(sisters_list)){
+      fg_tree_info = getBinaryPermulationInputsFromTree(fg_tree)
+      num_tip_sisters_true = unlist(fg_tree_info$sisters_list)
+      num_tip_sisters_true = num_tip_sisters_true[which(num_tip_sisters_true %in% tip.labels)]
+      num_tip_sisters_true = length(num_tip_sisters_true)
+      fg_tree_depth_order = getDepthOrder(fg_tree)
+    }
+
     fgnum = length(which(fg_tree$edge.length == 1))
-    internal = nrow(fg.table)
+    if (!is.null(sisters_list)){
+      internal = nrow(fg.table)
+    } else {
+      internal = 0
+    }
     tips=fgnum-internal # the number of tips
 
-    num.tip.sisters.real = length(which(as.vector(fg.table) <= length(tip.labels)))
-
-    top = NA
-    num.tip.sisters.fake = 10000
-    while(num.tip.sisters.fake!= num.tip.sisters.real){
+    testcondition=FALSE
+    while(!testcondition){
       blsum=0
       while(blsum!=fgnum){
-        t=root.phylo(trees$masterTree, root_sp, resolve.root = T) # roots the tree on the defined root
-        rm=ratematrix(t, pathvec) # calculates the evolutionary VCV matrix
-        sims=sim.char(t, rm, nsim = 1) # simulates evolution of discrete or continuous characters on a phylogenetic tree, results in phenotype vector
-        nam=rownames(sims) # name of the animals
+        sims=sim.char(t, rm, nsim = 1)
+        nam=rownames(sims)
         s=as.data.frame(sims)
         simulatedvec=s[,1]
         names(simulatedvec)=nam
@@ -625,12 +632,22 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
         top = top.tree_k[1:tips]
         t=foreground2Tree(top, trees, clade="all", plotTree = F, useSpecies=tip.labels)
         blsum=sum(t$edge.length)
-
-        t.table = findPairs(t)
-        num.tip.sisters.fake = length(which(as.vector(t.table) <= length(tip.labels)))
+      }
+      t_info = getBinaryPermulationInputsFromTree(t)
+      if (!is.null(sisters_list)){
+        num_tip_sisters_fake = unlist(t_info$sisters_list)
+        num_tip_sisters_fake = num_tip_sisters_fake[which(num_tip_sisters_fake %in% tip.labels)]
+        num_tip_sisters_fake = length(num_tip_sisters_fake)
+        t_depth_order = getDepthOrder(t)
+        testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order)) &&
+          (num_tip_sisters_fake == num_tip_sisters_true)
+      } else {
+        t_depth_order = getDepthOrder(t)
+        testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order))
       }
     }
   }
+
   if (plotTreeBool){
     plot(t)
   }
