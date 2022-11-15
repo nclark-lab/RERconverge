@@ -3,7 +3,8 @@ rerpath = find.package('RERconverge')
 
 #read trees
 toytreefile = "subsetMammalGeneTrees.txt"
-toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+toyTrees=readTrees(paste(rerpath,"/inst/extdata/",toytreefile,sep=""), max.read = 200)
+#test_read=readLines(paste(rerpath,"/extdata/",toytreefile,sep=""))
 
 #### Work on permulation for specific trees with internal foregrounds with no tip foregrounds
 fg_vec_test2 = c("Killer_whale", "Dolphin", "Walrus", "Seal", "Manatee")
@@ -12,19 +13,14 @@ root_sp = "Human"
 
 fgTree = foreground2TreeClades(fg_vec_test2,sisters_list_test2,toyTrees,plotTree=T)
 
-
-
-
+# drop 2 species to test SSM
 trees = toyTrees
 tree = trees$masterTree
 tree = drop.tip(tree, c('Ferret', 'Killer_whale'))
 
-fg_vec = fg_vec_test2
-sisters_list = sisters_list_test2
 
 fgTree_test2 = foreground2TreeClades(fg_vec_test2,sisters_list_test2,toyTrees,plotTree=T)
 pathvec_test2 = tree2PathsClades(fgTree_test2, toyTrees)
-pathvec = pathvec_test2
 
 
 simBinPhenoSSM(tree, toyTrees, root_sp, fg_vec_test2, sisters_list=sisters_list_test2, pathvec_test2, plotTreeBool=T)
@@ -41,6 +37,8 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
     t$Nnode = NULL
     t$tip.label = NULL
   } else {
+    print('here')
+#    stop('stopped')
     fg_k = tip.labels[ind_fg] # the list of the observed foreground animals that exist in the gene tree
 
     res = getForegroundInfoClades(fg_k,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
@@ -191,7 +189,7 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
 }
 
 
-
+fgTree = fg_tree
 
 
 getDepthOrder=function(fgTree){
@@ -216,6 +214,7 @@ getDepthOrder=function(fgTree){
   }
   if (length(idx_node_edges) == 0) {
     sisters_list = NULL
+    depth_order=NULL
   } else {
     #node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
     daughters_info_list = list()

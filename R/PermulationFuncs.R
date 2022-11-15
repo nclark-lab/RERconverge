@@ -520,6 +520,7 @@ getDepthOrder=function(fgTree){
   }
   if (length(idx_node_edges) == 0) {
     sisters_list = NULL
+    depth_order = NULL
   } else {
     #node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
     daughters_info_list = list()
