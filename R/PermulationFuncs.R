@@ -7,14 +7,23 @@ getBinaryPermulationInputsFromTree=function(fgTree){
   if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
     stop('Phenotype must be binary.')
   }
+  all_edges = fgTree$edge
+  num_tip_species = length(fgTree$tip.label)
 
   idx_fg_branches = which(fgTree$edge.length == 1)
-  fg_edges = fgTree$edge[idx_fg_branches,]
-  all_edges = fgTree$edge
-
-  num_tip_species = length(fgTree$tip.label)
-  tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
-  tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+  if (length(idx_fg_branches) == 1){
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	fg_edges = t(as.data.frame(fg_edges))
+	if (fg_edges[1,2] <=num_tip_species){
+		tip_foregrounds = fgTree$tip.label[fg_edges[,2]]
+	}
+  } else {
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+	tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+  }
+#  tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+#  tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
 
   idx_node_edges = which(fg_edges[,2] > num_tip_species)
   if (length(idx_node_edges) == 1){
@@ -503,15 +512,19 @@ getDepthOrder=function(fgTree){
   if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
     stop('Phenotype must be binary.')
   }
+  all_edges = fgTree$edge
+  num_tip_species = length(fgTree$tip.label)
 
   idx_fg_branches = which(fgTree$edge.length == 1)
-  fg_edges = fgTree$edge[idx_fg_branches,]
-  all_edges = fgTree$edge
-
-  num_tip_species = length(fgTree$tip.label)
-  tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
-  tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
-  node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+  if (length(idx_fg_branches)==1){
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	fg_edges = t(as.data.frame(fg_edges))
+  } else {
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+	tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+	node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+  }
 
   idx_node_edges = which(fg_edges[,2] > num_tip_species)
   if (length(idx_node_edges) == 1){
