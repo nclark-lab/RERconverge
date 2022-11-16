@@ -1594,6 +1594,7 @@ permpvalcor=function(realcor, permvals){
     }
     count=count+1
   }
+  permstats[which(is.na(permpvals))] = NA
   out = data.frame('permpval'=permpvals, 'permstats'=permstats)
   out
 }
