@@ -1550,10 +1550,10 @@ permpvalenrich=function(realenrich, permvals){
   enrichpvals
 }
 
-#'Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}}
+#'Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}} and \code{\link{getPermsBinary}}
 #' @param realcor Real enrichment statistics from \code{\link{fastwilcoxGMTall}}
-#' @param permvals output from \code{\link{getPermsContinuous}}
-#' @return A vector with permulation p-values
+#' @param permvals output from \code{\link{getPermsContinuous}} or \code{\link{getPermsBinary}}
+#' @return A data frame containing permulation p-values and permulation statistics (positive denotes acceleration, negative denotes deceleration)
 #' @export
 permpvalcor=function(realcor, permvals){
 
@@ -1565,18 +1565,37 @@ permpvalcor=function(realcor, permvals){
 
   permpvals=vector(length=length(realstat))
   names(permpvals)=names(realstat)
+  permstats=vector(length=length(realstat))
+  names(permstats)=names(realstat)
   count=1
   while(count<=length(realstat)){
     if(is.na(realstat[count])){
-      permpvals[count]=NA
+	  permpvals[count]=NA
     }else{
-      num=sum(abs(permcor[count,])>abs(realstat[count]), na.rm=T)
-      denom=sum(!is.na(permcor[count,]))
-      permpvals[count]=num/denom
+	  permcor_i = permcor[count,]
+	  permcor_i = permcor_i[!is.na(permcor_i)]
+	  if (length(permcor_i)==0){
+	    permpvals[count]=NA
+	    permstats[count]=NA
+	  } else {
+	    median_permcor = median(permcor_i)
+	    if (realstat[count] >= median_permcor){
+		  num = length(which(permcor_i >= realstat[count]))
+		  denom = length(which(permcor_i >= median_permcor))
+	    } else {
+		  num = length(which(permcor_i <= realstat[count]))
+		  denom = length(which(permcor_i <= median_permcor))
+	    }
+	    #num=sum(abs(permcor[count,])>abs(realstat[count]), na.rm=T)
+	    #denom=sum(!is.na(permcor[count,]))
+	    permpvals[count]=(num+1)/(denom+1)
+	    permstats[count] = -log10(permpvals[count])*(realstat[count]-median_permcor)
+	  }
     }
     count=count+1
   }
-  permpvals
+  out = data.frame('permpval'=permpvals, 'permstats'=permstats)
+  out
 }
 
 getNullCor=function(traitvec, RERmat, trimmedtree, genetrees, type="simperm", winR=NULL, winT=NULL){
