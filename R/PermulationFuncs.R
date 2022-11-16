@@ -1589,7 +1589,7 @@ permpvalcor=function(realcor, permvals){
 	    #num=sum(abs(permcor[count,])>abs(realstat[count]), na.rm=T)
 	    #denom=sum(!is.na(permcor[count,]))
 	    permpvals[count]=(num+1)/(denom+1)
-	    permstats[count] = -log10(permpvals[count])*(realstat[count]-median_permcor)
+	    permstats[count] = -log10(permpvals[count])*sign(realstat[count]-median_permcor)
 	  }
     }
     count=count+1
