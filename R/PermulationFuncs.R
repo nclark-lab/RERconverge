@@ -1777,5 +1777,703 @@ plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, outpu
   out
 }
 
+################################################################################
+# Code for Permulations for Categorical Traits
+
+# generates a set of N null tips with the number of species in each category matching the actual phenotype data
+#' @keywords internal
+getNullTips <- function(tree, Q, N, intlabels) {
+  
+  # GET TRUE TIP COUNTS
+  true_counts = table(intlabels$mapped_states)
+  
+  # MAKE MATRIX TO STORE THE SETS OF NULL TIPS AND SETS OF INTERNAL NODES
+  tips = matrix(nrow = N, ncol = length(tree$tip.label), dimnames = list(NULL, tree$tip.label))
+  nodes = matrix(nrow = N, ncol = tree$Nnode)
+  
+  cnt = 0
+  while(cnt < N) {
+    # SIMULATE STATES
+    sim = simulate_mk_model(tree, Q)
+    sim_counts = table(sim$tip_states)
+    
+    # CHECK THAT ALL STATES GET SIMULATED IN THE TIPS
+    if(length(unique(sim$tip_states)) < length(true_counts)) { 
+      next
+    }
+    
+    # IF THE TIP COUNTS MATCH THE TIP COUNTS IN THE REAL DATA, ADD TO THE LIST
+    if(sum(true_counts == sim_counts) == length(true_counts)) {
+      cnt = cnt + 1
+      
+      print(cnt)
+      
+      tips[cnt,] = sim$tip_states
+      nodes[cnt,] = sim$node_states
+    }
+  }
+  return(list(tips = tips, nodes = nodes))
+}
+
+# shuffles the categories around the tree based on ancestral likelihoods
+# serves as a starting point for the function improveTree
+#' @keywords internal
+shuffleInternalNodes <- function(shuffled_states, available_nodes, ancliks, Nnode, ntips) {
+  internal_states = vector(mode = "numeric", length = Nnode)
+  
+  if(length(shuffled_states) != nrow(ancliks)){
+    stop("number of shuffled states and number of nodes with ancestral likelihoods do not match")
+  }
+  
+  for(state in shuffled_states){
+    if(length(available_nodes) > 1) {
+      liks = ancliks[,state]
+      node = sample(available_nodes, size = 1, prob = liks)
+      available_nodes = available_nodes[- which(available_nodes == node)]
+      ancliks = ancliks[- which(rownames(ancliks) == as.character(node)),]
+      internal_states[node - ntips] = state
+    }
+    else { # only one node left
+      internal_states[available_nodes - ntips] = state
+    }
+  }
+  return(internal_states)
+}
+
+# For a set of null tips, shuffles the correct number of each category around the internal nodes
+#' @keywords internal
+getNullTrees <- function(node_states, null_tips, tree, Q) {
+  
+  nullTrees = list()
+  
+  for(i in 1:nrow(null_tips)) {
+    print(i)
+    tips = null_tips[i,]
+    
+    ancliks = getAncLiks(tree, tipvals = tips, Q = Q)
+    
+    ntips = length(tree$tip.label)
+    available_nodes = (ntips + 1):(tree$Nnode + ntips)
+    rownames(ancliks) = available_nodes
+    
+    shuffled_states = sample(node_states)
+    internal_states = shuffleInternalNodes(shuffled_states, 
+                                           available_nodes = available_nodes,
+                                           ancliks = ancliks, 
+                                           Nnode = tree$Nnode, ntips = ntips)
+    tr = list(tips = tips, nodes = internal_states)
+    nullTrees = append(nullTrees, list(tr))
+  }
+  return(nullTrees)
+}
+
+# rearranges the shuffled internal nodes to improve the likelihoods of the permulated trees
+#' @keywords internal
+improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
+  
+  # get ancliks and max_states
+  ancliks = getAncLiks(tree, tips, Q)
+  max_states = getStatesAtNodes(ancliks)
+  
+  # calculate tree likelihoods
+  # states = c(tips, max_states)
+  # max_lik = 1 
+  # for(i in 1:nrow(tree$edge)){
+  #   a = states[tree$edge[i,1]]
+  #   d = states[tree$edge[i,2]]
+  #   max_lik = max_lik * P[[i]][a, d]
+  # }
+  
+  states = c(tips, nodes)
+  curr_lik = 1
+  for(i in 1:nrow(tree$edge)){
+    a = states[tree$edge[i,1]]
+    d = states[tree$edge[i,2]]
+    curr_lik = curr_lik * P[[i]][a, d]
+  }
+  
+  # calculate initial ratios
+  nstates = nrow(Q)
+  ratios = c() # list of ratios
+  ratio_info = matrix(nrow = (nstates - 1) * tree$Nnode, ncol = 3, dimnames = list(NULL, c("node", "state", "other.state"))) # info for each ratio
+  
+  # ns aren't the node numbers in the tree - they are the index of the internal node in nodes, node number in tree is n + ntips
+  for(n in 1:tree$Nnode) {
+    # calculate ratios
+    pie = ancliks[n,]
+    rr = pie[-nodes[n]] / pie[nodes[n]] # other states / state
+    ratios = c(ratios, rr)
+    # fill in ratio_info 
+    # rows = c((n-1)*3 + 1, (n-1)*3 + 2, (n-1)*3 + 3)
+    rows = ((n-1)*(nstates-1) + 1):((n-1)*(nstates-1) + (nstates-1))
+    ratio_info[rows,"node"] = rep(n, nstates - 1)
+    ratio_info[rows,"state"] = rep(nodes[n], nstates - 1)
+    ratio_info[rows,"other.state"] = (1:nstates)[-nodes[n]]
+  }
+  
+  # pre-calculate and store edge numbers for each node
+  ntips = length(tree$tip.label)
+  edg_nums = lapply(seq_along(vector(mode = "list", length = tree$Nnode + ntips)), function(x){
+    c(which(tree$edge[,1] == x),(which(tree$edge[,2] == x)))
+  })
+  
+  j = 1 # iteration counter
+  k = 1 # cycle counter 
+  Tk = T0 
+  
+  while(k <= cycles) { 
+    
+    # get 2 nodes to swap
+    nn = nodes
+    
+    # 1: pick a node randomly, weighted by the ratios
+    r1 = sample(1:length(ratios), 1, prob = ratios)
+    n1 = ratio_info[r1, "node"] # node 1
+    s1 = ratio_info[r1, "state"] # state1
+    s2 = ratio_info[r1, "other.state"] # state2
+    
+    # 2: pick a node to swap it with 
+    ii = intersect(which(ratio_info[,"state"] == s2), which(ratio_info[,"other.state"] == s1))
+    if(length(ii) > 1) {
+      n2 = sample(ratio_info[ii,"node"], 1, prob = ratios[ii]) # node2
+    } else { # only one node with state2
+      n2 = ratio_info[ii,"node"]
+    }
+    
+    # make the swap
+    nn[n1] = s2
+    nn[n2] = s1
+    
+    # calculate new likelihood
+    states_new = c(tips, nn)
+    states_old = c(tips, nodes)
+    
+    r = 1
+    for(i in unique(c(edg_nums[[n1 + ntips]], edg_nums[[n2 + ntips]]))){ # check this over many cases including when n1 and n2 effect the same edge
+      ao = states_old[tree$edge[i,1]]
+      do = states_old[tree$edge[i,2]]
+      
+      an = states_new[tree$edge[i,1]]
+      dn = states_new[tree$edge[i,2]]
+      r = r * (P[[i]][an,dn] / P[[i]][ao, do])
+    }
+    
+    if(r >= 1) { # if the swap increases likelihood, commit to the swap
+      
+      nodes = nn
+      
+      curr_lik = curr_lik * r # this should do the same thing, BUT CHECK THIS GETS THE SAME RESULT IN MULTIPLE CASES!
+      
+      # update ratios
+      # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
+      rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
+      
+      pie = ancliks[n1,]
+      rr = pie[-s2] / pie[s2] # other states / state
+      ratios[rows1] = rr
+      
+      # fill in ratio_info 
+      ratio_info[rows1,"state"] = rep(s2, nstates - 1) 
+      ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
+      
+      # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
+      rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
+      
+      pie = ancliks[n2,]
+      rr = pie[-s1] / pie[s1] # other states / state
+      ratios[rows2] = rr
+      
+      # fill in ratio_info 
+      ratio_info[rows2,"state"] = rep(s1, nstates - 1) 
+      ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
+      
+    } 
+    else { # make jump with probability u
+      
+      # calculate u which includes dividing by tmp
+      dh = -log(curr_lik * r) + log(curr_lik)
+      u = exp(-dh/Tk)
+      if(u == 0) warning("u is zero")
+      
+      # if(u == 0) stop(paste("temp is", Tk))
+      
+      if(runif(1) <= u) {
+        
+        nodes = nn
+        
+        curr_lik = curr_lik * r # CHECK THIS GETS THE SAME RESULT
+        
+        # update ratios
+        # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
+        rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
+        
+        pie = ancliks[n1,]
+        rr = pie[-s2] / pie[s2] # other states / state
+        ratios[rows1] = rr
+        # fill in ratio_info
+        
+        ratio_info[rows1,"state"] = rep(s2, nstates - 1)
+        ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
+        
+        # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
+        rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
+        
+        pie = ancliks[n2,]
+        rr = pie[-s1] / pie[s1] # other states / state
+        ratios[rows2] = rr
+        # fill in ratio_info
+        ratio_info[rows2,"state"] = rep(s1, nstates - 1)
+        ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
+      }
+    }
+    
+    # increment j
+    j = j + 1
+    
+    # print(curr_lik)
+    
+    # move to next cycle if necessary
+    if(j >= Nk) {
+      j = 1 # reset j
+      # Tk = T0 * alpha^k
+      # Tk = T0 / (1 + alpha * log(k))
+      Tk = T0 / (1 + alpha*k)
+      k = k + 1
+    }
+    
+  }
+  end = Sys.time()
+  return(list(nodes = nodes, lik = log10(curr_lik)))
+}
+
+#' @param treesObj trees object returned by readTrees
+#' @param phenvals the named phenotype vector
+#' @param rm the rate model, it should be the same as the one used to reconstruct the ancestral history of the trait
+#' @param rp root prior, the default is auto
+#' @param ntrees the number of null trees to generate
+#' @return a set of permulated phenotype trees
+#' @export
+categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto", ntrees){
+  
+  # PRUNE TREE, ORDER PHENVALS, MAP TO STATE SPACE
+  tree = treesObj$masterTree
+  keep = intersect(names(phenvals), tree$tip.label)
+  tree = pruneTree(tree, keep)
+  phenvals = phenvals[tree$tip.label]
+  intlabels = map_to_state_space(phenvals)
+  
+  # FIT A TRANSITION MATRIX ON THE DATA
+  message("Fitting transition matrix")
+  Q = fit_mk(tree, intlabels$Nstates, intlabels$mapped_states,
+             rate_model = rm, root_prior = rp)$transition_matrix
+  
+  # GET NULL TIPS (AND STORE INTERNAL NODES FROM SIMULATIONS TOO)
+  message("Simulating trees")
+  simulations = getNullTips(tree, Q, ntrees, intlabels)
+  
+  ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
+  node_states = getStatesAtNodes(ancliks)
+  
+  # GET SHUFFLED STARTING-POINT TREES
+  message("Shuffling internal states")
+  nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
+  
+  P = lapply(tree$edge.length, function(x){expm(Q * x)})
+  
+  # IMPROVE LIKELIHOOD OF EACH NULL TREE
+  message("Improving tree likelihoods")
+  improvedNullTrees = lapply(nullTrees, function(x){
+    list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
+  })
+  
+  # RETURN
+  message("Done")
+  return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
+}
+
+#' @param realCors the output of correlateWithCategoricalPhenotype
+#' @param nullPhens the list item named trees in the output of categoricalPermulations
+#' @param phenvals the named phenotype vector
+#' @param treesObj the trees object returned by readTrees
+#' @param RERmat the matrix of RERs returned by getAllResiduals, should be the same one used to calculate realCors
+#' @param method either "kw" for Kruskal Wallis, the default, or "aov" for ANOVA
+#' @return Permulation p-values for a categorical phenotype 
+#' @export
+getPermPvalsCategorical <- function(realCors, nullPhens, phenvals, treesObj, RERmat, method = "kw") {
+  # CHECK IF TRAIT IS BINARY
+  binary = FALSE
+  if(method != "kw" & method != "aov"){
+    binary = TRUE
+  }
+  
+  # PRUNE TREE
+  tree = treesObj$masterTree
+  keep = intersect(names(phenvals), tree$tip.label)
+  tree = pruneTree(tree, keep)
+  
+  # generate the paths 
+  if(!binary) {
+    message("Generating null paths")
+    nullPaths = lapply(nullPhens, function(x){
+      tr = tree # make a copy of the tree
+      tr$edge.length = c(x$tips, x$nodes)[tr$edge[,2]] # assign states to edges
+      tree2Paths(tr, treesObj, categorical = TRUE) # calculate paths
+    })
+  } else {
+    message("Generating null paths")
+    nullPaths = lapply(nullPhens, function(x){
+      tr = tree # make a copy of the tree
+      tr$edge.length = c(x$tips, x$nodes)[tr$edge[,2]] # assign states to edges
+      # subtract 1 to convert 1 - FALSE, 2 - TRUE to 0 and 1
+      # THIS IS A QUICK FIX, WON'T WORK IF THE FOREGROUND IS 1 AND BACKGROUND IS 2!!!
+      tree2Paths(tr, treesObj, categorical = TRUE) - 1 # calculate paths
+    })
+  }
+  
+  # calculate correlation statistics
+  message("Calculating correlation statistics")
+  # make matrices to store the results
+  corsMatPvals = matrix(nrow = nrow(RERmat), ncol = length(nullPhens),
+                        dimnames = list(rownames(RERmat), NULL))
+  corsMatEffSize = matrix(nrow = nrow(RERmat), ncol = length(nullPhens),
+                          dimnames = list(rownames(RERmat), NULL))
+  
+  if(!binary){
+    # make matrices for the pairwise testing
+    Ppvals = lapply(1:length(realCors[[2]]), matrix, data = NA, nrow = nrow(RERmat),
+                    ncol = length(nullPhens), dimnames = list(rownames(RERmat), NULL))
+    names(Ppvals) = names(realCors[[2]])
+    
+    Peffsize = lapply(1:length(realCors[[2]]), matrix, data = NA, nrow = nrow(RERmat),
+                      ncol = length(nullPhens), dimnames = list(rownames(RERmat), NULL))
+    names(Peffsize) = names(realCors[[2]])
+  }
+  
+  # run getAllCor on every null phenotype and store the pval/effect size for every gene
+  if(!binary) {
+    for(i in 1:length(nullPaths)) {
+      cors = getAllCor(RERmat, nullPaths[[i]], method = method)
+      corsMatPvals[,i] = cors[[1]]$P # store p values
+      corsMatEffSize[,i] = cors[[1]]$Rho # store effect size
+      
+      # add results of pairwise tests
+      for(j in 1:length(cors[[2]])){ # loop through each table in cors[[2]]
+        Ppvals[[names(cors[[2]])[j]]][,i] = cors[[2]][[j]]$P
+        Peffsize[[names(cors[[2]])[j]]][,i] = cors[[2]][[j]]$Rho
+      }
+    }
+  } else {
+    for(i in 1:length(nullPaths)) {
+      cors = getAllCor(RERmat, nullPaths[[i]], method = method)
+      corsMatPvals[,i] = cors$P # store p values
+      corsMatEffSize[,i] = cors$Rho # store effect size
+    }
+  }
+  
+  message("Obtaining permulations p-values")
+  if(!binary){
+    # calculate empirical pvals
+    N = nrow(realCors[[1]])
+    
+    realCors[[1]]$permP = rep(NA, N) # add a column to the real results for the empirical pvals
+    
+    for(j in 1:length(realCors[[2]])){ # loop through each table in realCors[[2]]
+      realCors[[2]][[j]]$permP = rep(NA, N)
+    }
+    
+    for(gene in 1:N) {
+      # check whether the gene is NA in realCors and if so, set p = NA
+      if(is.na(realCors[[1]]$Rho[gene])) {
+        p = NA
+      } else {
+        # count number of times null is more extreme than observed
+        # effect size for Kruskal-Wallis is epsilon squared, only assumes non-negative values
+        # ANOVA is still using eta2 (as of right now)
+        p = sum(corsMatEffSize[gene,] > realCors[[1]]$Rho[gene], na.rm = TRUE) / sum(!is.na(corsMatEffSize[gene,]))
+      }
+      realCors[[1]]$permP[gene] = p
+      
+      for(j in 1:length(realCors[[2]])) {
+        if(is.na(realCors[[2]][[j]]$Rho[gene])) {
+          p = NA
+        } else {
+          # I think the effect size for Tukey and Dunn are bidirectional - using absolute value, NEED TO CHECK WITH AMANDA
+          p = sum(abs(Peffsize[[names(realCors[[2]][j])]][gene,]) > abs(realCors[[2]][[j]]$Rho[gene]), na.rm = TRUE) / sum(!is.na(Peffsize[[names(realCors[[2]][j])]][gene,]))
+        }
+        realCors[[2]][[j]]$permP[gene] = p
+      }
+    }
+  } else {
+    # calculate empirical pvals
+    N = nrow(realCors)
+    
+    realCors$permP = rep(NA, N) # add a column to the real results for the empircal pvals
+    
+    for(gene in 1:N) {
+      if(is.na(realCors$Rho[gene])){
+        p = NA
+      } else {
+        # count number of times null is more extreme than observed
+        # use abs because stat can be positive or negative
+        p = sum(abs(corsMatEffSize[gene,]) > abs(realCors$Rho[gene]), na.rm = TRUE) / sum(!is.na(corsMatEffSize[gene,]))
+      }
+      realCors$permP[gene] = p
+    }
+  }
+  
+  message("Done")
+  # return results
+  if(!binary){
+    return(list(res = realCors, pvals = list(corsMatPvals,Ppvals), effsize = list(corsMatEffSize,Peffsize)))
+  }
+  else {
+    return(list(res = realCors, pvals = corsMatPvals, effsize = corsMatEffSize))
+  }
+}
+
+#' @param cors the output of correlateWithCategoricalPhenotype
+#' @param annotlist the list of annotations from which to calculate enrichment statistics
+#' @param outputGeneVals a boolean indicating whether to include gene names in the output
+#' @return enrichment statistics for the categorical test and each pairwise test
+#' @export
+getRealEnrichments <- function(cors, annotlist, outputGeneVals = FALSE){
+  # make a list to store all the enrichments
+  enrich_list = list()
+  
+  # calculate enrichments for cors[[1]]
+  enrich_list[[1]] = fastwilcoxGMTall(getStat(cors[[1]]), annotList = annotlist, outputGeneVals = outputGeneVals)
+  
+  # loop through and calculate enrichments for cors[[2]]
+  enrich_list[[2]] = vector(mode = "list", length = length(cors[[2]]))
+  names(enrich_list[[2]]) = names(cors[[2]])
+  
+  for(i in 1:length(cors[[2]])) {
+    enrich_list[[2]][[i]] = fastwilcoxGMTall(getStat(cors[[2]][[i]]), annotList = annotlist, outputGeneVals = outputGeneVals)
+  }
+  # return the list of enrichments (match same kind of format as cors for consistency)
+  return(enrich_list)
+}
+
+#' @param perms the output of getPermPvalsCategorical
+#' @param realenrich the output of getRealEnrichments
+#' @param annotlist the list of annotations from which to calculate enrichment statistics
+#' @return enrichment statistics
+#' @export
+getEnrichPermsCategorical <- function(perms, realenrich, annotlist){
+  res = vector(mode = "list", length = 2)
+  
+  # get enrichment results for KW/ANOVA on all categories
+  res[[1]] = getEnrichAllCategories(perms, realenrich, annotlist)
+  
+  res[[2]] = vector(mode = "list", length = length(realenrich[[2]]))
+  names(res[[2]]) = names(realenrich[[2]])
+  
+  # get enrichment results for each pairwise test
+  for(name in names(res[[2]])){
+    res[[2]][[name]] = getEnrichFromPairwiseTest(perms, realenrich, annotlist, name)
+  }
+  return(res)
+}
+
+# helper function that gets enrichment statistics for the KW/ANOVA results on all the categories
+#' @keywords internal
+getEnrichAllCategories <- function(perms, realenrich, annotlist){
+  numperms = ncol(perms$pvals[[1]])
+  
+  # make the lists and data frames to store the results
+  
+  enrichP = vector(mode = "list", length = length(realenrich[[1]]))
+  enrichStat = vector(mode = "list", length = length(realenrich[[1]]))
+  
+  names(enrichP) = names(realenrich[[1]])
+  names(enrichStat) = names(realenrich[[1]])
+  
+  # give the rows in these matrices the same names as in the realenrich
+  for(c in 1:length(realenrich[[1]])){
+    enrichP[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[1]][[c]])))
+    rownames(enrichP[[c]]) = rownames(realenrich[[1]][[c]]) 
+    enrichStat[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[1]][[c]])))
+    rownames(enrichStat[[c]]) = rownames(realenrich[[1]][[c]])
+  }
+  
+  # calculate enrichment stats for each permulation
+  for(count in 1:numperms){
+    # print(count)
+    # get the p value and enrich stat vectors
+    P = perms$pvals[[1]][,count]
+    effsize = perms$effsize[[1]][,count] 
+    
+    # make a stat vector
+    stat = getStat(data.frame(P = P, Rho = effsize))
+    
+    # run the enrichment
+    enrich = fastwilcoxGMTall(stat, annotlist, outputGeneVals = FALSE)
+    
+    # store the enrichment values
+    for(c in 1:length(enrich)){
+      #                                   the row indices in enrich[[c]] of the row names in enrichP
+      enrichP[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$pval
+      enrichStat[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$stat
+    }
+  }
+  
+  # return the results
+  return(list(enrichP = enrichP, enrichStat = enrichStat))
+}
+
+# this function returns results for ONE pairwise test, it gets called mulitple times in the main function
+# name is the name of the pairwise test e.g. "1 - 3"
+#' @keywords internal
+getEnrichFromPairwiseTest <- function(perms, realenrich, annotlist, name){
+  numperms = ncol(perms$pvals[[1]]) 
+  # make the lists and data frames to store the results
+  
+  enrichP = vector(mode = "list", length = length(realenrich[[2]][[name]]))
+  enrichStat = vector(mode = "list", length = length(realenrich[[2]][[name]]))
+  
+  names(enrichP) = names(realenrich[[2]][[name]])
+  names(enrichStat) = names(realenrich[[2]][[name]])
+  
+  # give the rows in these matrices the same names as in the realenrich
+  for(c in 1:length(realenrich[[1]])){
+    enrichP[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[2]][[name]][[c]])))
+    rownames(enrichP[[c]]) = rownames(realenrich[[2]][[name]][[c]]) 
+    enrichStat[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[2]][[name]][[c]])))
+    rownames(enrichStat[[c]]) = rownames(realenrich[[2]][[name]][[c]])
+  }
+  
+  # calculate enrichment stats for each permulation
+  for(count in 1:numperms){
+    print(count)
+    # get the p value and enrich stat vectors
+    P = perms$pvals[[2]][[name]][,count]
+    effsize = perms$effsize[[2]][[name]][,count] 
+    
+    # make a stat vector
+    stat = getStat(data.frame(P = P, Rho = effsize))
+    
+    # run the enrichment
+    enrich = fastwilcoxGMTall(stat, annotlist, outputGeneVals = FALSE)
+    
+    # store the enrichment values
+    for(c in 1:length(enrich)){
+      #                                   the row indices in enrich[[c]] of the row names in enrichP
+      enrichP[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$pval
+      enrichStat[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$stat
+    }
+  }
+  
+  # return the results
+  return(list(enrichP = enrichP, enrichStat = enrichStat))
+}
+
+#' @param permenrich output of getEnrichPermsCategorical
+#' @param realenrich output of getRealEnrichments
+#' @param binary whether the trait is binary i.e. has two categories or not
+#' @return the p-values for each enrichment category
+#' @export
+getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
+  if(!binary){ # code for categorical traits with pairwise tests
+    # calculate pvals for the enrichment of all categories
+    
+    # make a list of groups to store the pvalues
+    pval_groups = vector(mode = "list", length = length(realenrich[[1]]))
+    names(pval_groups) = names(realenrich[[1]])
+    
+    # loop through the groups of the enrichment
+    for(c in 1:length(realenrich[[1]])){
+      # make a list to store the pvals for that group
+      pvals = c()
+      for(i in 1:nrow(realenrich[[1]][[c]])){
+        # for debugging - check that row names match, this should never happen because they were given the same row names
+        if(rownames(realenrich[[1]][[c]])[i] != rownames(permenrich[[1]]$enrichStat[[c]])[i]){
+          warning("row names between real enrichment and perm enrich stats do not match!")
+        }
+        # if the stat is NA, add NA to pval list
+        if(is.na(realenrich[[1]][[c]]$stat[i])) {
+          pvals = c(pvals, NA)
+        }
+        # otherwise calculate the p-value
+        else {
+          p = sum(abs(permenrich[[1]]$enrichStat[[c]][i,]) > abs(realenrich[[1]][[c]]$stat[i]), na.rm = TRUE)
+          p = p/sum(!is.na(permenrich[[1]]$enrichStat[[c]][i,]))
+          pvals = c(pvals, p)
+        }
+      }
+      # store the pvals in pval_groups list
+      names(pvals) = rownames(realenrich[[1]][[c]])
+      pval_groups[[c]] = pvals
+    }
+    
+    # calculate pvals for the pairwise tests
+    pw_pvals = vector(mode = "list", length = length(realenrich[[2]]))
+    names(pw_pvals) = names(realenrich[[2]])
+    
+    for(n in 1:length(pw_pvals)){
+      # make a list of groups to store the pvalues
+      pval_groupstmp = vector(mode = "list", length = length(realenrich[[2]][[n]]))
+      names(pval_groupstmp) = names(realenrich[[2]][[n]])
+      
+      # loop through the groups of the enrichment
+      for(c in 1:length(realenrich[[2]][[n]])){
+        # make a list to store the pvals for that group
+        pvals = c()
+        for(i in 1:nrow(realenrich[[2]][[n]][[c]])){
+          # for debugging - check that row names match, this should never happen because they were given the same row names
+          if(rownames(realenrich[[2]][[n]][[c]])[i] != rownames(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]])[i]){
+            warning("row names between real enrichment and perm enrich stats do not match!")
+          }
+          # if the stat is NA, add NA to pval list
+          if(is.na(realenrich[[2]][[n]][[c]]$stat[i])) {
+            pvals = c(pvals, NA)
+          }
+          # otherwise calculate the p-value
+          else {
+            p = sum(abs(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]][i,]) > abs(realenrich[[2]][[n]][[c]]$stat[i]), na.rm = TRUE)
+            p = p/sum(!is.na(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]][i,]))
+            pvals = c(pvals, p)
+          }
+        }
+        # store the pvals in pval_groups list
+        names(pvals) = rownames(realenrich[[2]][[n]][[c]])
+        pval_groupstmp[[c]] = pvals
+      }
+      # store pval_groups in the pw_pvals list
+      pw_pvals[[n]] = pval_groupstmp
+    }
+    
+    return(list(pval_groups, pw_pvals))
+    
+  } else { # code for binary traits (permenrich is a list of lenght 2 with enrichP and enrichStat)
+    pval_groups = vector(mode = "list", length = length(realenrich))
+    names(pval_groups) = names(realenrich)
+    
+    # loop through the groups of the enrichment
+    for(c in 1:length(realenrich)){
+      # make a list to store the pvals for that group
+      pvals = c()
+      for(i in 1:nrow(realenrich[[c]])){
+        # for debugging - check that row names match, this should never happen because they were given the same row names
+        if(rownames(realenrich[[c]])[i] != rownames(permenrich$enrichStat[[c]])[i]){
+          warning("row names between real enrichment and perm enrich stats do not match!")
+        }
+        # if the stat is NA, add NA to pval list
+        if(is.na(realenrich[[c]]$stat[i])) {
+          pvals = c(pvals, NA)
+        }
+        # otherwise calculate the p-value
+        else {
+          p = sum(abs(permenrich$enrichStat[[c]][i,]) > abs(realenrich[[c]]$stat[i]), na.rm = TRUE)
+          p = p/sum(!is.na(permenrich$enrichStat[[c]][i,]))
+          pvals = c(pvals, p)
+        }
+      }
+      # store the pvals in pval_groups list
+      names(pvals) = rownames(realenrich[[c]])
+      pval_groups[[c]] = pvals
+    }
+    return(pval_groups)
+  }
+}
 
 
