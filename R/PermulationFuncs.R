@@ -2111,6 +2111,11 @@ getPermPvalsCategorical <- function(realCors, nullPhens, phenvals, treesObj, RER
   keep = intersect(names(phenvals), tree$tip.label)
   tree = pruneTree(tree, keep)
   
+  # UNROOT THE TREE IF IT IS ROOTED
+  if (is.rooted(tree)) {
+    tree = unroot(tree)
+  }
+  
   # generate the paths 
   if(!binary) {
     message("Generating null paths")
