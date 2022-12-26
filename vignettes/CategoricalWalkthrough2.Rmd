@@ -492,8 +492,7 @@ the gmt file in your working directory is "gmtfile.gmt".
 **Input** is the output from the correlation function. This can be
 `allresults` (`cors[[1]]`) or any of the tables in the list,
 `pairwise_tables` (`cors[[2]]`). The second input is the pathways of
-interest with gene symbols (read in as "allannots.rds" in the code
-below).
+interest with gene symbols.
 
 **Output** is the enrichment statistics from each pathway including the
 genes in the pathway and their ranks.
