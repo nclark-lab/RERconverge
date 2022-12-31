@@ -1377,14 +1377,15 @@ foreground2Tree = function(foreground,treesObj, plotTree=T, clade=c("ancestral",
 #'@param model Specifies what rate model to use
 #'@param plot Plots a phenotype tree
 #'@param anctrait The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.
+#'@param root_prior The prior probabilities of each trait at the root used to fit the transition matrix. Can be a vector of length equal to the number of states or one of the following: "flat", "empirical", "stationary", "likelihoods", "max_likelihood".
 #'@return A vector of length equal to the number of paths in treesObj
 #'@export
 char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
-                                 model = "ER", plot = FALSE, anctrait = NULL) {
+                                 model = "ER", plot = FALSE, anctrait = NULL, root_prior = "auto") {
   #get tree
   tree = char2TreeCategorical(tipvals = tipvals, treesObj = treesObj,
                               useSpecies = useSpecies, model = model, plot = plot,
-                              anctrait = anctrait)
+                              anctrait = anctrait, root_prior = root_prior)
   # get paths
   paths = tree2Paths(tree, treesObj, useSpecies = useSpecies,
                      categorical = T)
@@ -1785,6 +1786,7 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
 #'@param model Specifies what rate model to use
 #'@param plot Plots a phenotype tree
 #'@param anctrait The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.
+#'@param root_prior The prior probabilities of each trait at the root used to fit the transition matrix. Can be a vector of length equal to the number of states or one of the following: "flat", "empirical", "stationary", "likelihoods", "max_likelihood".
 #'@return A tree with edge.length representing phenotype states
 #'@export
 char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
