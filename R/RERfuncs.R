@@ -789,11 +789,24 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
 
   ##############################################################################
   # make tables for each pairwise comparison & a list for the tables
-  if(method == "aov" || method == "kw") {
-    lu = length(unique(charP[!is.na(charP)])) # number of categories
-    n = choose(lu,2) # number of comparisons
-    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("Rho", "P")))
-    names(tables) = rep(NA, n)
+  if (method == "aov" || method == "kw") {
+    lu = length(unique(charP[!is.na(charP)]))
+    n = choose(lu, 2)
+    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat), 
+                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho", 
+                                                                  "P")))
+    if(method == "aov") {
+      names(tables) = rep(NA, n)
+    }
+    else { # name the tables in the same order as Z is calculated
+      for (i in 2:lu) {
+        for (j in 1:(i - 1)) {
+          index <- (i-1)*(i-2)/2 + j
+          names(tables)[index] <- paste0(j, " - ", i)
+        }
+      }
+    }
+    
   }
   ##############################################################################
 
@@ -1006,12 +1019,28 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 
   # generate tables for the pairwise tests if trait is categorical
   if (method == "aov" || method == "kw") {
+    # convert phenvals to integers to work with kwdunn.test function
+    intlabels = map_to_state_space(phenvals)
+    phenv = intlabels$mapped_states
+    names(phenv) = names(phenvals)
+    phenvals = phenv
+    
     lu = length(unique(phenvals[!is.na(phenvals)]))
     n = choose(lu, 2)
-    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
-                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho",
+    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat), 
+                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho", 
                                                                   "P")))
-    names(tables) = rep(NA, n)
+    if(method == "aov") {
+      names(tables) = rep(NA, n)
+    }
+    else { # name the tables in the same order as Z is calculated
+      for (i in 2:lu) {
+        for (j in 1:(i - 1)) {
+          index <- (i-1)*(i-2)/2 + j
+          names(tables)[index] <- paste0(j, " - ", i)
+        }
+      }
+    }
   }
 
   # name the columns of corout
