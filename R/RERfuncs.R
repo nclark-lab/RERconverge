@@ -643,6 +643,96 @@ correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos 
   getAllCor(RERmat, charP, min.sp, min.pos, method = method)
 }
 
+#' A sped up version of the Kruskal Wallis/Dunn Test 
+#' @keywords internal
+kwdunn.test <- function(x,g, ncategories){
+  ntests <- ncategories*(ncategories -1)/2 # number of pairwise tests
+  # set up a data matrix
+  N <- length(x)
+  glevels <- as.integer(levels(g)) # g must be an integer converted to a factor!
+  Data <- matrix(NA, length(x), 3)
+  Data[, 1] <- x
+  Data[, 2] <- g  
+  # when g gets converted to numeric in the Data matrix, it is converted to CONSECUTIVE integers in the order of the factors
+  # e.g. 1, 2, 4 --> 1, 2, 3
+  
+  # use frank (fast rank) instead of base rank function
+  # REQUIRES THE PACKAGE data.table TO BE ATTACHED!!!
+  Data[, 3] <- frank(Data[, 1], ties.method = "average", na.last = NA)
+  
+  # calculate the ties adjustment term that is shared between kwallis and dunn test
+  # define a function to find the tied ranks
+  tiedranks <- function(ranks) {
+    ranks <- sort(ranks)
+    ties <- c()
+    for (i in 2:length(ranks)) {
+      if (ranks[i - 1] == ranks[i]) {
+        if (length(ties) > 0) {
+          if (ranks[i - 1] != tail(ties, n = 1)) {
+            ties <- c(ties, ranks[i - 1])
+          }
+        }
+        else {
+          ties <- c(ranks[i - 1])
+        }
+      }
+    }
+    return(ties)
+  }
+  
+  # calculate the ties adjustment sum term (same between KW and Dunn)
+  k <- length(unique(Data[, 2]))
+  ranks <- Data[, 3]
+  ties <- tiedranks(ranks)
+  r <- length(ties)
+  tiesadjsum <- 0
+  if (r > 0) {
+    for (s in 1:r) {
+      tau <- sum(ranks == ties[s])
+      tiesadjsum <- tiesadjsum + (tau^{3} - tau)
+    }
+  }
+  
+  # pre-calculate indices/sums/stuff to reduce the number of times it's calculated
+  groupinds <- lapply(1:k, function(i){Data[, 2] == i}) # rows in Data corresponding to group i (as TRUE/FALSE vector)
+  groupranks <- lapply(groupinds, function(i){Data[, 3][i]}) # ranks in each group
+  groupranksums <- unlist(lapply(groupranks, function(i){sum(i)})) # sum of ranks in each group
+  groupsizes <- unlist(lapply(groupinds, function(i){sum(i)})) # number of observations in each group
+  
+  # calculate the H statistic and p-value for the KW test
+  tiesadj <- 1 - (tiesadjsum/((N^3) - N))
+  ranksum <- sum((groupranksums^2)/groupsizes) # use matrix operations in place of for loops
+  H <- ((12/(N * (N + 1))) * ranksum - 3 * (N + 1))/tiesadj
+  df <- k - 1
+  p <- pchisq(H, k - 1, lower.tail = FALSE)
+  
+  # Dunn test: calculate the Z statistic for each pairwise test 
+  m <- k * (k - 1)/2
+  Z <- rep(NA, ntests)
+  tiesadj <- tiesadjsum/(12 * (N - 1))
+  
+  # loop through each pairwise comparison
+  index <- 1
+  for (i in 2:k) {
+    for (j in 1:(i - 1)) {
+      # make a pairwise test name
+      index <- ((glevels[i]-1) * (glevels[i] - 2)/2) + glevels[j]
+      
+      # do calculation
+      meanranki <- groupranksums[i]/groupsizes[i]
+      meanrankj <- groupranksums[j]/groupsizes[j]
+      z <- (meanrankj - meanranki)/sqrt(((N * (N + 1)/12) - tiesadj) * ((1/groupsizes[j]) + (1/groupsizes[i])))
+      
+      # add result to Z vector with the name
+      Z[index] <- z
+    }
+  }
+  P <- 2*pnorm(abs(Z), lower.tail = FALSE)
+  
+  # do bonferroni p value adjustment (for pairwise error rate?)
+  P.adjust <- pmin(1, P * m)
+  return(list(kw = list(H = H, p = p), dunn = list(Z = Z, P = P, P.adjust = P.adjust)))
+}
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
@@ -781,38 +871,49 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           }
 
         } else if (method == "kw") {
-          # Kruskal Wallis
-          yfacts = as.factor(y)
-          df = data.frame(x,yfacts)
-          colnames(df) = c("RER", "category")
-          kres = kruskal.test(RER ~ category, data = df)
-          kres_Hval = kres$statistic
-          kres_pval = kres$p.value
-          # calculate effect size
-          # effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # eta2: (H - k + 1) / (n - k)
-          effect_size = kres_Hval / (nb - 1) # epsilon squared
-          corout[i,1:3] = c(effect_size, nb, kres_pval)
-
-          # Dunn test
-          dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
-
-          # add new names to tables
-          groups = dunn$res$Comparison
-          unnamedinds = which(is.na(names(tables)))
-          if(length(unnamedinds > 0)) {
-            # check for groups not in table already
-            newnamesinds = which(is.na(match(groups, names(tables))))
-            # if there are new groups add them to the next available positions
-            if(length(newnamesinds) > 0) {
-              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-            }
+          # Kruskal Wallis/Dunn test
+          yfacts = factor(y)
+          kres = kwdunn.test(x, yfacts, ncategories = lu)
+          effect_size = kres$kw$H/(nb - 1)
+          corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
+         
+          for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
+            tables[[k]][i, "Rho"] = kres$dunn$Z[k]
+            tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
           }
-          # add data to the tables
-          for(k in 1:length(groups)) {
-            name = groups[k]
-            tables[[name]][i,"Rho"] = dunn$res$Z[k]
-            tables[[name]][i,"P"] = dunn$res$P.adj[k]
-          }
+          
+          # old code before speed up:
+          # yfacts = as.factor(y)
+          # df = data.frame(x,yfacts)
+          # colnames(df) = c("RER", "category")
+          # kres = kruskal.test(RER ~ category, data = df)
+          # kres_Hval = kres$statistic
+          # kres_pval = kres$p.value
+          # # calculate effect size
+          # # effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # eta2: (H - k + 1) / (n - k)
+          # effect_size = kres_Hval / (nb - 1) # epsilon squared
+          # corout[i,1:3] = c(effect_size, nb, kres_pval)
+          # 
+          # # Dunn test
+          # dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
+          # 
+          # # add new names to tables
+          # groups = dunn$res$Comparison
+          # unnamedinds = which(is.na(names(tables)))
+          # if(length(unnamedinds > 0)) {
+          #   # check for groups not in table already
+          #   newnamesinds = which(is.na(match(groups, names(tables))))
+          #   # if there are new groups add them to the next available positions
+          #   if(length(newnamesinds) > 0) {
+          #     names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+          #   }
+          # }
+          # # add data to the tables
+          # for(k in 1:length(groups)) {
+          #   name = groups[k]
+          #   tables[[name]][i,"Rho"] = dunn$res$Z[k]
+          #   tables[[name]][i,"P"] = dunn$res$P.adj[k]
+          # }
         }
         else {
           cres=cor.test(x, y, method=method, exact=F)
@@ -983,29 +1084,40 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
         }
       }
       else if (method == "kw") {
-        yfacts = as.factor(y)
-        df = data.frame(x, yfacts)
-        colnames(df) = c("RER", "category")
-        kres = kruskal.test(RER ~ category, data = df)
-        kres_Hval = kres$statistic
-        kres_pval = kres$p.value
-        corout[i, 1:3] = c(kres_Hval, length(phens), kres_pval)
-        dunn = dunnTest(RER ~ category, data = df,
-                        method = "bonferroni")
-        groups = dunn$res$Comparison
-        unnamedinds = which(is.na(names(tables)))
-        if (length(unnamedinds > 0)) {
-          newnamesinds = which(is.na(match(groups,
-                                           names(tables))))
-          if (length(newnamesinds) > 0) {
-            names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-          }
+        yfacts = factor(y)
+        kres = kwdunn.test(x, yfacts, ncategories = lu)
+        effect_size = kres$kw$H/(nb - 1)
+        corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
+        
+        for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
+          tables[[k]][i, "Rho"] = kres$dunn$Z[k]
+          tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
         }
-        for (k in 1:length(groups)) {
-          name = groups[k]
-          tables[[name]][i, "Rho"] = dunn$res$Z[k]
-          tables[[name]][i, "P"] = dunn$res$P.adj[k]
-        }
+        
+        # old code before speed up:
+        # yfacts = as.factor(y)
+        # df = data.frame(x, yfacts)
+        # colnames(df) = c("RER", "category")
+        # kres = kruskal.test(RER ~ category, data = df)
+        # kres_Hval = kres$statistic
+        # kres_pval = kres$p.value
+        # corout[i, 1:3] = c(kres_Hval, length(phens), kres_pval)
+        # dunn = dunnTest(RER ~ category, data = df,
+        #                 method = "bonferroni")
+        # groups = dunn$res$Comparison
+        # unnamedinds = which(is.na(names(tables)))
+        # if (length(unnamedinds > 0)) {
+        #   newnamesinds = which(is.na(match(groups,
+        #                                    names(tables))))
+        #   if (length(newnamesinds) > 0) {
+        #     names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+        #   }
+        # }
+        # for (k in 1:length(groups)) {
+        #   name = groups[k]
+        #   tables[[name]][i, "Rho"] = dunn$res$Z[k]
+        #   tables[[name]][i, "P"] = dunn$res$P.adj[k]
+        # }
       }
       else {
         cres = cor.test(x, y, method = method, exact = F)
