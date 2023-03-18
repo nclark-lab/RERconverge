@@ -1944,10 +1944,14 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
     }
     useSpecies = intersect(mastertree$tip.label, useSpecies)
     mastertree = pruneTree(mastertree, useSpecies)
+    # unroot the tree after pruning
+    mastertree = unroot(mastertree)
   }
   else {
     mastertree = pruneTree(mastertree, intersect(mastertree$tip.label,
                                                  names(tipvals)))
+    # unroot the tree after pruning
+    mastertree = unroot(mastertree)
   }
   # use ASR to infer phenotype tree
   if (is.null(anctrait)) {
