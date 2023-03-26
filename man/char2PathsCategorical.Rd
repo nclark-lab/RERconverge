@@ -10,7 +10,8 @@ char2PathsCategorical(
   useSpecies = NULL,
   model = "ER",
   plot = FALSE,
-  anctrait = NULL
+  anctrait = NULL,
+  root_prior = "auto"
 )
 }
 \arguments{
@@ -26,6 +27,8 @@ char2PathsCategorical(
 \item{plot}{Plots a phenotype tree}
 
 \item{anctrait}{The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.}
+
+\item{root_prior}{The prior probabilities of each trait at the root used to fit the transition matrix. Can be a vector of length equal to the number of states or one of the following: "flat", "empirical", "stationary", "likelihoods", "max_likelihood".}
 }
 \value{
 A vector of length equal to the number of paths in treesObj
