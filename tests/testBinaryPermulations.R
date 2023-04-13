@@ -84,6 +84,11 @@ pathvec = tree2PathsClades(fgTree, toyTrees)
 permphen = simBinPhenoCCmidpoint(toyTrees, toyTrees$masterTree, fg_vec, sisters_list_v2, pathvec, plotTreeBool=T)
 
 
+### test manual rooting
+root_species = 'Human'
+permphen = simBinPhenoCC(toyTrees, toyTrees$masterTree, root_species, fg_vec, sisters_list_v2, pathvec, plotTreeBool=T)
+
+
 
 
 #### Work on permulation for specific trees with internal foregrounds with no tip foregrounds
