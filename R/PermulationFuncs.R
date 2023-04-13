@@ -645,6 +645,77 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
   return(t_iter)
 }
 
+#'Produces one CC binary permulation for a gene using midpoint rooting
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.
+#' @param fg_vec a vector containing the foreground species
+#' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
+#' @param pathvec A path vector generated from the real set of foreground animals
+#' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @return A CC binary permulated tree
+#' @export
+simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+  tip.labels = mastertree$tip.label
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
+  fg_tree = res$tree
+  fg.table = res$fg.sisters.table
+
+
+  t = midpoint.root(mastertree)
+  rm = ratematrix(t, pathvec)
+
+  if (!is.null(sisters_list)){
+    fg_tree_info = getBinaryPermulationInputsFromTree(fg_tree)
+    num_tip_sisters_true = unlist(fg_tree_info$sisters_list)
+    num_tip_sisters_true = num_tip_sisters_true[which(num_tip_sisters_true %in% tip.labels)]
+    num_tip_sisters_true = length(num_tip_sisters_true)
+    fg_tree_depth_order = getDepthOrder(fg_tree)
+  } else {
+    fg_tree_depth_order = NULL
+  }
+
+  fgnum = length(which(fg_tree$edge.length == 1))
+  if (!is.null(sisters_list)){
+    internal = nrow(fg.table)
+  } else {
+    internal = 0
+  }
+  tips=fgnum-internal # the number of tips
+
+  testcondition=FALSE
+  while(!testcondition){
+    blsum=0
+    while(blsum!=fgnum){
+      sims=sim.char(t, rm, nsim = 1)
+      nam=rownames(sims)
+      s=as.data.frame(sims)
+      simulatedvec=s[,1]
+      names(simulatedvec)=nam
+      top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
+      t_iter=foreground2Tree(top, trees, clade="all", plotTree = F)
+      blsum=sum(t_iter$edge.length)
+    }
+    t_info = getBinaryPermulationInputsFromTree(t_iter)
+    if (!is.null(sisters_list)){
+      num_tip_sisters_fake = unlist(t_info$sisters_list)
+      num_tip_sisters_fake = num_tip_sisters_fake[which(num_tip_sisters_fake %in% tip.labels)]
+      num_tip_sisters_fake = length(num_tip_sisters_fake)
+      t_depth_order = getDepthOrder(t_iter)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order)) &&
+        (num_tip_sisters_fake == num_tip_sisters_true)
+    } else {
+      t_depth_order = getDepthOrder(t_iter)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order))
+    }
+  }
+  if (plotTreeBool){
+    plot(t_iter)
+  }
+  return(t_iter)
+}
+
+
+
 #' @keywords internal
 getDepthOrder=function(fgTree){
   unq_edge_lengths = unique(fgTree$edge.length)
