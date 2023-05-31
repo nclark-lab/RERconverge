@@ -2652,7 +2652,7 @@ getRealEnrichments <- function(cors, annotlist, outputGeneVals = FALSE){
   enrich_list = list()
 
   # calculate enrichments for cors[[1]]
-  enrich_list[[1]] = fastwilcoxGMTall(getStat(cors[[1]]), annotList = annotlist, outputGeneVals = outputGeneVals)
+  enrich_list[[1]] = fastwilcoxGMTall(getStat(cors[[1]]), annotList = annotlist, outputGeneVals = outputGeneVals, alternative = "greater")
 
   # loop through and calculate enrichments for cors[[2]]
   enrich_list[[2]] = vector(mode = "list", length = length(cors[[2]]))
