@@ -2718,7 +2718,7 @@ getEnrichAllCategories <- function(perms, realenrich, annotlist){
     stat = getStat(data.frame(P = P, Rho = effsize))
 
     # run the enrichment
-    enrich = fastwilcoxGMTall(stat, annotlist, outputGeneVals = FALSE)
+    enrich = fastwilcoxGMTall(stat, annotlist, outputGeneVals = FALSE, alternative="greater")
 
     # store the enrichment values
     for(c in 1:length(enrich)){
