@@ -2805,8 +2805,9 @@ getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
           pvals = c(pvals, NA)
         }
         # otherwise calculate the p-value
+        # do NOT use absolute value because it is a one-sided test
         else {
-          p = sum(abs(permenrich[[1]]$enrichStat[[c]][i,]) > abs(realenrich[[1]][[c]]$stat[i]), na.rm = TRUE)
+          p = sum(permenrich[[1]]$enrichStat[[c]][i,] > realenrich[[1]][[c]]$stat[i], na.rm = TRUE)
           p = p/sum(!is.na(permenrich[[1]]$enrichStat[[c]][i,]))
           pvals = c(pvals, p)
         }
@@ -2839,6 +2840,7 @@ getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
             pvals = c(pvals, NA)
           }
           # otherwise calculate the p-value
+          # use absolute value because it is a two-sided test
           else {
             p = sum(abs(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]][i,]) > abs(realenrich[[2]][[n]][[c]]$stat[i]), na.rm = TRUE)
             p = p/sum(!is.na(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]][i,]))
