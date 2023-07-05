@@ -494,6 +494,16 @@ the gmt file in your working directory is "gmtfile.gmt".
 `pairwise_tables` (`cors[[2]]`). The second input is the pathways of
 interest with gene symbols.
 
+**Important**: The default behavior of `fastwilcoxGMTall` is to
+calculate p-values for a two-sided test. However, when performing an
+enrichment analysis on the gene correlation results from the categorical
+omnibus test (either ANOVA or Kruskal Wallis), the p-values should be
+for a one-sided test. This is because, the omnibus tests are one-sided,
+where only more positive test statistics indicate strength of
+correlation. As shown below, the user should specify this by setting the
+`alternative` parameter to `"greater"`. For the pairwise tests, the
+default two-sided behavior is correct.
+
 **Output** is the enrichment statistics from each pathway including the
 genes in the pathway and their ranks.
 
@@ -509,7 +519,9 @@ annotlist=list(annots)
 names(annotlist)="MSigDBpathways"
 
 # calculate enrichment statistics for the results including all categories
-allenrichments = fastwilcoxGMTall(getStat(allresults), annotlist, outputGeneVals=T)
+# specify alternative = "greater" to get p-values for a one-sided test
+allenrichments = fastwilcoxGMTall(getStat(allresults), annotlist, outputGeneVals=T,
+                                  alternative="greater")
 
 # View the stat, pval, and p.adj of the top enrichment results
 head(allenrichments$MSigDBpathways[order(allenrichments$MSigDBpathways$pval),])[1:3]
