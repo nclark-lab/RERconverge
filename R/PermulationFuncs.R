@@ -716,7 +716,7 @@ simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL, pat
 
 
 
-#' @keywords internal
+#' @export
 getDepthOrder=function(fgTree){
   unq_edge_lengths = unique(fgTree$edge.length)
   if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
