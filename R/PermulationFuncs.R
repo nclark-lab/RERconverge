@@ -2387,9 +2387,12 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 #' @param root_prob The probabilities of the different states at the root for the simulations. Can be "flat", "stationary", or a numeric vector of length Nstates. See the root_probabilities parameter under simulate_mk_model in the castor package for more information.
 #' @return a set of permulated phenotype trees
 #' @export
-categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto",
-                                    ntrees, root_prob = "stationary",
-                                    extantOnly = FALSE){
+categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto", ntrees, percent_relax = 0){
+
+  # check percent_relax is one value or a vector of length = # traits
+  if(!(length(percent_relax) == 1 || length(percent_relax) == length(unique(phenvals)))) {
+    stop("percent_relax is the wrong length")
+  }
 
   # PRUNE TREE, ORDER PHENVALS, MAP TO STATE SPACE
   tree = treesObj$masterTree
@@ -2405,33 +2408,27 @@ categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto",
 
   # GET NULL TIPS (AND STORE INTERNAL NODES FROM SIMULATIONS TOO)
   message("Simulating trees")
-  simulations = getNullTips(tree, Q, ntrees, intlabels, root_prob = root_prob)
+  simulations = getNullTips(tree, Q, ntrees, intlabels,
+                            percent_relax = percent_relax)
 
-  # IF extantOnly = TRUE, RETURN THE TREES WITHOUT INTERNAL STEP
-  if(extantOnly) {
-    message("Done")
-    return(simulations$tips) # a matrix where each row is a different simulation
-  }
-  else {
-    ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
-    node_states = getStatesAtNodes(ancliks)
+  ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
+  node_states = getStatesAtNodes(ancliks)
 
-    # GET SHUFFLED STARTING-POINT TREES
-    message("Shuffling internal states")
-    nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
+  # GET SHUFFLED STARTING-POINT TREES
+  message("Shuffling internal states")
+  nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
 
-    P = lapply(tree$edge.length, function(x){expm(Q * x)})
+  P = lapply(tree$edge.length, function(x){expm(Q * x)})
 
-    # IMPROVE LIKELIHOOD OF EACH NULL TREE
-    message("Improving tree likelihoods")
-    improvedNullTrees = lapply(nullTrees, function(x){
-      list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
-    })
+  # IMPROVE LIKELIHOOD OF EACH NULL TREE
+  message("Improving tree likelihoods")
+  improvedNullTrees = lapply(nullTrees, function(x){
+    list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
+  })
 
-    # RETURN
-    message("Done")
-    return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
-  }
+  # RETURN
+  message("Done")
+  return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
 }
 
 #' @param realCors the output of correlateWithCategoricalPhenotype
