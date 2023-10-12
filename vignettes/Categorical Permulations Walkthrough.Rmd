@@ -107,7 +107,8 @@ To run a permulation analysis, start by generating a set of permulated phenotype
 
 -   `ntrees` : the number of permulated phenotypes to generate
 
--   `percent_relax` : the percentage that the number of simulated tips in each category can differ from the actual number of tips. Relaxation is used to speed up permulation times, particularly when many categories are being compared. It is provided as a numeric between 0 and 1. Efficiency of speed increase from relaxed permulations follows a parabolic pattern, with an optimal percentage producing the most efficient speed increase, diminishing returns of speed increase per relaxation-percent to either side of the optimal value. *We recommend a relaxation of 0.10 as a starting point when using relaxed phenotypes.*
+-   `percent_relax` : the percentage that the number of simulated tips in each category can differ from the actual number of tips. Relaxation is used to speed up permulation times, particularly when many categories are being compared. It is provided as a numeric between 0 and 1. Efficiency of speed increase from relaxed permulations follows a parabolic pattern, with an optimal percentage producing the most efficient speed increase and diminishing returns of speed increase per relaxation-percent to either side of the optimal value. The optimal percentage may vary from tree to tree. *We recommend a relaxation of 0.10 as a starting point when using relaxed phenotypes.*
+Relaxation typically does not have an effect of the permulation P-values produced, but may at high relaxation values. Where practical, running a small number of permulations (eg. 10) and comparing the P-values between relaxed and unrelaxed permulations can confirm that relaxation is not affecting P-values.
 
 The following code generates 100 permulated phenotypes. This step may take a few minutes.
 
