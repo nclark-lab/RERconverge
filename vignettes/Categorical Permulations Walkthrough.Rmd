@@ -1,6 +1,6 @@
 ---
 title: "Categorical Permulation Walkthrough"
-author: "Ruby Redlich"
+authors: "Ruby Redlich", "Michael Tene"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   pdf_document: default
@@ -20,13 +20,14 @@ This walkthrough explains how to perform permulation analysis to calculate empir
 
 Categorical permulations are accomplished slightly differently than binary and categorical permulations because the simulation step is not based on a Brownian motion model. Instead, a simulated phenotype is generated according to a continuous time Markov Model, the same model that was used to reconstruct the ancestral history of the trait. As with binary and categorical permulations, the simulation is based on a phylogeny with branch lengths representing the average genome-wide evolutionary rate along that branch. Next, 3 steps are taken to ensure that the permulated phenotype contains the same number of species with each trait value as the original phenotype:
 
-1)  Rejection: any simulated phenotype in which there are not the same number of **extant** species with each trait value as the original phenotype is rejected.
+1)  Rejection: any simulated phenotype in which there are not the same number of **extant** species with each trait value as the original phenotype is rejected. If relaxation is specified, the number of species for each trait value must be within the original value ± percent-relaxation.
 
 2)  Permutation of internal traits: the simulated values for **internal** species are ignored. Instead, the original trait values for the internal species in the phylogeny are permuted and assigned to internal species in the permulated phenotype.
 
 3)  Re-organize internal traits: a search technique similar to simulated annealing is used to re-organize the internal traits relative to the traits of the extant species to improve the likelihood of the permulated phenotype. This generates a plausible trait history that exactly matches trait category counts and has a comparable probabilistic likelihood to the original simulation.
 
-**Note that the permulation functions can take a long time to run on large data sets and for large numbers of permulations.**
+**Note that the permulation functions can take a long time to run on large data sets, high category numbers,  and for large numbers of permulations.**
+**For permulations with four or more categories, using relaxation is recommended.**
 
 # Categorical Permulations
 
@@ -65,6 +66,7 @@ RERmat = getAllResiduals(toyTrees, useSpecies = names(basalRate))
 ```
 
 The next steps is to infer the phenotypes of the ancestral species and calculate paths using the function `char2PathsCategorical`. For the purpose of this walkthrough, we will just use `"ARD"` (all rates different) as the model of evolution. (Note that the choice of rate model impacts the ancestral reconstruction and the analysis. Refer to the [ASR Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/ASR-walkthrough.Rmd) for more details).
+Different rate models will behave differently for each phenotype. **It is strongly recommended that you generate a tree using each rate model, and compare the results to select the appropriate rate model for your data.** Note that the ARD rate model may not work for all trees/phenotype sets. 
 
 The `toyTrees` object contains a separate gene tree for each gene in the analysis with branch lengths representing the evolutionary rates of that gene. All of the gene trees have the same overall topology as the master tree, but some of them are missing certain species. To handle missing species, RERconverge generates something called paths. For a more detailed discussion of paths see the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
 
@@ -105,11 +107,13 @@ To run a permulation analysis, start by generating a set of permulated phenotype
 
 -   `ntrees` : the number of permulated phenotypes to generate
 
+-   `percent_relax` : the percentage that the number of simulated tips in each category can differ from the actual number of tips. Provided as a numeric between 0 and 1. Efficiency of speed increase from relaxed permulations follows a parabolic pattern, with an optimal percentage producing the most efficient speed increase, diminishing returns of speed increase per relaxation-percent to either side of the optimal value. *We recommend a relaxation of 0.10 as a starting point when using relaxed phenotypes.*
+
 The following code generates 100 permulated phenotypes. This step may take a few minutes.
 
 ```{r, warning=FALSE, cache=TRUE, results = 'hide'}
 perms <- categoricalPermulations(toyTrees, phenvals = basalRate, rm = "ARD", 
-                                 rp = "auto", ntrees = 100)
+                                 rp = "auto", ntrees = 100, percent_relax = 0)
 ```
 
 `perms`, the output of `categoricalPermulations` is a 3-element list. The first element `sims` contains the original simulated trees. `sims` is a list of two matrices, `tips` and `nodes`. The matrices have `ntrees` rows corresponding to the `ntrees` simulations. Columns of the `tips` and `nodes` matrices correspond to the extant or internal species respectively. The second element is `trees`. These are the permulated phenotypes. `trees` is an `ntrees`-element list. Each element of `trees` is itself a list containing a `tips` vector and a `nodes` vector corresponding to the states of the extant and internal species. The third element of `perms` is `startingTrees`. `startingTrees` has the same structure as `trees` and corresponds to the permulated phenotypes before step 3, re-organize internal traits (see [Categorical Permulations Overview]).
