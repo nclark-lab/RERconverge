@@ -2216,16 +2216,6 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 
   # get ancliks and max_states
   ancliks = getAncLiks(tree, tips, Q)
-  max_states = getStatesAtNodes(ancliks)
-
-  # calculate tree likelihoods
-  # states = c(tips, max_states)
-  # max_lik = 1
-  # for(i in 1:nrow(tree$edge)){
-  #   a = states[tree$edge[i,1]]
-  #   d = states[tree$edge[i,2]]
-  #   max_lik = max_lik * P[[i]][a, d]
-  # }
 
   states = c(tips, nodes)
   curr_lik = 1
