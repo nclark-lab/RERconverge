@@ -70,8 +70,8 @@ the "Install from Github" step. Then, load the RERconverge library.
 ```{r results='hide', message = FALSE, warning = FALSE, cache=TRUE}
 if (!require("RERconverge", character.only = T, quietly = T)) {
   require(devtools)
-  install_github("nclark-lab/RERconverge", ref = "New_Functions_For_Categorical_Traits")
-  # ref refers to the branch of RERconverge being installed
+  install_github("nclark-lab/RERconverge", ref = "master")
+  # ref refers to the branch being installed
 }
 library(RERconverge)
 ```
@@ -100,10 +100,10 @@ names of the files here with the names of your files:
 toyTrees =readRDS("toyTrees.rds") 
 
 # read in the phenotype data
-sleepPattern = readRDS("sleepPattern.rds")
+basalRate = readRDS("basalRate.rds")
 
 # read in the RERs 
-RERmat = readRDS("sleepRERs.rds")
+RERmat = readRDS("bodyTempRERs.rds")
 ```
 
 To use the same data as in this walk through, run the following code to
@@ -120,11 +120,11 @@ toytreefile = "subsetMammalGeneTrees.txt"
 toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
 
 # load the phenotype data into your workspace
-# This will create a named vector with the name sleepPattern
-data("sleepPattern")
+# This will create a named vector with the name basalRate
+data("basalRate")
 
 # calculate the relative evolutionary rates with getAllResiduals
-RERmat = getAllResiduals(toyTrees, useSpecies = names(sleepPattern))
+RERmat = getAllResiduals(toyTrees, useSpecies = names(basalRate))
 ```
 
 ## Inferring the Phenotype Tree
@@ -173,10 +173,10 @@ The code below shows how to obtain a phenotype tree using
 
 ```{r, cache = TRUE}
 
-allspecs = names(sleepPattern)
+allspecs = names(basalRate)
 
 # unrooted
-phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs, model = "ER",
+phenTree = char2TreeCategorical(basalRate, toyTrees, useSpecies = allspecs, model = "ER",
                                 plot = TRUE)
 ```
 
@@ -203,10 +203,10 @@ with `clade = terminal`), and the function will prompt you to proceed as
 appropriate for a binary trait analysis.
 
 ```{r, eval = FALSE}
-allspecs = names(sleepPattern)
+allspecs = names(basalRate)
 
-phenTree = char2TreeCategorical(sleepPattern, toyTrees, useSpecies = allspecs, plot = TRUE,
-                                anctrait = "NOCTURNAL")
+phenTree = char2TreeCategorical(basalRate, toyTrees, useSpecies = allspecs, plot = TRUE,
+                                anctrait = "high")
 ```
 
 The output of `char2TreeCategorical` is a phenotype tree with the same
@@ -222,7 +222,7 @@ run the castor function that is used within `char2TreeCategorical` as
 shown below:
 
 ```{r, cache = T}
-intlabels = map_to_state_space(sleepPattern)
+intlabels = map_to_state_space(basalRate)
 print(intlabels$name2index)
 ```
 
@@ -263,19 +263,22 @@ for binary traits.
 
 ## Generating **paths** using `char2PathsCategorical`
 
-Some of the gene trees are missing species from the master tree. To
-handle missing species, RERconverge generates paths. For a more detailed
-discussion of paths see the "RERconverge Analysis Walkthrough"
+The `toyTrees` object contains a separate gene tree for each gene in the
+analysis with branch lengths representing the evolutionary rates of that
+gene. All of the gene trees have the same overall topology as the master
+tree, but some of them are missing certain species. To handle missing
+species, RERconverge generates something called paths. For a more
+detailed discussion of paths see the "RERconverge Analysis Walkthrough"
 [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
 For categorical traits we use the function `char2PathsCategorical`. This
 function has the same inputs as `char2TreeCategorical`.
 
 ```{r, cache = TRUE}
 
-allspecs = names(sleepPattern)
+allspecs = names(basalRate)
 
 # unrooted
-charP = char2PathsCategorical(sleepPattern, toyTrees, useSpecies = allspecs, model = "ER", 
+charP = char2PathsCategorical(basalRate, toyTrees, useSpecies = allspecs, model = "ER", 
                               plot = FALSE)
 ```
 
@@ -288,7 +291,7 @@ tree or a subset of the master tree. This is always the case when using
 `click_select_foreground_branches` or `char2TreeCategorical`.
 
 ```{r, eval=FALSE}
-charP = tree2Paths(phenTree, trees, useSpecies = names(sleepPattern), categorical = TRUE)
+charP = tree2Paths(phenTree, toyTrees, categorical = TRUE)
 ```
 
 (To see how to use `tree2Paths` on binary trees reference the
@@ -323,14 +326,14 @@ The inputs of this functiona are:
 ```{r, cache = T}
 
 # get the states from the edges of the phenotype tree 
-root_state = 3 # DIURNAL (3) is the state at the root
+root_state = 1 # high (1) is the state at the root
 states = getStatesFromPhenTree(phenTree, root_state, intlabels$mapped_states)
 
 # plotting phenotypes without relative evolutionary rates represented by branch length
 plotTreeCategorical(tree = phenTree, category_names = intlabels$state_names,
                     node_states = states)
 
-# plotting phenotypes with branch lengths from the master tree
+# plotting phenotypes with branch lengths representing evolutionary rates from the master tree
 plotTreeCategorical(tree = phenTree, category_names = intlabels$state_names,
                     master = toyTrees$masterTree, node_states = states)
 ```
@@ -348,7 +351,7 @@ the colors in the phenotype tree that is plotted by
 `char2PathsCategorical`.
 
 The example below will show how to plot the RERs for one of the top
-genes, `"AQP12B"`. The `plotRers` function takes the following as input:
+genes, `"AP5M1"`. The `plotRers` function takes the following as input:
 
 -   `RERmat`: The RER matrix returned by `getAllResiduals`.
 
@@ -362,7 +365,7 @@ displayed at the top of the plot is `"kw"` for Kruskal Wallis. To use
 ANOVA, use the parameter `method = "aov"`.
 
 ```{r, cache = T}
-gene = "AQP12B"
+gene = "AP5M1"
 plotRers(RERmat, gene, phenv = charP)
 ```
 
@@ -384,7 +387,7 @@ evolution of the phenotype. It takes the following as input:
 -   `method`: The input options are `"kw"` for performing a
     Kruskal-Wallis test (the non parametric option). The pairwise
     testing is done using a Dunn Test. To use an ANOVA test instead (the
-    parametric option), use `method = "aov"`. In this case hte pairwise
+    parametric option), use `method = "aov"`. In this case the pairwise
     testing is done using a Tukey Test. When not specified, the default
     is `"kw"`.
 
@@ -406,8 +409,17 @@ The output (`cors`) is the two-element list described previously in the
 the following output for each gene: Rho, N, P, and p.adj. Descriptions
 of each are given in the "RERconverge Analysis Walkthrough"
 [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+However, Rho is not just the test statistic, rather it is the effect
+size. The Kruskal Wallis test uses epsilon squared as the measure of
+effect size. The epsilon squared effect size for the Kruskal Wallis test
+is calculated by taking the H statistic and dividing it by the number of
+observations minus one [as described in this
+article](http://www.tss.awf.poznan.pl/files/3_Trends_Vol21_2014__no1_20.pdf).
+For the ANOVA test, eta squared is used as the effect size. Eta squared
+is calculated according to [the method in this
+article.](https://cran.r-project.org/web/packages/effectsize/vignettes/anovaES.html)
 
-Extract this table as follows:
+Extract the first element of `cors` as follows:
 
 ```{r, message=FALSE, cache=TRUE}
 allresults = cors[[1]]
@@ -435,7 +447,7 @@ Additionally, recall that you can view the mapping using functions from
 the castor library as shown below:
 
 ```{r, eval=FALSE}
-intlabels = map_to_state_space(sleepPattern)
+intlabels = map_to_state_space(basalRate)
 print(intlabels$name2index)
 ```
 
@@ -452,9 +464,12 @@ output for each gene:
 2.  P: The p-value corrected for pairwise testing, but not corrected for
     multiple hypothesis testing for the many genes.
 
+3.  p.adj: The p-value corrected for multiple hypothesis testing using
+    the Benjamini & Hochberg method.
+
 ```{r}
-# View the top results of the sixth pairwise comparison
-table = pairwise_tables[[6]]
+# View the top results of the third pairwise comparison
+table = pairwise_tables[[3]]
 head(table[order(table$P),])
 ```
 
@@ -477,8 +492,17 @@ the gmt file in your working directory is "gmtfile.gmt".
 **Input** is the output from the correlation function. This can be
 `allresults` (`cors[[1]]`) or any of the tables in the list,
 `pairwise_tables` (`cors[[2]]`). The second input is the pathways of
-interest with gene symbols (read in as "allannots.rds" in the code
-below).
+interest with gene symbols.
+
+**Important**: The default behavior of `fastwilcoxGMTall` is to
+calculate p-values for a two-sided test. However, when performing an
+enrichment analysis on the gene correlation results from the categorical
+omnibus test (either ANOVA or Kruskal Wallis), the p-values should be
+for a one-sided test. This is because, the omnibus tests are one-sided,
+where only more positive test statistics indicate strength of
+correlation. As shown below, the user should specify this by setting the
+`alternative` parameter to `"greater"`. For the pairwise tests, the
+default two-sided behavior is correct.
 
 **Output** is the enrichment statistics from each pathway including the
 genes in the pathway and their ranks.
@@ -495,17 +519,19 @@ annotlist=list(annots)
 names(annotlist)="MSigDBpathways"
 
 # calculate enrichment statistics for the results including all categories
-allenrichments = fastwilcoxGMTall(getStat(allresults), annotlist, outputGeneVals=T)
+# specify alternative = "greater" to get p-values for a one-sided test
+allenrichments = fastwilcoxGMTall(getStat(allresults), annotlist, outputGeneVals=T,
+                                  alternative="greater")
 
 # View the stat, pval, and p.adj of the top enrichment results
 head(allenrichments$MSigDBpathways[order(allenrichments$MSigDBpathways$pval),])[1:3]
 
-# the sixth table is for the pairwise comparison between diurnal and nocturnal species 
-# (with integer labels 3 and 4 respectively)
-di_noc_enrichments = fastwilcoxGMTall(getStat(pairwise_tables[[6]]), annotlist, outputGeneVals=T)
+# the third table is for the pairwise comparison between low and medium species 
+# (with integer labels 2 and 3 respectively)
+low_med_enrichments = fastwilcoxGMTall(getStat(pairwise_tables[[3]]), annotlist, outputGeneVals=T)
 
 # View the stat, pval, and p.adj of the top enrichment results
-head(di_noc_enrichments$MSigDBpathways[order(di_noc_enrichments$MSigDBpathways$pval),])[1:3]
+head(low_med_enrichments$MSigDBpathways[order(low_med_enrichments$MSigDBpathways$pval),])[1:3]
 ```
 
 For a more in depth explanation of performing an enrichment analysis,

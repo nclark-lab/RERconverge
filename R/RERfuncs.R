@@ -20,7 +20,11 @@ require(weights)
 require("castor")
 require(FSA)
 require(Matrix)
-
+require(data.table)
+require(rsvd)
+require(TreeTools)
+require(progress)
+require(impute)
 #' reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
 
@@ -399,6 +403,103 @@ computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicte
   weights
 }
 
+
+
+computeWeightsAllVar2=function (mat, nv = NULL, transform = "none", plot = T, predicted = T)
+{
+  # message("new function")
+  if (is.null(nv)) {
+    nv = apply(mat, 2, mean, na.rm = T, trim = 0.05)
+  }
+  transform = match.arg(transform, choices = c("none", "sqrt",
+                                               "log"))
+  if (transform == "log") {
+    offset = 0
+    if (min(mat, na.rm = T) < 1e-08) {
+      offset = min(mat[mat > 1e-08])
+    }
+    mat = log(mat + offset)
+    nv = log(nv + offset)
+  }
+  if (transform == "sqrt") {
+    mat = sqrt(mat)
+    nv = sqrt(nv)
+  }
+  matsub = mat
+  #matr = naresidCPP(matsub, model.matrix(~1 + nv))
+  message("computing unweighted predictions")
+  matpred = fastLmPredictedMat(matsub, model.matrix(~1 + nv))
+  message("Done")
+
+  matr=matsub-matpred
+  mml = as.vector(matsub)
+  varl = as.vector(log(matr^2))
+  ii = which(!is.na(mml))
+  mml = mml[ii]
+  varl = varl[ii]
+  set.seed(123)
+
+  # iis = sample(length(mml), min(1e+07, length(mml)))
+  message("reduced sampling")
+  iis = sample(length(mml),  min(5e+05, length(mml)))
+  mml = mml[iis]
+  varl = varl[iis]
+
+
+  l = lowess(mml[!is.na(varl)], varl[!is.na(varl)], f = 0.7, iter = 2)
+  f = approxfun(l, rule = 2)
+  if (plot) {
+    par(mfrow = c(1, 2), omi = c(1, 0, 0, 0))
+    nbreaks = 100
+    qq = quantile(mml, seq(0, nbreaks, 1)/nbreaks)
+    qqdiff = diff(qq)
+    breaks = qq[1:nbreaks] + qqdiff/2
+    rr = quantile(mml, c(1e-04, 0.99))
+    breaks = unique(round(breaks, 3))
+    nbreaks = length(breaks)
+    cutres <- cut(mml, breaks = breaks)
+    cutres_tt = table(cutres)
+    boxplot((varl) ~ cutres, xlab = "", ylab = "log var",
+            outline = F, log = "", las = 2)
+    title("Before")
+    xx = (qq[1:nbreaks] + breaks)/2
+    lines(1:length(xx), (f(qq[1:nbreaks])), lwd = 2, col = 2)
+  }
+  wr = 1/exp(f(mml))
+  if (!predicted) {
+    weights = (matrix(1/exp(f(mat)), nrow = nrow(mat)))
+  }
+  else {
+    weights = (matrix(1/exp(f(matpred)), nrow = nrow(mat)))
+  }
+  if (plot) {
+    message("computing weighted residuals on a subset")
+    if(nrow(matsub)<2000){
+      set.seed(1);iis=1:nrow(matsub)
+    }
+    else{
+      iis=1:2000
+    }
+
+    matin=matsub[iis,]
+    win=weights[iis,]
+    matr = naresidCPP(matin, model.matrix(~1 + nv), weights[iis,])
+  if(F){
+      modx=model.matrix(~1 + nv)
+matr=matin-fastLmResidMatWeightedPredict(matin, modx ,weights[iis,], modx)
+matr=matr*sqrt(weights[iis,])
+  }
+  message("done")
+    #    varl = (as.vector(log(matr^2))[ii])[iis]
+    #   boxplot((varl) ~ cutres, ylab = "log var", outline = F,
+    #         log = "", main = "After", las = 2)
+    plotAsBox( matsub[iis,], log(matr^2), main="After", n = 100)
+    abline(h = 0, col = "blue3", lwd = 2)
+    mtext(side = 1, text = "bins", outer = T, line = 2)
+  }
+  weights
+}
+
 #' @keywords  internal
 naresidCPP=function(data, mod, weights=NULL){
   if(is.null(weights)){
@@ -643,6 +744,96 @@ correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos 
   getAllCor(RERmat, charP, min.sp, min.pos, method = method)
 }
 
+#' A sped up version of the Kruskal Wallis/Dunn Test
+#' @keywords internal
+kwdunn.test <- function(x,g, ncategories){
+  ntests <- ncategories*(ncategories -1)/2 # number of pairwise tests
+  # set up a data matrix
+  N <- length(x)
+  glevels <- as.integer(levels(g)) # g must be an integer converted to a factor!
+  Data <- matrix(NA, length(x), 3)
+  Data[, 1] <- x
+  Data[, 2] <- g
+  # when g gets converted to numeric in the Data matrix, it is converted to CONSECUTIVE integers in the order of the factors
+  # e.g. 1, 2, 4 --> 1, 2, 3
+
+  # use frank (fast rank) instead of base rank function
+  # REQUIRES THE PACKAGE data.table TO BE ATTACHED!!!
+  Data[, 3] <- frank(Data[, 1], ties.method = "average", na.last = NA)
+
+  # calculate the ties adjustment term that is shared between kwallis and dunn test
+  # define a function to find the tied ranks
+  tiedranks <- function(ranks) {
+    ranks <- sort(ranks)
+    ties <- c()
+    for (i in 2:length(ranks)) {
+      if (ranks[i - 1] == ranks[i]) {
+        if (length(ties) > 0) {
+          if (ranks[i - 1] != tail(ties, n = 1)) {
+            ties <- c(ties, ranks[i - 1])
+          }
+        }
+        else {
+          ties <- c(ranks[i - 1])
+        }
+      }
+    }
+    return(ties)
+  }
+
+  # calculate the ties adjustment sum term (same between KW and Dunn)
+  k <- length(unique(Data[, 2]))
+  ranks <- Data[, 3]
+  ties <- tiedranks(ranks)
+  r <- length(ties)
+  tiesadjsum <- 0
+  if (r > 0) {
+    for (s in 1:r) {
+      tau <- sum(ranks == ties[s])
+      tiesadjsum <- tiesadjsum + (tau^{3} - tau)
+    }
+  }
+
+  # pre-calculate indices/sums/stuff to reduce the number of times it's calculated
+  groupinds <- lapply(1:k, function(i){Data[, 2] == i}) # rows in Data corresponding to group i (as TRUE/FALSE vector)
+  groupranks <- lapply(groupinds, function(i){Data[, 3][i]}) # ranks in each group
+  groupranksums <- unlist(lapply(groupranks, function(i){sum(i)})) # sum of ranks in each group
+  groupsizes <- unlist(lapply(groupinds, function(i){sum(i)})) # number of observations in each group
+
+  # calculate the H statistic and p-value for the KW test
+  tiesadj <- 1 - (tiesadjsum/((N^3) - N))
+  ranksum <- sum((groupranksums^2)/groupsizes) # use matrix operations in place of for loops
+  H <- ((12/(N * (N + 1))) * ranksum - 3 * (N + 1))/tiesadj
+  df <- k - 1
+  p <- pchisq(H, k - 1, lower.tail = FALSE)
+
+  # Dunn test: calculate the Z statistic for each pairwise test
+  m <- k * (k - 1)/2
+  Z <- rep(NA, ntests)
+  tiesadj <- tiesadjsum/(12 * (N - 1))
+
+  # loop through each pairwise comparison
+  index <- 1
+  for (i in 2:k) {
+    for (j in 1:(i - 1)) {
+      # make a pairwise test name
+      index <- ((glevels[i]-1) * (glevels[i] - 2)/2) + glevels[j]
+
+      # do calculation
+      meanranki <- groupranksums[i]/groupsizes[i]
+      meanrankj <- groupranksums[j]/groupsizes[j]
+      z <- (meanrankj - meanranki)/sqrt(((N * (N + 1)/12) - tiesadj) * ((1/groupsizes[j]) + (1/groupsizes[i])))
+
+      # add result to Z vector with the name
+      Z[index] <- z
+    }
+  }
+  P <- 2*pnorm(abs(Z), lower.tail = FALSE)
+
+  # do bonferroni p value adjustment (for pairwise error rate?)
+  P.adjust <- pmin(1, P * m)
+  return(list(kw = list(H = H, p = p), dunn = list(Z = Z, P = P, P.adjust = P.adjust)))
+}
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
@@ -699,11 +890,24 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
 
   ##############################################################################
   # make tables for each pairwise comparison & a list for the tables
-  if(method == "aov" || method == "kw") {
-    lu = length(unique(charP[!is.na(charP)])) # number of categories
-    n = choose(lu,2) # number of comparisons
-    tables = lapply(1:n, matrix, data= NA, nrow=nrow(RERmat), ncol=2, dimnames = list(rownames(RERmat),c("Rho", "P")))
-    names(tables) = rep(NA, n)
+  if (method == "aov" || method == "kw") {
+    lu = length(unique(charP[!is.na(charP)]))
+    n = choose(lu, 2)
+    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
+                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho",
+                                                                  "P")))
+    if(method == "aov") {
+      names(tables) = rep(NA, n)
+    }
+    else { # name the tables in the same order as Z is calculated
+      for (i in 2:lu) {
+        for (j in 1:(i - 1)) {
+          index <- (i-1)*(i-2)/2 + j
+          names(tables)[index] <- paste0(j, " - ", i)
+        }
+      }
+    }
+
   }
   ##############################################################################
 
@@ -716,7 +920,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
       #check that there are >= min.pos species in each category
       if(method =="kw" || method =="aov") {
         counts = table(charP[ii])
-        if(length(counts) < 2 || min(counts) < min.pos) {
+        num_groups = length(counts) # k in eta^2 calculation for KW test
+        if(num_groups < 2 || min(counts) < min.pos) {
           next
         }
       }
@@ -749,9 +954,14 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           df = data.frame(x,yfacts)
           colnames(df) = c("RER", "category")
           ares = aov(RER ~ category, data = df)
-          ares_Fval = summary(ares)[[1]][1,4]
+          # ares_Fval = summary(ares)[[1]][1,4]
+          # calculate effect size:
+          sumsq = summary(ares)[[1]][1,2]
+          sumsqres = summary(ares)[[1]][2,2]
+          # eta2
+          effect_size = sumsq / (sumsq + sumsqres)
           ares_pval = summary(ares)[[1]][1,5]
-          corout[i,1:3]=c(ares_Fval, nb, ares_pval)
+          corout[i,1:3]=c(effect_size, nb, ares_pval)
 
           tukey = TukeyHSD(ares)
 
@@ -775,35 +985,49 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           }
 
         } else if (method == "kw") {
-          # Kruskal Wallis
-          yfacts = as.factor(y)
-          df = data.frame(x,yfacts)
-          colnames(df) = c("RER", "category")
-          kres = kruskal.test(RER ~ category, data = df)
-          kres_Hval = kres$statistic
-          kres_pval = kres$p.value
-          corout[i,1:3] = c(kres_Hval, nb, kres_pval)
+          # Kruskal Wallis/Dunn test
+          yfacts = factor(y)
+          kres = kwdunn.test(x, yfacts, ncategories = lu)
+          effect_size = kres$kw$H/(nb - 1)
+          corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
 
-          # Dunn test
-          dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
+          for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
+            tables[[k]][i, "Rho"] = kres$dunn$Z[k]
+            tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
+          }
 
-          # add new names to tables
-          groups = dunn$res$Comparison
-          unnamedinds = which(is.na(names(tables)))
-          if(length(unnamedinds > 0)) {
-            # check for groups not in table already
-            newnamesinds = which(is.na(match(groups, names(tables))))
-            # if there are new groups add them to the next available positions
-            if(length(newnamesinds) > 0) {
-              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-            }
-          }
-          # add data to the tables
-          for(k in 1:length(groups)) {
-            name = groups[k]
-            tables[[name]][i,"Rho"] = dunn$res$Z[k]
-            tables[[name]][i,"P"] = dunn$res$P.adj[k]
-          }
+          # old code before speed up:
+          # yfacts = as.factor(y)
+          # df = data.frame(x,yfacts)
+          # colnames(df) = c("RER", "category")
+          # kres = kruskal.test(RER ~ category, data = df)
+          # kres_Hval = kres$statistic
+          # kres_pval = kres$p.value
+          # # calculate effect size
+          # # effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # eta2: (H - k + 1) / (n - k)
+          # effect_size = kres_Hval / (nb - 1) # epsilon squared
+          # corout[i,1:3] = c(effect_size, nb, kres_pval)
+          #
+          # # Dunn test
+          # dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
+          #
+          # # add new names to tables
+          # groups = dunn$res$Comparison
+          # unnamedinds = which(is.na(names(tables)))
+          # if(length(unnamedinds > 0)) {
+          #   # check for groups not in table already
+          #   newnamesinds = which(is.na(match(groups, names(tables))))
+          #   # if there are new groups add them to the next available positions
+          #   if(length(newnamesinds) > 0) {
+          #     names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+          #   }
+          # }
+          # # add data to the tables
+          # for(k in 1:length(groups)) {
+          #   name = groups[k]
+          #   tables[[name]][i,"Rho"] = dunn$res$Z[k]
+          #   tables[[name]][i,"P"] = dunn$res$P.adj[k]
+          # }
         }
         else {
           cres=cor.test(x, y, method=method, exact=F)
@@ -896,12 +1120,28 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 
   # generate tables for the pairwise tests if trait is categorical
   if (method == "aov" || method == "kw") {
+    # convert phenvals to integers to work with kwdunn.test function
+    intlabels = map_to_state_space(phenvals)
+    phenv = intlabels$mapped_states
+    names(phenv) = names(phenvals)
+    phenvals = phenv
+
     lu = length(unique(phenvals[!is.na(phenvals)]))
     n = choose(lu, 2)
     tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
                     ncol = 2, dimnames = list(rownames(RERmat), c("Rho",
                                                                   "P")))
-    names(tables) = rep(NA, n)
+    if(method == "aov") {
+      names(tables) = rep(NA, n)
+    }
+    else { # name the tables in the same order as Z is calculated
+      for (i in 2:lu) {
+        for (j in 1:(i - 1)) {
+          index <- (i-1)*(i-2)/2 + j
+          names(tables)[index] <- paste0(j, " - ", i)
+        }
+      }
+    }
   }
 
   # name the columns of corout
@@ -974,29 +1214,40 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
         }
       }
       else if (method == "kw") {
-        yfacts = as.factor(y)
-        df = data.frame(x, yfacts)
-        colnames(df) = c("RER", "category")
-        kres = kruskal.test(RER ~ category, data = df)
-        kres_Hval = kres$statistic
-        kres_pval = kres$p.value
-        corout[i, 1:3] = c(kres_Hval, length(phens), kres_pval)
-        dunn = dunnTest(RER ~ category, data = df,
-                        method = "bonferroni")
-        groups = dunn$res$Comparison
-        unnamedinds = which(is.na(names(tables)))
-        if (length(unnamedinds > 0)) {
-          newnamesinds = which(is.na(match(groups,
-                                           names(tables))))
-          if (length(newnamesinds) > 0) {
-            names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-          }
+        yfacts = factor(y)
+        kres = kwdunn.test(x, yfacts, ncategories = lu)
+        effect_size = kres$kw$H/(nb - 1)
+        corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
+
+        for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
+          tables[[k]][i, "Rho"] = kres$dunn$Z[k]
+          tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
         }
-        for (k in 1:length(groups)) {
-          name = groups[k]
-          tables[[name]][i, "Rho"] = dunn$res$Z[k]
-          tables[[name]][i, "P"] = dunn$res$P.adj[k]
-        }
+
+        # old code before speed up:
+        # yfacts = as.factor(y)
+        # df = data.frame(x, yfacts)
+        # colnames(df) = c("RER", "category")
+        # kres = kruskal.test(RER ~ category, data = df)
+        # kres_Hval = kres$statistic
+        # kres_pval = kres$p.value
+        # corout[i, 1:3] = c(kres_Hval, length(phens), kres_pval)
+        # dunn = dunnTest(RER ~ category, data = df,
+        #                 method = "bonferroni")
+        # groups = dunn$res$Comparison
+        # unnamedinds = which(is.na(names(tables)))
+        # if (length(unnamedinds > 0)) {
+        #   newnamesinds = which(is.na(match(groups,
+        #                                    names(tables))))
+        #   if (length(newnamesinds) > 0) {
+        #     names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
+        #   }
+        # }
+        # for (k in 1:length(groups)) {
+        #   name = groups[k]
+        #   tables[[name]][i, "Rho"] = dunn$res$Z[k]
+        #   tables[[name]][i, "P"] = dunn$res$P.adj[k]
+        # }
       }
       else {
         cres = cor.test(x, y, method = method, exact = F)
@@ -1144,6 +1395,7 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
           nv=apply(scaleMatMean(allbranch), 2, mean, na.rm=T, trim=mean.trim)
         }
         else{
+          message(nrow(allbranch))
           nv=apply(allbranch, 2, mean, na.rm=T, trim=mean.trim)
         }
 
@@ -1368,14 +1620,15 @@ foreground2Tree = function(foreground,treesObj, plotTree=T, clade=c("ancestral",
 #'@param model Specifies what rate model to use
 #'@param plot Plots a phenotype tree
 #'@param anctrait The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.
+#'@param root_prior The prior probabilities of each trait at the root used to fit the transition matrix. Can be a vector of length equal to the number of states or one of the following: "flat", "empirical", "stationary", "likelihoods", "max_likelihood".
 #'@return A vector of length equal to the number of paths in treesObj
 #'@export
 char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
-                                 model = "ER", plot = FALSE, anctrait = NULL) {
+                                 model = "ER", plot = FALSE, anctrait = NULL, root_prior = "auto") {
   #get tree
   tree = char2TreeCategorical(tipvals = tipvals, treesObj = treesObj,
                               useSpecies = useSpecies, model = model, plot = plot,
-                              anctrait = anctrait)
+                              anctrait = anctrait, root_prior = root_prior)
   # get paths
   paths = tree2Paths(tree, treesObj, useSpecies = useSpecies,
                      categorical = T)
@@ -1776,11 +2029,12 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
 #'@param model Specifies what rate model to use
 #'@param plot Plots a phenotype tree
 #'@param anctrait The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.
+#'@param root_prior The prior probabilities of each trait at the root used to fit the transition matrix. Can be a vector of length equal to the number of states or one of the following: "flat", "empirical", "stationary", "likelihoods", "max_likelihood".
 #'@return A tree with edge.length representing phenotype states
 #'@export
 char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
-                                     model = "ER", root_prior = "auto",
-                                     plot = FALSE, anctrait = NULL)
+                                  model = "ER", root_prior = "auto",
+                                  plot = FALSE, anctrait = NULL)
 {
   # get the master tree and prune to include useSpecies/species with phenotype data
   mastertree = treesObj$masterTree
@@ -1792,10 +2046,14 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
     }
     useSpecies = intersect(mastertree$tip.label, useSpecies)
     mastertree = pruneTree(mastertree, useSpecies)
+    # unroot the tree after pruning
+    mastertree = unroot(mastertree)
   }
   else {
     mastertree = pruneTree(mastertree, intersect(mastertree$tip.label,
                                                  names(tipvals)))
+    # unroot the tree after pruning
+    mastertree = unroot(mastertree)
   }
   # use ASR to infer phenotype tree
   if (is.null(anctrait)) {
@@ -3135,3 +3393,819 @@ matchNodesInjectUpdate=function (tr1, tr2){
   #ii=ii[order(ii[,1]),]
 }
 
+
+
+
+
+allPathsTT=function(tree, needIndex=T){
+  pres=PathLengths(tree)
+
+  allD=pres[,3]
+
+  nA=length(tree$tip.label)+tree$Nnode
+  if(needIndex){
+    matIndex=matrix(nrow=nA, ncol=nA)
+    for( j in 1:nrow(pres)){
+      matIndex[pres[j,2], pres[j,1]]=j
+    }
+
+
+    return(list(dist=allD, nodeId=pres[,c(2,1)], matIndex=matIndex))
+  }
+  else{
+    return(list(dist=allD, nodeId=pres[,c(2,1)]))
+  }
+}
+
+matchAllnodesTT=function(tree, masterTree){
+  index = KeptVerts(masterTree, TipLabels(masterTree) %in% tree$tip.label)
+  key = which(index)
+  map = cbind(seq_along(key), key)
+  map
+}
+
+
+
+
+allPathsMasterRelativeTT=function(tree, masterTree, masterTreePaths=NULL){
+
+  if(! is.list(masterTreePaths)){
+    masterTreePaths=allPathsTT(masterTree)
+  }
+
+  treePaths=allPathsTT(tree, needIndex = F)
+  map=matchAllnodesTT(tree,masterTree)
+
+  #remap the nodes
+  treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
+  treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
+
+
+  #ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
+  ii=masterTreePaths$matIndex[cbind(treePaths$nodeId[,1],treePaths$nodeId[,2])]
+  vals=double(length(masterTreePaths$dist))
+  vals[]=NA
+  vals[ii]=treePaths$dist
+  vals
+}
+
+
+matchAllnodesTT=function(tree, masterTree){
+  index = KeptVerts(masterTree, TipLabels(masterTree) %in% tree$tip.label)
+  key = which(index)
+  map = cbind(seq_along(key), key)
+  map
+}
+
+
+edgeIndexRelativeMasterTT=function(tree, masterTree){
+  map=matchAllnodesTT(tree,masterTree)
+  newedge=tree$edge
+  newedge[,1]=map[newedge[,1],2]
+  newedge[,2]=map[newedge[,2],2]
+  newedge
+}
+
+namePathsWSpeciesTT=function(treesObj){
+  cnames=vector("character", ncol(treesObj$paths))
+
+  for(i in 1:ncol(treesObj$paths)){
+    tip=which(treesObj$matIndex==i, arr.ind = T)[,1]
+    #  show(tip)
+    if(tip<=treesObj$maxSp){
+      cnames[i]=treesObj$masterTree$tip.label[tip]
+    }
+  }
+  cnames
+}
+
+#' Reads trees from a 2 column , tab seperated, file
+#' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
+#' This function is faster thatn readTrees but returns paths in a different indexing order
+#' @param file The path to the tree file
+#' @param  max.read This function can take several minutes, so max.read is useful for testing
+#' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
+#' the number of available gene trees with all species is small.
+#' @param  minTreesAll The minimum number of trees with all species present in order to estimate
+#' master tree edge lengths (default 20).
+#' @param reestimateBranches Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)
+#' @param minSpecs the minimum number of species that needs to be present in a gene tree to be included in calculating master tree
+#' @return A trees object of class "treeObj"
+#' @export
+readTrees2=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimateBranches=F, minSpecs=NULL){
+
+  message("Using readTrees2")
+  message("Reading data")
+  tmp=scan(file, sep="\t", what="character", quiet = T)
+  trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
+  treenames=character()
+  maxsp=0; # maximum number of species
+
+  for ( i in 1:min(length(tmp),max.read*2, na.rm = T)){
+    if (i %% 2==1){
+      treenames=c(treenames, tmp[i])
+    }
+    else{
+      trees[[i/2]]=unroot(read.tree(text=tmp[i]))
+      #check if it has more species
+      if(length(trees[[i/2]]$tip.label)>maxsp){
+        maxsp=length(trees[[i/2]]$tip.label)
+        allnames=trees[[i/2]]$tip.label
+      }
+    }
+
+  }
+  names(trees)=treenames
+  treesObj=vector(mode = "list")
+  treesObj$trees=trees
+  treesObj$numTrees=length(trees)
+  treesObj$maxSp=maxsp
+  message("Done")
+  message(paste("Max number of species is ", maxsp))
+
+  report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
+  colnames(report)=allnames
+
+  rownames(report)=treenames
+  for ( i in 1:nrow(report)){
+    ii=match(allnames, trees[[i]]$tip.label)
+    report[i,]=1-is.na(ii)
+
+  }
+  treesObj$report=report
+
+
+  if(is.null(masterTree)){
+
+
+    ii=which(rowSums(report)==maxsp)
+
+    #Create a master tree with no edge lengths
+    master=trees[[ii[1]]]
+    master$edge.length[]=1
+  }
+  else{
+    master=masterTree
+  }
+
+
+
+  master=Preorder(master)
+  treesObj$masterTree=master
+
+
+
+
+
+
+
+
+
+  for ( i in 1:treesObj$numTrees){
+    treesObj$trees[[i]]=RenumberTips(treesObj$trees[[i]], master$tip.label)
+    treesObj$trees[[i]]=Preorder(treesObj$trees[[i]])
+
+  }
+
+
+
+  ap=allPathsTT(master)
+  treesObj$ap=ap
+  matAnc=(ap$matIndex>0)+1-1
+  matAnc[is.na(matAnc)]=0
+
+  paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
+
+  pb <- progress_bar$new(format = "(:spin) [:bar] :percent [Elapsed time: :elapsedfull || Estimated time remaining: :eta]",
+                         total = treesObj$numTrees,
+                         complete = "=",   # Completion bar character
+                         incomplete = "-", # Incomplete bar character
+                         current = ">",    # Current bar character
+                         clear = FALSE,    # If TRUE, clears the bar when finish
+                         width = 100)      # Width of the progress bar
+
+  message("Extracting paths")
+  for( i in 1:treesObj$numTrees){
+    pb$tick()
+    paths[i,]=allPathsMasterRelativeTT(treesObj$trees[[i]], master, ap)
+  }
+
+
+  #  paths=paths+min(paths[paths>0], na.rm=T)
+  treesObj$paths=paths
+  treesObj$matAnc=matAnc
+  treesObj$matIndex=ap$matIndex
+  treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
+
+  #require all species and tree compatibility
+  #ii=which(rowSums(report)==maxsp)
+  ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
+
+
+
+  #if masterTree is provided by user, must use minSpecs<maxsp
+  #if no user supplied tree and not minSpec, calculate branch lengths from trees with all species
+  #if minSpecs<maxsp, calculate branch lengths from trees with minSpecs species
+  if(is.null(minSpecs)){
+    #if minimum species not specified,
+    #minimum is all species
+    minSpecs=maxsp
+  }
+
+  if(!is.null(masterTree) && !reestimateBranches){
+    message("Using user-specified master tree")
+  }
+
+
+  if(minSpecs==maxsp){ #if we're using all species
+    if (is.null(masterTree)) { #and if the user did not specify a master tree
+      if(length(ii)>=minTreesAll){
+        message (paste0("Estimating master tree branch lengths from ", length(ii), " genes"))
+        tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
+
+        allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
+        allEdge=scaleMat(allEdge)
+        allEdgeM=apply(allEdge,2,mean)
+        treesObj$masterTree$edge.length=allEdgeM
+      }else {
+        message("Not enough genes with all species present: master tree has no edge.lengths")
+      }
+    }else{
+      message("Must specify minSpecs when supplying a master tree: master tree has no edge.lengths")
+    }
+  }else{ #if we are not using all species
+    #estimating from trees with minimum number of species
+    treeinds=which(rowSums(report)>=minSpecs) #which trees have the minimum species
+    message (paste0("estimating master tree branch lengths from ", length(treeinds), " genes"))
+
+
+    if(length(treeinds)>=minTreesAll){
+      pathstouse=treesObj$paths[treeinds,] #get paths for those trees
+
+      colnames(pathstouse) = ap$destinNode
+      colBranch = vector("integer",0)
+      unq.colnames = unique(colnames(pathstouse))
+
+      for (i in 1:length(unq.colnames)){
+        ind.cols = which(colnames(pathstouse) == unq.colnames[i])
+        colBranch = c(colBranch,ind.cols[1])
+      }
+
+      allEdge = pathstouse[,colBranch]
+      allEdgeScaled = allEdge
+      for (i in 1:nrow(allEdgeScaled)){
+        allEdgeScaled[i,] = scaleDistNa(allEdgeScaled[i,])
+      }
+      colnames(allEdgeScaled) = unq.colnames
+
+      edgelengths = vector("double", ncol(allEdgeScaled))
+
+      edge.master = treesObj$masterTree$edge
+
+      for (i in 1:nrow(edge.master)){
+        destinNode.i = edge.master[i,2]
+        col.Node.i = allEdgeScaled[,as.character(destinNode.i)]
+        edgelengths[i] = mean(na.omit(col.Node.i))
+      }
+
+      treesObj$masterTree$edge.length = edgelengths
+    }else{
+      message("Not enough genes with minSpecs species present: master tree has no edge.lengths")
+    }
+  }
+
+
+  message("Naming columns of paths matrix")
+  colnames(treesObj$paths)=namePathsWSpeciesTT(treesObj)
+
+
+  class(treesObj)=append(class(treesObj), "treesObj")
+  treesObj
+}
+
+
+
+
+#' Get All Residuals
+#'
+#' Calculate residuals for a given trees object using a set of normalization covariates
+#'
+#' @param treesObj A trees object from readTrees or readTrees2
+#' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
+#' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
+#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
+#' @param useSpecies Species subset to use (optional).
+#' @param min.sp Minimum species in a tree.  (default: 10).
+#' @param min.valid Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).
+#' @param doOnly Only do specific trees (optional).
+#' @param maxT Maximum number of trees to do (optional, mostly useful for debugging).
+#' @param block.do Process rows in blocks (default: FALSE).
+#' @param weights Weights for calculations (optional, if treesObj has weights those are used).
+#' @param use.weights Can be use to turn of weighted regression.
+#' @param interaction Use PC interactions when building the normalization model (default: FALSE).
+#'
+#' @return A list containing calculated residuals
+#' @export
+getAllResiduals2=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
+                          useSpecies=NULL,  min.sp=10, min.valid=20,
+                          doOnly=NULL, maxT=NULL,
+                          block.do=F, weights=NULL, use.weights=T, interaction=F){
+
+
+  message("****using getAllResiduals2****")
+  if (is.null(cutoff)) {
+    cutoff = quantile(treesObj$paths, 0.05, na.rm = T)
+    message(paste("cutoff is set to", cutoff))
+  }
+
+  if(is.null(treesObj$pathsImputed) && n.pcs>0){
+    message("PC normalization not supported without imputation\n
+            Run transformPaths with imputation or set n.pcs=0")
+    return()
+  }
+  if(block.do){
+    pStr=apply(treesObj$report, 1, paste, collapse="")
+    uClust=unique(pStr)
+    blockId=match(pStr, uClust)
+  }
+
+  tPaths= treesObj$paths
+  if(is.null(nvMod)){
+    if(n.pcs>0){
+      svdres=rsvd(treesObj$pathsImputed, k=n.pcs+1)
+      if(!interaction){
+        nvMod=model.matrix(~1+svdres$v[, 1:n.pcs])
+      }
+      else{
+        nvMod=model.matrix(~1+.^2, data = as.data.frame(svdres$v[, 1:n.pcs]))
+      }
+
+    }
+    else {
+      message("using average normalization vector")
+
+      nvAve= treesObj$transformFunc(apply(tPathsRaw<-treesObj$transformInv(tPaths), 2, mean, na.rm = T, trim = 0.05))
+
+#message("HERE")
+      #nvAve= apply(tPaths, 2, mean, na.rm = T, trim = 0.05)
+
+
+
+      # nvAve=apply(tPaths,2, mean, trim=0.05, na.rm=T)
+      nvMod=model.matrix(~1+nvAve)
+    }
+  }
+  if(any(is.na(nvMod))){
+    message("NA values in model: something is wrong")
+    stop()
+  }
+
+
+  if (is.null(useSpecies)){
+    useSpecies=treesObj$masterTree$tip.label
+  }
+  else{
+    #useSpecies has to exist in masterTree
+    useSpecies=intersect(treesObj$masterTree$tip.label, useSpecies)
+  }
+  if(is.null(maxT)){
+    maxT=treesObj$numTrees
+  }
+
+  if(!is.null(weights)){
+    message("using external weights")
+  }
+  else if(is.null(weights) && !is.null(treesObj$weights)){
+
+    weights=treesObj$weights
+
+    message("using included weights")
+
+  }
+
+
+  if(is.null(weights) | !use.weights){
+    message("No weights found. Setting weights to 1. Consider adding weights")
+    weights=copyMat(tPaths)
+    weights[]=1
+  }
+
+
+
+  #maximum number of present species
+  maxSpecies=rowSums(treesObj$report[,useSpecies])
+
+  #this will hold the predictions
+  preds=copyMat(tPaths)
+  preds[]=NA
+
+
+  if(is.null(doOnly)){
+    doOnly=1
+  }
+  else{
+    maxT=1
+  }
+  isDone=vector("logical", nrow(preds))
+  isDone[]=F
+
+  #this will hold the indicies used to construct the regression
+  #which is a subset of the indicies used for predictions
+  modelIndexList=vector("list", nrow(preds))
+  pb <- progress_bar$new(format = "(:spin) [:bar] :percent [Elapsed time: :elapsedfull || Estimated time remaining: :eta]",
+                         total = maxT,
+                         complete = "=",   # Completion bar character
+                         incomplete = "-", # Incomplete bar character
+                         current = ">",    # Current bar character
+                         clear = FALSE,    # If TRUE, clears the bar when finish
+                         width = 100)      # Width of the progress bar
+  for (i in doOnly:(doOnly+maxT-1)){
+    #TICK
+    # pb$tick()
+
+    if(!isDone[i]){
+
+
+      #get the ith tree
+      tree1=treesObj$trees[[i]]
+
+      #get the common species, prune and unroot
+      thisUseSpecies=intersect(tree1$tip.label, useSpecies)
+
+
+
+
+      if(length(thisUseSpecies)<min.sp){
+
+        next
+      }
+
+
+      #find all the genes that that whose maximal species set is the same as tree1
+
+      if(block.do){
+        #      thisMaxSpecies=rowSums(treesObj$report[,thisUseSpecies])
+        #     iido=which(maxSpecies==thisMaxSpecies&thisMaxSpecies==length(thisUseSpecies))
+        iido=which(blockId==blockId[i])
+      }
+      else{
+        iido=i
+      }
+
+
+
+
+
+
+
+      ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
+
+      #these are the indicies for the paths that span the tree
+      #these are used to build the regression
+
+      iiPaths= treesObj$matIndex[ee[, c(2,1)]]
+
+
+
+
+
+      #extract the tPaths and corresponding weights
+
+      allbranch=tPaths[iido,iiPaths,drop=F]
+      allbranchw=weights[iido,iiPaths, drop=F]
+      iibad=which(tPaths[iido, iiPaths, drop=F]<cutoff)
+
+      allbranch[iibad]=NA
+
+      iidoAll=iido
+      sumCanUse=rowSums(!is.na(allbranch))
+      iigood=which(sumCanUse>=min.valid)
+
+      if(length(iigood)<1){
+        next
+      }
+      allbranch=allbranch[iigood, ,drop=F]
+      allbranchw=allbranchw[iigood, ,drop=F]
+
+
+
+
+
+      iido=iido[iigood]
+
+      #these are all the indecies that are not NA and thus can get predictions
+      iiallnotna=which(!is.na(treesObj$paths[iido[1],]))
+
+
+
+
+      for(j in 1:length(iido)){
+
+        modelIndexList[[iido[j]]]=iiPaths[which(!is.na(allbranch[j,]))]
+      }
+
+
+
+      preds[iido,iiallnotna]= fastLmResidMatWeightedPredict(allbranch, nvMod[iiPaths,], allbranchw, nvMod[iiallnotna,])
+
+
+      isDone[iidoAll]=T
+    }
+  }
+  allresiduals=(tPaths-preds) #subtract residuals
+
+  rownames(allresiduals)=names(treesObj$trees)
+
+  if(!is.null(weights)){
+    message("studentizing residuals with weights")
+    allresiduals=allresiduals*sqrt(weights)
+  }
+  return(list(allresiduals=allresiduals, index=modelIndexList, preds=preds, nvMod=nvMod))
+
+
+}
+
+
+#' Extract a maximal independent residual matrix for each feature Matrix
+#'
+#'
+#' @param resOut An object resulting from the NEW \code{\link{getAllResiduals2}} (NOT the original \code{\link{getAllResiduals}})
+#' @param all Logical, indicating whether to return all of the residuals instead of the independent set(default is FALSE).
+#' @param weights A matrix of weights used to normalize the path values computed by \code{\link{transformPaths}} (default is NULL).
+#' @param use.rows A vector of indices of rows/features to return (default is NULL, which means all rows).
+#' @param norm A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").
+#'
+#' @return An residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
+#' assuming all=FALSE
+#' @export
+getRMat=function(resOut, all=F, weights=NULL,  use.rows=NULL, norm="scale"){
+  norm=match.arg(norm, c("scale", "zscore", "quantile", "none"))
+  allres=copyMat(resOut$allresiduals)
+  if(is.null(use.rows)){
+    use.rows=1:nrow(allres)
+  }
+  resIn=resOut$allresiduals
+
+  if(norm=="scale"){
+    message("using column-wise scale normalization")
+    resIn=myscale(resIn, center=F)
+  }
+  else if(norm=="zscore"){
+    message("using column-wise zscore normalization")
+    resIn=myscale(resIn, center=T)
+  }
+  else if(norm=="quantile"){
+    message("using column-wise quantile normalization")
+    resIn=normalizeQuantiles(resIn)
+  }
+
+
+  if(!all){
+    for(i in use.rows){
+
+      ii=resOut$index[[i]]
+      allres[i,ii]=resIn[i,ii]
+    }
+    allres
+  }
+  else{
+    allres=resIn
+  }
+
+
+  allres
+}
+
+
+getColMeansNV=function(mat){
+  nv = apply(mat, 2, mean, na.rm = T, trim = 0.05)
+}
+
+#' Transform Paths
+#'
+#' This function applies a transformation to the paths in a tree object optionally imputing missing values
+#'
+#' @param treesObj A tree object
+#' @param transform A character string specifying the transformation to apply.
+#'   Options include "log", "sqrt", "exp", etc.
+#' @param impute Logical, indicating whether to impute missing values (default is TRUE).
+#'
+#' @return A modified tree object with transformed paths.
+#'
+
+#' @export
+transformPaths=function(treesObj, transform="log", impute=T){
+  transform=match.arg(transform, c("sqrt", "log", "asinh", "none"))
+  nv=getColMeansNV(treesObj$paths)
+
+  if(transform=="log"){
+
+    set.seed(1);  iis=sample(nrow(treesObj$paths),500)
+    tmpdat=treesObj$paths[iis,]
+    mval=min(tmpdat[tmpdat>0], na.rm = T)
+    treesObj$paths= log(treesObj$paths+mval)
+    treesObj$logOffset=mval
+    treesObj$transform="log"
+    treesObj$transformFunc=function(x){log(x+mval)}
+    treesObj$transformInv=function(x){exp(x)-mval}
+    nv=log(nv+mval)
+  }
+  else if (transform=="sqrt"){
+    treesObj$paths= sqrt(treesObj$paths)
+    treesObj$transform="sqrt"
+    treesObj$transformFunc=sqrt
+    treesObj$transformInv=function(x){x^2}
+    nv=sqrt(nv)
+  }
+
+  else if (transform=="asinh"){
+    treesObj$paths= asinh(treesObj$paths)
+    treesObj$transform="asinh"
+    treesObj$transformFunc=asinh
+    treesObj$transformInv=sinh
+    nv=sqrt(nv)
+  }
+
+  else if (transform=="none"){
+    treesObj$transformFunc=identity
+    treesObj$transformInv=identity
+    treesObj$transform="none"
+  }
+
+
+
+  if(impute){
+    set.seed(1);kres=impute.knn(treesObj$paths, colmax = 95)
+    treesObj$pathsImputed=kres$data
+
+  }
+  treesObj$weights=computeWeightsAllVar2(treesObj$paths, nv = nv, transform = "none")
+  treesObj
+
+}
+
+
+winsorizeRank=function(data, axis, rank=2){
+  upper=apply(data,axis,function(x){ sort(x,T)[rank]})
+  lower=apply(data,axis,function(x){ sort(x,F)[rank]})
+  if (axis==1){
+    for(i in 1:nrow(data)){
+      data[i,][data[i,]>upper[i]]=upper[i]
+      data[i,][data[i,]<lower[i]]=lower[i]
+    }
+  }
+  else{
+    for(i in 1:ncol(data)){
+      data[,i][data[,i]>upper[i]]=upper[i]
+      data[,i][data[,i]<lower[i]]=lower[i]
+    }
+  }
+  data
+}
+
+copyMat=function(mat, names=T){
+  newmat=matrix(nrow=nrow(mat), ncol=ncol(mat))
+  if(names){
+    rownames(newmat)=rownames(mat)
+    colnames(newmat)=colnames(mat)
+  }
+  newmat
+}
+
+
+myscale=function(x, center=F){
+  s = apply(x, 2, sd, na.rm=T)
+  if(center){
+    m = apply(x, 2, mean, na.rm=T)
+    x = sweep(x, 2, m)
+  }
+  x = sweep(x, 2, s, "/")
+
+  x
+}
+
+
+
+
+plotAsBox=function(x,y,n=20,intercept=0, ...){
+
+  x=as.vector(x)
+  y=as.vector(y)
+  #ii=which(!is.na(x)&!is.na(y))
+  #x=x[ii]
+  #y=y[ii]
+
+  if(length(x)>1e5){
+    set.seed(123);
+    iis=sample(length(x), 1e5)
+    qq = quantile(x[iis], seq(0, n, 1)/n, na.rm = T)
+  }
+  else{
+    qq = quantile(x, seq(0, n, 1)/n, na.rm = T)
+  }
+  qqdiff = diff(qq)
+  breaks = qq[1:n] + qqdiff/2
+
+  breaks = unique(round(breaks, 3))
+
+  x=cut(x, breaks=breaks)
+  boxplot(y~x, outline=F, las=2, ...)
+  abline(h = intercept, col = "blue3", lwd = 2)
+}
+
+
+
+#from limma
+normalizeQuantiles=function (A, ties = TRUE)
+{
+  n <- dim(A)
+  if (is.null(n))
+    return(A)
+  if (n[2] == 1)
+    return(A)
+  O <- S <- array(, n)
+  nobs <- rep(n[1], n[2])
+  i <- (0:(n[1] - 1))/(n[1] - 1)
+  for (j in 1:n[2]) {
+    Si <- sort(A[, j], method = "quick", index.return = TRUE)
+    nobsj <- length(Si$x)
+    if (nobsj < n[1]) {
+      nobs[j] <- nobsj
+      isna <- is.na(A[, j])
+      S[, j] <- approx((0:(nobsj - 1))/(nobsj - 1), Si$x,
+                       i, ties = list("ordered", mean))$y
+      O[!isna, j] <- ((1:n[1])[!isna])[Si$ix]
+    }
+    else {
+      S[, j] <- Si$x
+      O[, j] <- Si$ix
+    }
+  }
+  m <- rowMeans(S)
+  for (j in 1:n[2]) {
+    if (ties)
+      r <- rank(A[, j])
+    if (nobs[j] < n[1]) {
+      isna <- is.na(A[, j])
+      if (ties)
+        A[!isna, j] <- approx(i, m, (r[!isna] - 1)/(nobs[j] -
+                                                      1), ties = list("ordered", mean))$y
+      else A[O[!isna, j], j] <- approx(i, m, (0:(nobs[j] -
+                                                   1))/(nobs[j] - 1), ties = list("ordered", mean))$y
+    }
+    else {
+      if (ties)
+        A[, j] <- approx(i, m, (r - 1)/(n[1] - 1), ties = list("ordered",
+                                                               mean))$y
+      else A[O[, j], j] <- m
+    }
+  }
+  A
+}
+
+
+#' Flat_to_ij
+#'
+#' Takes a flat matrix index and returns it as two colums or row (i) and column (j) indeces
+#'
+#' @param index A flast index
+#' @param ncol The number of columns in the matrix
+#'
+#' @return A two column matrix of indeces corresponding to i and j
+#'
+#' @export
+flat_to_ij=function(index, ncol) {
+  j <- (index - 1) %/% ncol + 1
+  i <- (index - 1) %% ncol + 1
+  return(cbind(i, j))
+}
+
+
+#' Map index
+#'
+#' Creates a map from the paths in one tree object to the paths in the other object
+#' Can be used to put old style and new style trees objects into the same order
+#' @param treesObj1 The first trees object
+#' @param treesObj2 The second trees object
+#'
+#' @return The index of the paths matrix columns in treesObj1 inside treesObj2
+#'
+#' @export
+mapIndex=function(treesObj1, treesObj2){
+  if(nrow(treesObj1$matIndex)!=nrow(treesObj2$matIndex)){
+    message("Tree objects are not compatible. This operation makes no sense")
+  return()
+    }
+  mi1=match(1:ncol(treesObj1$paths),treesObj1$matIndex)
+  mi1ij=flat_to_ij(mi1, ncol(treesObj1$matIndex))
+  map=treesObj2$matIndex[mi1ij]
+}
+
+#' Scatter plot with correlation
+#' @export
+plotWithCor=function(x,y){
+  plot(x,y)
+  cc=cor(as.vector(x), as.vector(y), use="p")
+  abline(a=0,b=1, lwd=4,col=2)
+  title(paste("Correlation=",round(cc,4)))
+}

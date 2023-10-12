@@ -122,8 +122,8 @@
     return(myres)
   }
 
-  simpleAUCgenesRanks=function(pos, neg){
-
+  simpleAUCgenesRanks=function(pos, neg, alt = "two.sided"){
+    
     posn=length(pos)
     negn=length(neg)
     posn=as.numeric(posn)
@@ -132,9 +132,15 @@
     auc=stat/(posn*negn)
     mu=posn*negn/2
     sd=sqrt((posn*negn*(posn+negn+1))/12)
-    stattest=apply(cbind(stat, posn*negn-stat),1,max)
-    pp=(2*pnorm(stattest, mu, sd, lower.tail = F))
-
+    
+    if(alt == "two.sided") {
+      stattest=apply(cbind(stat, posn*negn-stat),1,max)
+      pp=(2*pnorm(stattest, mu, sd, lower.tail = F))
+    }
+    
+    else if(alt == "greater"){
+      pp=(pnorm(stat,mu,sd,lower.tail=FALSE)) 
+    }
     return(c(auc,pp))
   }
 
@@ -145,16 +151,17 @@
   #' @return A list of pathways with enrichment statistics
   #' @export
 
-  fastwilcoxGMTall=function(vals, annotList, ...){
+  fastwilcoxGMTall=function(vals, annotList, alternative = "two.sided",...){
     reslist=list()
     for ( n in names(annotList)){
-      reslist[[n]]=fastwilcoxGMT(vals, annotList[[n]], ...)
+      reslist[[n]]=fastwilcoxGMT(vals, annotList[[n]], alternative = alternative,...)
       message(paste0(nrow(reslist[[n]]), " results for annotation set ", n))
     }
     reslist
   }
 
-  fastwilcoxGMT=function(vals, gmt, simple=T, use.all=F, num.g=10,genes=NULL, outputGeneVals=F, order=F){
+  fastwilcoxGMT=function(vals, gmt, simple=T, use.all=F, num.g=10,genes=NULL, outputGeneVals=F, order=F,
+                         alternative = "two.sided"){
     vals=vals[!is.na(vals)]
     if(is.null(genes)){
       genes=unique(unlist(gmt$genesets))
@@ -164,29 +171,30 @@
     colnames(out)=c("stat", "pval", "p.adj","num.genes", "gene.vals")
     out=as.data.frame(out)
     genes=intersect(genes, names(vals))
-
+    
     valsr=rank(vals[genes])
     numg=length(vals)+1
     valsallr=rank(vals)
     for( i in 1:nrow(out)){
-
+      
       curgenes=intersect(genes,gmt$genesets[[i]])
-
+      
       bkgenes=setdiff(genes, curgenes)
-
+      
       if (length(bkgenes)==0 || use.all){
         bkgenes=setdiff(names(vals), curgenes)
       }
       if(length(curgenes)>=num.g & length(bkgenes)>2){
         if(!simple){
-          res=wilcox.test(x = vals[curgenes], y=vals[bkgenes], exact=F)
-
+          # change alternative = "greater" for the one-sided test
+          res=wilcox.test(x = vals[curgenes], y=vals[bkgenes], exact=F, alternative = alternative)
+          
           out[i, 1:2]=c(res$statistic/(as.numeric(length(bkgenes))*as.numeric(length(curgenes))), res$p.value)
         }
         else{
-
-          out[i, 1:2]=simpleAUCgenesRanks(valsr[curgenes],valsr[bkgenes])
-
+          # add an alternative parameter (can be "greater" or "two.sided")
+          out[i, 1:2]=simpleAUCgenesRanks(valsr[curgenes],valsr[bkgenes], alt = alternative)
+          
         }
         out[i,"num.genes"]=length(curgenes)
         if(outputGeneVals){
@@ -198,25 +206,24 @@
             oo=order(vals[curgenes], decreasing = F)
             granks=valsallr[curgenes]
           }
-
-
+          
+          
           nn=paste(curgenes[oo],round((granks[curgenes])[oo],2),sep=':' )
           out[i,"gene.vals"]=paste(nn, collapse = ", ")
         }
       }
-
+      
     }
     # hist(out[,2])
     out[,1]=out[,1]-0.5
     out[, "p.adj"]=p.adjust(out[,2], method="BH")
-
+    
     out=out[!is.na(out[,2]),]
     if(order){
       out=out[order(-abs(out[,1])),]
     }
     out
   }
-
 #}
 
 #' Reads pathway data from a gmt-formatted file from GSEA-MSigDB

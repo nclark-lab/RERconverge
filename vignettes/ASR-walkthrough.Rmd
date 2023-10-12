@@ -28,7 +28,7 @@ on existing RERconverge objects. First time users should refer to the
 "RERconverge Analysis Walkthrough"
 [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
 and the "Categorical Trait Analysis Walkthrough"
-[vignette](INSERT%20LINK%20HERE).
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/CategoricalWalkthrough2.pdf).
 
 # Overview {#overview}
 
@@ -46,24 +46,29 @@ used to infer the phenotypes of ancestral species in the tree. For
 categorical traits, RERconverge uses maximum likelihood estimation to
 obtain the likelihoods at each internal node of being in any given state
 of the phenotype. This method can just as easily be used on binary
-traits, which are simply categorical traits with only two categories.
+traits though it works differently than the method currently used by
+RERconverge for binary traits.
 
 Maximum likelihood estimation requires a model of evolution to describe
 the probability of transitioning between phenotype states. This model is
-a continuous time markov model, in which a square transition matrix
-describes the instantaneous rate of transitioning from state i to state
-j at position (i,j). All off diagonal elements of the transition matrix,
-denoted Q, are non-negative, while the diagonal elements are negative
-such that each row sums to zero. On each branch of the tree, P, the
-transition probability matrix, is obtained by taking the exponential of
-Q multiplied by the branch length. The true rates in the transition
-matrix are hardly ever known for sure. Therefore, they are inferred in
-order to maximize the probability of the observed data at the tips of
-the tree. This walkthrough will refer to the process of estimating
-optimal transition rates as fitting the transition matrix.
+a continuous time markov model, in which a square transition matrix,
+denoted Q, describes the instantaneous rate of transitioning from state
+i to state j at position (i,j). All off diagonal elements of the
+transition matrix are non-negative, while the diagonal elements are
+negative such that each row sums to zero. On each branch of the tree,
+the transition probability matrix, P, is obtained by taking the
+exponential of Q multiplied by the branch length. One nice property of
+this formulation is that the rows of P will sum to 1 such that the
+entries represent probabilities of transitioning between states. The
+probabilities on the diagonal represent the probability of staying in a
+given state. The true rates in the transition matrix are hardly ever
+known for sure. Therefore, they are inferred in order to maximize the
+probability of the observed data at the tips of the tree. This
+walkthrough will refer to the process of estimating optimal transition
+rates as fitting the transition matrix.
 
-RERconverge relies on functions from the castor and ape packages (site
-them) to fit the transition matrix and obtain ancestral likelihoods.
+RERconverge relies on functions from the castor[@castor] and ape[@ape]
+packages to fit the transition matrix and obtain ancestral likelihoods.
 Currently, RERconverge assigns to each node the state with the maximum
 likelihood.
 
@@ -111,8 +116,8 @@ categories: cathemeral, crepuscular, diurnal and nocturnal.
 
 For more details about reading in the specific data you need for your
 analysis, refer to the "Categorical Trait Analysis Walkthrough"
-[vignette](INSERT%20LINK%20HERE) and the "RERconverge Analysis
-Walkthrough"
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/CategoricalWalkthrough2.pdf)
+and the "RERconverge Analysis Walkthrough"
 [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
 
 ```{r results = 'hide', fig.show = 'hide', message = FALSE, cache = TRUE, warning = FALSE}
@@ -128,8 +133,8 @@ toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""),
 max.read = 200)
 
 # load the phenotype data into your workspace
-# This will create a named vector with the name sleepPattern
-data("sleepPattern")
+# This will create a named vector with the name basalRate
+data("basalRate")
 ```
 
 # Finding the Optimal Rate Model {#findingOptRateModel}
@@ -152,7 +157,7 @@ distributed as a chi squared distribution with the degrees of freedom
 equal to the difference in the number of free parameters between the
 simpler and more complex models. When they are not nested, the p-value
 can still be obtained by using simulations to generate the null
-distribution for the likelihood ratio. (Pagel 1994)
+distribution for the likelihood ratio (Pagel 1994).
 
 ## Specifying a Rate Model
 
@@ -162,14 +167,16 @@ zero because they are dependent on the value of the off-diagonal
 elements, thus are not a free parameter. Everywhere else in the matrix,
 each free parameter should be assigned a unique number and any
 off-diagonal elements that are set to zero represent transitions that
-will be set to zero in the transition matrix. For example, the all rates
-differnt model can be specified as `"ARD"` for short or, equivalently
-for a phenotype with three states, `matrix(c(0,1,2,3,0,4,5,6,0),3)`. The
-equal rates model can be specified as `"ER"` for short, or equivalently
-for a phenotype with three states, `matrix(c(0,1,1,1,0,1,1,1,0),3)`.
-Finally, the rate model abbreviated as `"SYM"` for a symmetric model is
-equivalent to `matrix(c(0,1,2,1,0,3,2,3,0),3)`in which every rate (i,j)
-is equal to the rate (j,i).
+will be set to zero in the transition matrix. The order of unique
+numbers does not matter as long as the numbers are consecutive and begin
+at 1. For example, the all rates differnt model can be specified as
+`"ARD"` for short or, equivalently for a phenotype with three states,
+`matrix(c(0,1,2,3,0,4,5,6,0),3)`. The equal rates model can be specified
+as `"ER"` for short, or equivalently for a phenotype with three states,
+`matrix(c(0,1,1,1,0,1,1,1,0),3)`. Finally, the rate model abbreviated as
+`"SYM"` for a symmetric model is equivalent to
+`matrix(c(0,1,2,1,0,3,2,3,0),3)`in which every rate (i,j) is equal to
+the rate (j,i).
 
 ## Performing a Rate Model Search
 
@@ -190,7 +197,8 @@ A brief overview of the method is as follows:
     is the ARD model. However, if the `ith` rate model has only one free
     parameter (the simplest rate model), we do not move on to step 2
     since we cannot generate simpler models from this model. Instead we
-    skip to step 4.
+    skip to step 4 to move on to the next rate model in the list. If
+    there is no next model, we are done.
 
 2.  Based on the transition matrix, we generate two new models that
     decrease the number of free parameters. In the first new model, we
@@ -245,10 +253,12 @@ following inputs:
 
 -   `lthreshold`: The threshold for the likelihood ratio used when the
     previous model and new model are not nested, thus a p-value cannot
-    be obtained from the chi squared distribution. If the likelihood
-    ratio is above this threshold, then the more complex model is
-    considered significantly better at fitting the transition matrix to
-    the observed data and the new model is discarded.
+    be obtained from the chi squared distribution. The simulation based
+    approach is not used in this case to determine a p-value because it
+    is too time consuming. If the likelihood ratio is above this
+    threshold, then the more complex model is considered significantly
+    better at fitting the transition matrix to the observed data and the
+    new model is discarded.
 
 -   `max_iterations`: If not `NULL`, the algorithm will stop when
     `i > max_iterations` in order to avoid long run times. The default
@@ -270,7 +280,7 @@ limiting the total number of results that are generated.
 ```{r results = 'hide', message = FALSE, warning = FALSE}
 
 library(RERconverge)
-search_res = searchRateModels(toyTrees, sleepPattern, pthreshold = 0.25, lthreshold = 1.3)
+search_res = searchRateModels(toyTrees, basalRate, pthreshold = 0.25, lthreshold = 1.3)
 
 # view the generated models
 tail(search_res$models)
@@ -297,14 +307,14 @@ correspond to the categories in your analysis.
 
 ```{r}
 # View the category to integer mapping
-map_to_state_space(sleepPattern)$name2index
+map_to_state_space(basalRate)$name2index
 
 # rm is a rate model in the list returned by searchRateModels
 # Example 1: If you know something about transitions between states
 criteria1 <- function(rm) {
-  # filter out rate models in which the cathemeral to diurnal transitions are not zero
-  # and the nocturnal to cathemeral transitions are not zero
-  rm[1,3] != 0 && rm[4,1] != 0
+  # filter out rate models in which the high to med transitions are not zero
+  # and the high to low transitions are not zero
+  rm[1,3] != 0 && rm[1,2] != 0
 }
 
 filtered_res1 = filterByCriteria(search_res$models, criteria1)
@@ -312,10 +322,10 @@ tail(filtered_res1)
 
 # Example 2: filtering by number of zeros and number of free parameters
 criteria2 <- function(rm) {
-  # no more than 4 transitions between different states set to zero 
-  # (recall there will be 4 zeroes from the diagonal, so <= 8 zeroes overall)
-  # and no more than 5 free parameters
-  sum(rm == 0) <= 8 && max(rm) <= 5
+  # no more than 3 transitions between different states set to zero 
+  # (recall there will be 3 zeroes from the diagonal, so <= 6 zeroes overall)
+  # and no more than 4 free parameters
+  sum(rm == 0) <= 6 && max(rm) <= 4
 }
 
 filtered_res2 = filterByCriteria(search_res$models, criteria2)
@@ -389,17 +399,18 @@ run it on `compareRateModels` which takes the following as input:
 ```{r}
 # the list of rate models includes the three common rate models-- "ER", "ARD", and "SYM"--, two rate models from the results of searchRateModels, and a custom rate model
 
-custom = matrix(c(0,0,1,1,0,0,2,2,3,4,0,0,3,4,0,0),4)
+custom = matrix(c(0, 0, 1, 0, 0, 2, 0, 3, 0),3)
 
-rate_models = list(getMatrixFromAbbr("ER", 4), getMatrixFromAbbr("ARD",4), 
-                   getMatrixFromAbbr("SYM",4), filtered_res1[[666]], filtered_res1[[616]],
+# getMatrixFromAbbr takes the abbreviation ("ER", "ARD", or "SYM") and the number of phenotype states
+rate_models = list(getMatrixFromAbbr("ER", 3), getMatrixFromAbbr("ARD",3), 
+                   getMatrixFromAbbr("SYM",3), filtered_res1[[23]], filtered_res1[[5]],
                    custom)
 
 names(rate_models) = c("ER", "ARD", "SYM", "search1", "search2", "custom")
 
 comp = compareRateModels(rate_models = rate_models, 
                          treesObj = toyTrees, 
-                         phenvals = sleepPattern,
+                         phenvals = basalRate,
                          nsims = 100,
                          nested_only = FALSE,
                          return_type = "pvals")
@@ -415,15 +426,22 @@ comp
 rate_models
 ```
 
-From the results above, we may conclude that an ARD model provides a
-significantly better fit to the data compared to an ER model and a SYM
-model (with p-values of 0.03 and 0.02 respectively). We may also
-conclude that `rate_models$search2` provides a significantly better fit
-compared to `rate_models$custom`. This is not to say that the model(s)
-with the best fit are necessarily the best model, however comparing
-goodness of fit is a useful diagnostic for narrowing down the search
-space of potential rate models and comparing a few candidate rate models
-to each other.
+From the results above, we may conclude that the more complex models
+"ARD", "SYM", search1, and search2 were not significantly better at
+fitting the data compared to the "ER" model because the p-values in the
+"ER" row were relatively high. On the other hand, notice that the custom
+rate model had many transition rates set to 0 which does not seem very
+plausible in the context of this trait. This is reflected in the bottom
+row of the table in which the p-values are 0.021 and 0, indicating that
+the more complex models "ARD", "SYM", and search2 were significantly
+better at fitting the data compared to this implausible model.
+Additionally, the custom model was not significantly better at fitting
+the data compared to the simpler rate models "ER" and search1 (with
+p-values of 0.81 and 0.73 respectively). This is not to say that the
+model(s) with the best fit are necessarily the best model(s), however
+comparing goodness of fit is a useful diagnostic for narrowing down the
+search space of potential rate models and comparing a few candidate rate
+models to each other.
 
 ## Assessing Prediction Accuracy
 
@@ -479,7 +497,7 @@ minutes to run on larger trees and will be fastest when all the rate
 models are symmetrical as long as `use_simmap` is `FALSE`.
 
 ```{r, warning = FALSE, results = 'hide'}
-boxPlots = boxPlotTest(toyTrees, sleepPattern, rate_models, nsims = 25)
+boxPlots = boxPlotTest(toyTrees, basalRate, rate_models, nsims = 25)
 ```
 
 When viewing the box plots you may see the following warning:
@@ -488,7 +506,8 @@ This is not a problem, it just means that for some of the simulations,
 the percent correct (on the y-axis) could not be calculated for one or
 more of the rate models. This occurs when the rate model is a poor fit
 to the simulated data thus producing `NaN` values when calculating
-ancestral likelihoods.
+ancestral likelihoods. (This occurred in the case of our custom model
+which was purposely chosen to represent an implausible model).
 
 ```{r}
 # View the box plots
@@ -545,14 +564,15 @@ input:
 
 The function returns either a list of relative entropies or a table of
 state assignments under each rate model in node order. It also returns
-the lists of ancestral likelihoods for each rate model.
+the lists of ancestral likelihoods for each rate model. The numbers on
+the nodes are simply the node indices in the tree.
 
 ```{r}
 # comparing rate_models$search2 to rate_models$ER
 relative_entropies = visCompareTwoRateModels(rate_models$ER, 
                                              rate_models$search2, 
                                              toyTrees, 
-                                             sleepPattern, mode = "entropy")
+                                             basalRate, mode = "entropy")
 
 head(relative_entropies$relative_entropies)
 head(relative_entropies$anc_liks1) # ancestral likelihoods for the ER model
@@ -560,7 +580,7 @@ head(relative_entropies$anc_liks2) # ancestral likelihoods for the search2 model
 
 node_states = visCompareTwoRateModels(rate_models$ER, 
                                       rate_models$search2, 
-                                      toyTrees, sleepPattern, 
+                                      toyTrees, basalRate, 
                                       mode = "match")
 
 head(node_states$states)
@@ -578,4 +598,12 @@ model and proceed with the RERconverge analysis as described in the
 "RERconverge Analysis Walkthrough"
 [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
 or the "Categorical Trait Analysis Walkthrough"
-[vignette](INSERT%20LINK%20HERE).
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/CategoricalWalkthrough2.pdf).
+
+# References
+
+Pagel, Mark. "Detecting Correlated Evolution on Phylogenies: A General
+Method for the Comparative Analysis of Discrete
+Characters." *Proceedings: Biological Sciences*, vol. 255, no. 1342,
+1994, pp. 37--45. *JSTOR*, <http://www.jstor.org/stable/49836.> Accessed
+26 Nov. 2022.

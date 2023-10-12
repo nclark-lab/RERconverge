@@ -24,7 +24,7 @@ using only the data at the tips of the tree, skipping the phylogenetic
 inference step of a typical RERconverge analysis. This walkthrough
 builds on existing RERconverge objects. First time users should first
 read the "RERconverge Analysis Walkthrough"
-[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/FullWalkthroughUTD.pdf)
 for information on installation, setup, and getting started.
 
 # Overview
@@ -57,7 +57,7 @@ The required inputs are as follows:
 ## Reading in Trees and Calculating Relative Evolutionary Rates
 
 Refer to the "RERconverge Analysis Walkthrough"
-[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf)
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/FullWalkthroughUTD.pdf)
 to learn how to read in gene trees using `readTrees` and calculate
 evolutionary rates using `getAllResiduals`.
 
@@ -81,20 +81,20 @@ RERmat = getAllResiduals(toyTrees)
 
 ## Binary Traits
 
-We will continue our analysis for binary traits. First, we define
-foreground species for the marine binary phenotype and generate a named
-phenotype vector.
+First, we define foreground species for the hibernation binary phenotype
+and generate a named phenotype vector.
 
-```{r}
+```{r results = 'hide', message=FALSE}
+library(RERconverge)
 # define the foreground species
-marineextantforeground = c("Walrus","Seal","Killer_whale","Dolphin","Manatee")
+hibextantforeground = c("Vole", "Brown_bat", "Myotis_bat", "Squirrel", "Jerboa")
 
 # make a phenotype vector for the species in the tree
 # the phenotype values must be numeric (0 and 1 instead of TRUE and FALSE)
-marinephenvals = rep(0, length(toyTrees$masterTree$tip.label))
-names(marinephenvals) = toyTrees$masterTree$tip.label
+hibphenvals = rep(0, length(toyTrees$masterTree$tip.label))
+names(hibphenvals) = toyTrees$masterTree$tip.label
 # set the foreground species to true
-marinephenvals[marineextantforeground] = 1
+hibphenvals[hibextantforeground] = 1
 ```
 
 Finally, we calculate statistics using `getAllCorExtantOnly` which takes
@@ -123,7 +123,7 @@ the following as input:
 
 ```{r}
 # set method to k to use a Kendall rank test since this is a binary phenotype
-cors = getAllCorExtantOnly(RERmat, marinephenvals, method = "k")
+cors = getAllCorExtantOnly(RERmat, hibphenvals, method = "k")
 
 # view the top results
 head(cors[order(cors$P),])
@@ -131,7 +131,7 @@ head(cors[order(cors$P),])
 
 For further analysis of the gene results, such as calculating functional
 enrichments, refer to the "RERconverge Analysis Walkthrough"
-[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+[vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/FullWalkthroughUTD.pdf).
 
 ## Continuous Traits
 
@@ -147,7 +147,7 @@ mammal body weight phenotype and calculate association statistics.
 # load in the example data
 data("logAdultWeightcm")
 
-# set mehtod to p to use a Pearson correlation since this is a continuous phenotype
+# set method to p to use a Pearson correlation since this is a continuous phenotype
 cors = getAllCorExtantOnly(RERmat, phenvals = logAdultWeightcm, method = "p")
 
 # view the top results
@@ -166,21 +166,22 @@ the instructions above for reading in the gene trees and calculating
 relative evolutionary rates.
 
 Next, we will load in some example data provided by RERconverge for the
-sleep pattern phenotype and calculate association statistics.
+basal rate phenotype and calculate association statistics.
 
 ```{r}
 # load in the example data
-data("sleepPattern")
+data("basalRate")
 
-# set mehtod to kw to use a Kruskal Wallis test since this is a categorical phenotype
-cors = getAllCorExtantOnly(RERmat, phenvals = sleepPattern, method = "kw")
+# set method to kw to use a Kruskal Wallis test since this is a categorical phenotype
+cors = getAllCorExtantOnly(RERmat, phenvals = basalRate, method = "kw")
 ```
 
 Finally, we can view the results for all categories or for the pairwise
 comparisons between categories.
 
 ```{r}
-# the first element of cors is a table of association statistics for the Kruskal Wallis or ANOVA test across categories
+# the first element of cors is a table of association statistics for the Kruskal Wallis 
+# or ANOVA test across categories
 all_categories_results = cors[[1]]
 # view top results
 head(all_categories_results[order(all_categories_results$P),])
@@ -188,8 +189,8 @@ head(all_categories_results[order(all_categories_results$P),])
 # the second element of cors is a list of tables of pairwise comparisons between categories
 pairwise_tests = cors[[2]]
 names(pairwise_tests)
-# view top results of pairwie test between diurnal and nocturnal species
-head(pairwise_tests[[6]][order(pairwise_tests[[6]]$P),])
+# view top results of pairwise test between low and medium basal rate species
+head(pairwise_tests[[3]][order(pairwise_tests[[3]]$P),])
 ```
 
 # Conclusion

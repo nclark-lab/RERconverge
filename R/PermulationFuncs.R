@@ -1,3 +1,127 @@
+#'Produces the phenotype inputs for binary permulation functions
+#' @param fgTree A binary phenotype tree containing the phenotype values (branch length = 1 for foreground species, 0 for background species)
+#' @return out A list containing fg_vec and sisters_list for binary permulation functions
+#' @export
+getBinaryPermulationInputsFromTree=function(fgTree){
+  unq_edge_lengths = unique(fgTree$edge.length)
+  if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
+    stop('Phenotype must be binary.')
+  }
+  all_edges = fgTree$edge
+  num_tip_species = length(fgTree$tip.label)
+
+  idx_fg_branches = which(fgTree$edge.length == 1)
+  if (length(idx_fg_branches) == 1){
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	fg_edges = t(as.data.frame(fg_edges))
+	if (fg_edges[1,2] <=num_tip_species){
+		tip_foregrounds = fgTree$tip.label[fg_edges[,2]]
+	}
+  } else {
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+	tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+  }
+#  tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+#  tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+
+  idx_node_edges = which(fg_edges[,2] > num_tip_species)
+  if (length(idx_node_edges) == 1){
+    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    edge_i = node_fg_edges
+    node_i = edge_i[2]
+    # find daughters of node_i
+    idx_daugthers_i = which(all_edges[,1] == node_i)
+    daughter_nodeIds = all_edges[idx_daugthers_i,2]
+    daughters = fgTree$tip.label[daughter_nodeIds]
+    sisters_list = list('node_i'=daughters)
+  } else if (length(idx_node_edges) == 0) {
+    sisters_list = NULL
+  } else {
+    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    daughters_info_list = list()
+    parents = NULL
+    for (i in 1:nrow(node_fg_edges)){
+      edge_i = node_fg_edges[i,]
+      # find the daughters of this node
+      idx_daughters_i = which(all_edges[,1] == edge_i[2])
+      daughter_edges = all_edges[idx_daughters_i,]
+      daughters_info_list[[i]] = daughter_edges[,2]
+      parents = c(parents, edge_i[2])
+    }
+    names(daughters_info_list) = parents
+    ### write something to order the branches based on depth
+    tip_fg_ids = tip_fg_edges[,2]
+    depth_order = rep(NA, length(daughters_info_list))
+    names(depth_order) = names(daughters_info_list)
+    order_assigned = NULL
+    while(length(which(is.na(depth_order))) > 0){
+      idx_na = which(is.na(depth_order))
+      if (length(idx_na) > 0){
+        for (j in 1:length(idx_na)){
+          idx_na_j = idx_na[j]
+          parent_j = parents[idx_na_j]
+          daughters_j = daughters_info_list[[idx_na_j]]
+          num_tip_daughters = length(which(daughters_j %in% tip_fg_ids))
+          if (num_tip_daughters == 2){
+            depth_order[idx_na_j] = 1
+            order_assigned = c(order_assigned, parent_j)
+          } else if (num_tip_daughters==1){
+            node_daughter = daughters_j[which(daughters_j > length(fgTree$tip.label))]
+            if (node_daughter %in% order_assigned){
+              depth_order[idx_na_j] = 2
+              order_assigned = c(order_assigned, parent_j)
+            }
+          } else if (num_tip_daughters==0){
+            node_daughters = daughters_j[which(daughters_j > length(fgTree$tip.label))]
+            if (length(which(node_daughters %in% order_assigned)) == 2){
+              node_daughters_depths = depth_order[as.character(node_daughters)]
+              depth_order[idx_na_j] = max(node_daughters_depths) + 1
+              order_assigned = c(order_assigned, parent_j)
+            }
+          }
+        }
+      }
+    }
+
+    # construct the sisters list
+    sisters_list = NULL
+    counter=0
+    unq_depth_order = sort(unique(depth_order))
+    nodes_addressed = tip_fg_ids
+    for (j in 1:length(unq_depth_order)){
+      depth_order_j = depth_order[which(depth_order==unq_depth_order[j])]
+      daughters_info_order_j = daughters_info_list[names(depth_order_j)]
+      for (i in 1:length(daughters_info_order_j)){
+        daughters_i = daughters_info_order_j[[i]]
+        if (length(which(daughters_i <= length(fgTree$tip.label))) == 2){
+          counter = counter+1
+          tip_daughters = fgTree$tip.label[daughters_i]
+          sisters_list[[counter]] = tip_daughters
+          names(sisters_list)[counter] = names(daughters_info_order_j)[i]
+          nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
+        } else if (length(which(daughters_i <=length(fgTree$tip.label))) == 1){
+          counter = counter+1
+          tip_daughter_id = daughters_i[which(daughters_i <= length(fgTree$tip.label))]
+          tip_daughter = fgTree$tip.label[tip_daughter_id]
+          node_daughter_id = daughters_i[which(daughters_i > length(fgTree$tip.label))]
+          sisters_list[[counter]] = c(node_daughter_id, tip_daughter)
+          names(sisters_list)[counter] = names(daughters_info_order_j)[i]
+          nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
+        } else if (length(which(daughters_i <=length(fgTree$tip.label))) == 0){
+          counter = counter+1
+          sisters_list[[counter]] = daughters_i
+          names(sisters_list)[counter] = names(daughters_info_order_j)[i]
+          nodes_addressed = c(nodes_addressed, names(daughters_info_order_j)[i])
+        }
+      }
+    }
+  }
+  out = list('fg_vec'=tip_foregrounds, 'sisters_list'=sisters_list)
+  out
+}
+
+
 #'Generates a binary phenotype tree using the list of tip foreground animals, foreground common ancestors, and their phylogenetic relationships
 #' @param fg_vec A vector containing the tip foreground species
 #' @param sisters_list A list containing pairs of "sister species" in the foreground set (put NULL if empty)
@@ -12,6 +136,7 @@ foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpec
   fg.tree
 }
 
+
 #'Generates a binary phenotype tree and foreground clades information using the list of tip foreground animals, the presence of foreground common ancestors, and their phylogenetic relationships
 #' @param fg_vec A vector containing the tip foreground species
 #' @param sisters_list A list containing pairs of "sister species" in the foreground set (put NULL if empty)
@@ -24,47 +149,87 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
   if (length(useSpecies)==0){
     useSpecies = trees$masterTree$tip.label
   }
-  fg_tree = foreground2Tree(fg_vec,trees,plotTree=F,clade="all",useSpecies=useSpecies)
-  edge = fg_tree$edge
-  edge.length=fg_tree$edge.length
 
-  ind.fg.edge = which(edge.length == 1)
-  nodeIds.fg.edge = edge[ind.fg.edge,]
+  if (is.null(sisters_list)){
+    fg.sisters.table=NULL
+    fg_tree = foreground2Tree(fg_vec, trees, plotTree=F, clade="terminal", useSpecies=useSpecies)
+  } else {
+    # Start with a temp phenotype tree assuming that all internal nodes are foregrounds
+    fg_tree = foreground2Tree(fg_vec,trees,plotTree=F,clade="all",useSpecies=useSpecies)
+    edge = fg_tree$edge
+    edge.length=fg_tree$edge.length
 
-  tip.sisters = vector("integer",length=0)
-  for (i in 1:length(sisters_list)){
-    sisters = sisters_list[[i]]
-    nodeId.sisters = which(useSpecies %in% sisters)
-    if (length(nodeId.sisters)>0){
-      tip.sisters = c(tip.sisters,nodeId.sisters)
-    }
-  }
-  # Find and correct the pairs
-  fg.sisters.table = matrix(nrow=0,ncol=2)
-  colnames(fg.sisters.table) = c("species1","species2")
+    ind.fg.edge = which(edge.length == 1)
+    nodeIds.fg.edge = edge[ind.fg.edge,] # all foreground edges in the temp tree
 
-  if (length(as.vector(nodeIds.fg.edge)) > 2){
-    nodeId.ca = sort(nodeIds.fg.edge[,1])
-    fg_ca = vector("integer",length=0) # node IDs of the common ancestor foregrounds
-    for (nn in 1:(length(nodeId.ca)-1)){
-      if (nodeId.ca[nn] == nodeId.ca[nn+1]){
-        nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
-        if (length(which(nodeId.desc %in% tip.sisters)) > 0){
-          fg_ca = c(fg_ca,nodeId.ca[nn])
-          fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
-        } else {
-          fg_tree$edge.length[which(edge[,2] == nodeId.ca[nn])] = 0
-        }
+    tip.sisters = vector("integer",length=0)
+    for (i in 1:length(sisters_list)){
+      sisters = sisters_list[[i]]
+      nodeId.sisters = which(useSpecies %in% sisters)
+      if (length(nodeId.sisters)>0){
+        tip.sisters = c(tip.sisters,nodeId.sisters)
       }
     }
-    rownames(fg.sisters.table) = fg_ca
-    if (plotTree==T){
-      plot(fg_tree)
+
+    # Find and correct the pairs
+    fg.sisters.table = matrix(nrow=0,ncol=2)
+    colnames(fg.sisters.table) = c("species1","species2")
+    if (length(as.vector(nodeIds.fg.edge)) > 2){
+      all.nodeId.ca = sort(nodeIds.fg.edge[,1])
+      count_all_nodeId_ca = table(all.nodeId.ca)
+      unq.nodeId.ca = unique(all.nodeId.ca)
+      fg_ca = vector("integer",length=0) # node IDs of the common ancestor foregrounds
+      nodes_addressed = NULL
+      while (length(unq.nodeId.ca) != length(nodes_addressed)){
+        nodeId.ca = sort(all.nodeId.ca[which(!(all.nodeId.ca %in% nodes_addressed))])
+        if (length(nodeId.ca) == 1){
+          nodes_addressed = c(nodes_addressed, nodeId.ca)
+        } else {
+          for (nn in 1:(length(nodeId.ca)-1)){
+
+            if (nodeId.ca[nn] == nodeId.ca[nn+1]){
+              nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
+              if (length(which(nodeId.desc %in% tip.sisters)) > 0){
+                fg_ca = c(fg_ca,nodeId.ca[nn])
+                fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
+                nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+              } else {
+                if (length(which(fg_tree$tip.label[nodeId.desc] %in% fg_vec)) == 2){
+                  fg_tree$edge.length[which(edge[,2]==nodeId.ca[nn])] = 0
+                  nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                } else {
+                  if (length(which(nodeId.desc %in% nodes_addressed)) == 2){
+                    fg_ca = c(fg_ca,nodeId.ca[nn])
+                    fg.sisters.table = rbind(fg.sisters.table, nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2])
+                    nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                  }
+                }
+              }
+            } else {
+              nodeId.desc = nodeIds.fg.edge[which(nodeIds.fg.edge[,1]==nodeId.ca[nn]),2]
+              if (length(nodeId.desc) == 2){
+                if (nodeId.ca[nn] != nodeId.ca[nn-1]){
+                  fg_tree$edge.length[which(edge[,2] == nodeId.ca[nn])] = 0
+                  nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+                  nodes_addressed = unique(nodes_addressed)
+                }
+              } else {
+                nodes_addressed = c(nodes_addressed, nodeId.ca[nn])
+              }
+            }
+          }
+        }
+      }
+      rownames(fg.sisters.table) = fg_ca
     }
+  }
+  if (plotTree==T){
+    plot(fg_tree)
   }
   output.list = list("fg.sisters.table"=fg.sisters.table,"tree"=fg_tree)
   output.list
 }
+
 
 #'Calculates permuted correlation and enrichment statistics for binary phenotype
 #' @param numperms An integer number of permulations
@@ -127,7 +292,7 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
     permulated.binphens = generatePermulatedBinPhenSSMBatched(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec)
 
     # Get species membership of the trees
-    df.list = lapply(trees_list,getSpeciesMembershipStats,masterTree=masterTree,foregrounds=fg_vec)
+    df.list = lapply(trees_list,getSpeciesMembershipStats,masterTree=mastertree,foregrounds=fg_vec)
     df.converted = data.frame(matrix(unlist(df.list), nrow=length(df.list), byrow=T),stringsAsFactors=FALSE)
     attr = attributes(df.list[[1]])
     col_names = attr$names
@@ -252,6 +417,143 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
   data
 }
 
+
+#'Calculates permuted correlation and enrichment statistics for binary phenotype when performing an extant only analysis
+#' @param numperms An integer number of permulations
+#' @param fg_vec A vector containing the tip foreground species
+#' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
+#' @param root_sp The species to root the tree on
+#' @param RERmat An RER matrix calculated using \code{\link{getAllResiduals}}.
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
+#' @param permmode Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match)
+#' @param method statistical method to use for correlations (set to "k" (default) for Kendall Tau test)
+#' @param min.pos minimum number of foreground species (default 2)
+#' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
+#' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
+#' @param annotlist Pathway annotations
+#' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
+#' @export
+getPermsBinaryExtantOnly=function(numperms, fg_vec, sisters_list, root_sp,
+                                  RERmat, trees, mastertree, permmode="cc",
+                                  method="k", min.pos=2, trees_list=NULL,
+                                  calculateenrich=F, annotlist=NULL){
+  pathvec = foreground2Paths(fg_vec, trees, clade="all",plotTree=F)
+  col_labels = colnames(trees$paths)
+  names(pathvec) = col_labels
+
+  print("Generating permulated trees")
+  # list of permulated binary trees:
+  permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc")
+  # matrix of fgd specs (each col is a list of fgd specs)
+  permulated.fg = mapply(getForegroundsFromBinaryTree, permulated.binphens[[1]])
+  # turn the matrix into a list (each entry is a set of fgd specs)
+  permulated.fg.list = as.list(data.frame(permulated.fg))
+
+  #phenvec.table = mapply(foreground2Paths,permulated.fg.list,MoreArgs=list(treesObj=trees,clade="all"))
+  #phenvec.list = lapply(seq_len(ncol(phenvec.table)), function(i) phenvec.table[,i])
+
+  # make a list of named phenotype vectors
+  allspecs = na.omit(unique(col_labels))
+  vec=rep(0, length(allspecs))
+  names(vec) = allspecs
+
+  phenvec.list = list()
+
+  for(i in 1:length(permulated.fg.list)){
+    phenvec.list[[i]] = vec
+    phenvec.list[[i]][permulated.fg.list[[i]]] = 1
+  }
+
+  print("Calculating correlations")
+  #corMatList = lapply(phenvec.list, correlateWithBinaryPhenotype, RERmat=RERmat)
+  corMatList = lapply(phenvec.list, function(phen){getAllCorExtantOnly(RERmat, phen, method = "k", min.pos = min.pos)})
+
+  #make enrich list/matrices to fill
+  permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+  rownames(permPvals)=rownames(RERmat)
+  permRhovals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+  rownames(permRhovals)=rownames(RERmat)
+  permStatvals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+  rownames(permStatvals)=rownames(RERmat)
+
+  for (i in 1:length(corMatList)){
+    permPvals[,i] = corMatList[[i]]$P
+    permRhovals[,i] = corMatList[[i]]$Rho
+    permStatvals[,i] = sign(corMatList[[i]]$Rho)*-log10(corMatList[[i]]$P)
+  }
+
+  if (calculateenrich){
+    print("Calculating enrichments")
+    #realFgtree = foreground2TreeClades(fg_vec, sisters_list, trees, plotTree=F)
+    #realpaths = tree2PathsClades(realFgtree, trees)
+    #realresults = getAllCor(RERmat, realpaths, method=method, min.pos=min.pos)
+    realphen = vec
+    realphen[fg_vec] = 1
+    realresults = getAllCorExtantOnly(RERmat, realphen, method=method, min.pos=min.pos)
+    realstat =sign(realresults$Rho)*-log10(realresults$P)
+    names(realstat) = rownames(RERmat)
+    realenrich = fastwilcoxGMTall(na.omit(realstat), annotlist, outputGeneVals=F)
+
+    #sort real enrichments
+    groups=length(realenrich)
+    c=1
+    while(c<=groups){
+      current=realenrich[[c]]
+      realenrich[[c]]=current[order(rownames(current)),]
+      c=c+1
+    }
+    #make matrices to fill
+    permenrichP=vector("list", length(realenrich))
+    permenrichStat=vector("list", length(realenrich))
+    c=1
+    while(c<=length(realenrich)){
+      newdf=data.frame(matrix(ncol=numperms, nrow=nrow(realenrich[[c]])))
+      rownames(newdf)=rownames(realenrich[[c]])
+      permenrichP[[c]]=newdf
+      permenrichStat[[c]]=newdf
+      c=c+1
+    }
+
+    counter=1;
+    while (counter <= numperms){
+      stat = permStatvals[,counter]
+      names(stat) = rownames(RERmat)
+      enrich=fastwilcoxGMTall(na.omit(stat), annotlist, outputGeneVals=F)
+      #sort and store enrichment results
+      groups=length(enrich)
+      c=1
+      while(c<=groups){
+        current=enrich[[c]]
+        enrich[[c]]=current[order(rownames(current)),]
+        enrich[[c]]=enrich[[c]][match(rownames(permenrichP[[c]]), rownames(enrich[[c]])),]
+        permenrichP[[c]][,counter]=enrich[[c]]$pval
+        permenrichStat[[c]][,counter]=enrich[[c]]$stat
+        c=c+1
+      }
+      counter = counter+1
+    }
+  }
+
+  if(calculateenrich){
+    data=vector("list", 5)
+    data[[1]]=permPvals
+    data[[2]]=permRhovals
+    data[[3]]=permStatvals
+    data[[4]]=permenrichP
+    data[[5]]=permenrichStat
+    names(data)=c("corP", "corRho", "corStat", "enrichP", "enrichStat")
+  } else {
+    data=vector("list", 3)
+    data[[1]]=permPvals
+    data[[2]]=permRhovals
+    data[[3]]=permStatvals
+    names(data)=c("corP", "corRho", "corStat")
+  }
+
+  data
+}
+
 #' @keywords internal
 getForegroundsFromBinaryTree=function(tree){
   nameEdgesPerms.tree = nameEdgesPerms(tree)
@@ -286,42 +588,213 @@ nameEdgesPerms=function(tree){
 #' @export
 simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
   tip.labels = mastertree$tip.label
-  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
   fg_tree = res$tree
   fg.table = res$fg.sisters.table
 
+  t=root.phylo(trees$masterTree, root_sp, resolve.root = T)
+  rm=ratematrix(t, pathvec)
+
+  if (!is.null(sisters_list)){
+    fg_tree_info = getBinaryPermulationInputsFromTree(fg_tree)
+    num_tip_sisters_true = unlist(fg_tree_info$sisters_list)
+    num_tip_sisters_true = num_tip_sisters_true[which(num_tip_sisters_true %in% tip.labels)]
+    num_tip_sisters_true = length(num_tip_sisters_true)
+    fg_tree_depth_order = getDepthOrder(fg_tree)
+  } else {
+    fg_tree_depth_order = NULL
+  }
+
   fgnum = length(which(fg_tree$edge.length == 1))
-  internal = nrow(fg.table)
+  if (!is.null(sisters_list)){
+    internal = nrow(fg.table)
+  } else {
+    internal = 0
+  }
   tips=fgnum-internal # the number of tips
 
-  num.tip.sisters.real = length(which(as.vector(fg.table) <= length(tip.labels)))
-
-  top = NA
-  num.tip.sisters.fake = 10000
-
-  while(num.tip.sisters.fake!= num.tip.sisters.real){
+  testcondition=FALSE
+  while(!testcondition){
     blsum=0
     while(blsum!=fgnum){
-      t=root.phylo(trees$masterTree, root_sp, resolve.root = T)
-      rm=ratematrix(t, pathvec)
       sims=sim.char(t, rm, nsim = 1)
       nam=rownames(sims)
       s=as.data.frame(sims)
       simulatedvec=s[,1]
       names(simulatedvec)=nam
       top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
-      t=foreground2Tree(top, trees, clade="all", plotTree = F)
-      blsum=sum(t$edge.length)
-
-      t.table = findPairs(t)
-      num.tip.sisters.fake = length(which(as.vector(t.table) <= length(tip.labels)))
+      t_iter=foreground2Tree(top, trees, clade="all", plotTree = F)
+      blsum=sum(t_iter$edge.length)
+    }
+    t_info = getBinaryPermulationInputsFromTree(t_iter)
+    if (!is.null(sisters_list)){
+      num_tip_sisters_fake = unlist(t_info$sisters_list)
+      num_tip_sisters_fake = num_tip_sisters_fake[which(num_tip_sisters_fake %in% tip.labels)]
+      num_tip_sisters_fake = length(num_tip_sisters_fake)
+      t_depth_order = getDepthOrder(t_iter)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order)) &&
+        (num_tip_sisters_fake == num_tip_sisters_true)
+    } else {
+      t_depth_order = getDepthOrder(t_iter)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order))
     }
   }
   if (plotTreeBool){
-    plot(t)
+    plot(t_iter)
   }
-  return(t)
+  return(t_iter)
 }
+
+#'Produces one CC binary permulation for a gene using midpoint rooting
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.
+#' @param fg_vec a vector containing the foreground species
+#' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
+#' @param pathvec A path vector generated from the real set of foreground animals
+#' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @return A CC binary permulated tree
+#' @export
+simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+  tip.labels = mastertree$tip.label
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
+  fg_tree = res$tree
+  fg.table = res$fg.sisters.table
+
+
+  t = midpoint.root(mastertree)
+  rm = ratematrix(t, pathvec)
+
+  if (!is.null(sisters_list)){
+    fg_tree_info = getBinaryPermulationInputsFromTree(fg_tree)
+    num_tip_sisters_true = unlist(fg_tree_info$sisters_list)
+    num_tip_sisters_true = num_tip_sisters_true[which(num_tip_sisters_true %in% tip.labels)]
+    num_tip_sisters_true = length(num_tip_sisters_true)
+    fg_tree_depth_order = getDepthOrder(fg_tree)
+  } else {
+    fg_tree_depth_order = NULL
+  }
+
+  fgnum = length(which(fg_tree$edge.length == 1))
+  if (!is.null(sisters_list)){
+    internal = nrow(fg.table)
+  } else {
+    internal = 0
+  }
+  tips=fgnum-internal # the number of tips
+
+  testcondition=FALSE
+  while(!testcondition){
+    blsum=0
+    while(blsum!=fgnum){
+      sims=sim.char(t, rm, nsim = 1)
+      nam=rownames(sims)
+      s=as.data.frame(sims)
+      simulatedvec=s[,1]
+      names(simulatedvec)=nam
+      top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
+      t_iter=foreground2Tree(top, trees, clade="all", plotTree = F)
+      blsum=sum(t_iter$edge.length)
+    }
+    t_info = getBinaryPermulationInputsFromTree(t_iter)
+    if (!is.null(sisters_list)){
+      num_tip_sisters_fake = unlist(t_info$sisters_list)
+      num_tip_sisters_fake = num_tip_sisters_fake[which(num_tip_sisters_fake %in% tip.labels)]
+      num_tip_sisters_fake = length(num_tip_sisters_fake)
+      t_depth_order = getDepthOrder(t_iter)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order)) &&
+        (num_tip_sisters_fake == num_tip_sisters_true)
+    } else {
+      t_depth_order = getDepthOrder(t_iter)
+      testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order))
+    }
+  }
+  if (plotTreeBool){
+    plot(t_iter)
+  }
+  return(t_iter)
+}
+
+
+
+#' @export
+getDepthOrder=function(fgTree){
+  unq_edge_lengths = unique(fgTree$edge.length)
+  if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
+    stop('Phenotype must be binary.')
+  }
+  all_edges = fgTree$edge
+  num_tip_species = length(fgTree$tip.label)
+
+  idx_fg_branches = which(fgTree$edge.length == 1)
+  if (length(idx_fg_branches)==1){
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	fg_edges = t(as.data.frame(fg_edges))
+  } else {
+	fg_edges = fgTree$edge[idx_fg_branches,]
+	tip_fg_edges = fg_edges[which(fg_edges[,2] <= num_tip_species),]
+	tip_foregrounds = fgTree$tip.label[tip_fg_edges[,2]]
+	node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+  }
+
+  idx_node_edges = which(fg_edges[,2] > num_tip_species)
+  if (length(idx_node_edges) == 1){
+    node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    node_fg_edges = t(as.data.frame(node_fg_edges))
+  }
+  if (length(idx_node_edges) == 0) {
+    sisters_list = NULL
+    depth_order = NULL
+  } else {
+    #node_fg_edges = fg_edges[which(fg_edges[,2] > num_tip_species),]
+    daughters_info_list = list()
+    parents = NULL
+    for (i in 1:nrow(node_fg_edges)){
+      edge_i = node_fg_edges[i,]
+      # find the daughters of this node
+      idx_daughters_i = which(all_edges[,1] == edge_i[2])
+      daughter_edges = all_edges[idx_daughters_i,]
+      daughters_info_list[[i]] = daughter_edges[,2]
+      parents = c(parents, edge_i[2])
+    }
+    names(daughters_info_list) = parents
+    ### write something to order the branches based on depth
+    tip_fg_ids = tip_fg_edges[,2]
+    depth_order = rep(NA, length(daughters_info_list))
+    names(depth_order) = names(daughters_info_list)
+    order_assigned = NULL
+    while(length(which(is.na(depth_order))) > 0){
+      idx_na = which(is.na(depth_order))
+      if (length(idx_na) > 0){
+        for (j in 1:length(idx_na)){
+          idx_na_j = idx_na[j]
+          parent_j = parents[idx_na_j]
+          daughters_j = daughters_info_list[[idx_na_j]]
+          num_tip_daughters = length(which(daughters_j %in% tip_fg_ids))
+          if (num_tip_daughters == 2){
+            depth_order[idx_na_j] = 1
+            order_assigned = c(order_assigned, parent_j)
+          } else if (num_tip_daughters==1){
+            node_daughter = daughters_j[which(daughters_j > length(fgTree$tip.label))]
+            if (node_daughter %in% order_assigned){
+              depth_order[idx_na_j] = depth_order[as.character(node_daughter)] + 1
+              order_assigned = c(order_assigned, parent_j)
+            }
+          } else if (num_tip_daughters==0){
+            node_daughters = daughters_j[which(daughters_j > length(fgTree$tip.label))]
+            if (length(which(node_daughters %in% order_assigned)) == 2){
+              node_daughters_depths = depth_order[as.character(node_daughters)]
+              depth_order[idx_na_j] = max(node_daughters_depths) + 1
+              order_assigned = c(order_assigned, parent_j)
+            }
+          }
+        }
+      }
+    }
+  }
+  depth_order
+}
+
+
 
 #'Produces one SSM binary permulation for a gene
 #' @param tree Tree of the gene of interest
@@ -350,21 +823,31 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
     fg_tree = res$tree
     fg.table = res$fg.sisters.table
 
+    t=root.phylo(tree, root_sp, resolve.root = T)
+    rm=ratematrix(t, pathvec)
+
+    if (!is.null(sisters_list)){
+      fg_tree_info = getBinaryPermulationInputsFromTree(fg_tree)
+      num_tip_sisters_true = unlist(fg_tree_info$sisters_list)
+      num_tip_sisters_true = num_tip_sisters_true[which(num_tip_sisters_true %in% tip.labels)]
+      num_tip_sisters_true = length(num_tip_sisters_true)
+      fg_tree_depth_order = getDepthOrder(fg_tree)
+    }
+
     fgnum = length(which(fg_tree$edge.length == 1))
-    internal = nrow(fg.table)
+    if (!is.null(sisters_list)){
+      internal = nrow(fg.table)
+    } else {
+      internal = 0
+    }
     tips=fgnum-internal # the number of tips
 
-    num.tip.sisters.real = length(which(as.vector(fg.table) <= length(tip.labels)))
-
-    top = NA
-    num.tip.sisters.fake = 10000
-    while(num.tip.sisters.fake!= num.tip.sisters.real){
+    testcondition=FALSE
+    while(!testcondition){
       blsum=0
       while(blsum!=fgnum){
-        t=root.phylo(trees$masterTree, root_sp, resolve.root = T) # roots the tree on the defined root
-        rm=ratematrix(t, pathvec) # calculates the evolutionary VCV matrix
-        sims=sim.char(t, rm, nsim = 1) # simulates evolution of discrete or continuous characters on a phylogenetic tree, results in phenotype vector
-        nam=rownames(sims) # name of the animals
+        sims=sim.char(t, rm, nsim = 1)
+        nam=rownames(sims)
         s=as.data.frame(sims)
         simulatedvec=s[,1]
         names(simulatedvec)=nam
@@ -373,12 +856,22 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
         top = top.tree_k[1:tips]
         t=foreground2Tree(top, trees, clade="all", plotTree = F, useSpecies=tip.labels)
         blsum=sum(t$edge.length)
-
-        t.table = findPairs(t)
-        num.tip.sisters.fake = length(which(as.vector(t.table) <= length(tip.labels)))
+      }
+      t_info = getBinaryPermulationInputsFromTree(t)
+      if (!is.null(sisters_list)){
+        num_tip_sisters_fake = unlist(t_info$sisters_list)
+        num_tip_sisters_fake = num_tip_sisters_fake[which(num_tip_sisters_fake %in% tip.labels)]
+        num_tip_sisters_fake = length(num_tip_sisters_fake)
+        t_depth_order = getDepthOrder(t)
+        testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order)) &&
+          (num_tip_sisters_fake == num_tip_sisters_true)
+      } else {
+        t_depth_order = getDepthOrder(t)
+        testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order))
       }
     }
   }
+
   if (plotTreeBool){
     plot(t)
   }
@@ -1113,6 +1606,138 @@ getPermsContinuous=function(numperms, traitvec, RERmat, annotlist, trees, master
   data
 }
 
+#'Calculates permuted correlation and enrichment statistics for an extant only analysis
+#' @param numperms An integer number of permulations
+#' @param traitvec A named phenotype vector
+#' @param RERmat An RER matrix calculated using \code{\link{getAllResiduals}}
+#' @param annotlist Pathway annotations
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
+#' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
+#' @param type One of "simperm", "sim", or "perm" for permulations, simulations, or permutations, respectively
+#' @param winR Integer winzorization value for RERmat
+#' @param winT Integer winzorization value for trait
+#' @param method statistical method to use for correlations
+#' @param min.pos minimum foreground species - should be set to 0
+#' @note  winsorize is in terms of number of observations at each end, NOT quantiles
+#' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
+#' @export
+getPermsContinuousExtantOnly=function(numperms, traitvec, RERmat, annotlist,
+                                      trees, mastertree, calculateenrich=T,
+                                      type="simperm", winR=3, winT=3,
+                                      method="p", min.pos=0){
+
+  #get real enrich and cors
+  #realpaths=RERconverge::char2Paths(traitvec, trees)
+  realresults=getAllCorExtantOnly(RERmat, traitvec, method = method, min.pos = min.pos, winsorizeRER = winR, winsorizetrait=winT)
+  realstat=sign(realresults$Rho)*-log10(realresults$P)
+  names(realstat)=rownames(realresults)
+
+  #make enrich list/matrices to fill
+  permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
+  rownames(permPvals)=rownames(realresults)
+  permRhovals=data.frame(matrix(ncol=numperms, nrow=nrow(realresults)))
+  rownames(permRhovals)=rownames(realresults)
+  permStatvals=data.frame(matrix(ncol=numperms, nrow=length(realstat)))
+  rownames(permStatvals)=rownames(realresults)
+
+
+  if(calculateenrich){
+    realenrich=fastwilcoxGMTall(na.omit(realstat), annotlist, outputGeneVals=F)
+
+    #sort real enrichments
+    groups=length(realenrich)
+    c=1
+    while(c<=groups){
+      current=realenrich[[c]]
+      realenrich[[c]]=current[order(rownames(current)),]
+      c=c+1
+    }
+    #make matrices to fill
+    permenrichP=vector("list", length(realenrich))
+    permenrichStat=vector("list", length(realenrich))
+    c=1
+    while(c<=length(realenrich)){
+      newdf=data.frame(matrix(ncol=numperms, nrow=nrow(realenrich[[c]])))
+      rownames(newdf)=rownames(realenrich[[c]])
+      permenrichP[[c]]=newdf
+      permenrichStat[[c]]=newdf
+      c=c+1
+    }
+  }
+
+
+  counter=1
+  while(counter<=numperms){
+
+    print(paste("running permutation: ", counter))
+
+    #get correlation results
+    out=getNullCorExtantOnly(traitvec, RERmat, mastertree, trees, type = type, winR=winR, winT=winT)
+    stat=sign(out$Rho)*-log10(out$P)
+    names(stat)=rownames(out)
+
+    permPvals[,counter]=out$P
+    permRhovals[,counter]=out$Rho
+    permStatvals[,counter]=stat
+
+    if(calculateenrich){
+      enrich=fastwilcoxGMTall(na.omit(stat), annotlist, outputGeneVals=F)
+      #sort and store enrichment results
+      groups=length(enrich)
+      c=1
+      while(c<=groups){
+        current=enrich[[c]]
+        enrich[[c]]=current[order(rownames(current)),]
+        enrich[[c]]=enrich[[c]][match(rownames(permenrichP[[c]]), rownames(enrich[[c]])),]
+        permenrichP[[c]][,counter]=enrich[[c]]$pval
+        permenrichStat[[c]][,counter]=enrich[[c]]$stat
+        c=c+1
+      }
+    }
+    counter=counter+1
+  }
+
+  if(calculateenrich){
+    data=vector("list", 5)
+    data[[1]]=permPvals
+    data[[2]]=permRhovals
+    data[[3]]=permStatvals
+    data[[4]]=permenrichP
+    data[[5]]=permenrichStat
+    names(data)=c("corP", "corRho", "corStat", "enrichP", "enrichStat")
+  }else{
+    data=vector("list", 3)
+    data[[1]]=permPvals
+    data[[2]]=permRhovals
+    data[[3]]=permStatvals
+    names(data)=c("corP", "corRho", "corStat")
+  }
+  data
+}
+
+#' @keywords internal
+getNullCorExtantOnly=function(traitvec, RERmat, trimmedtree, genetrees, type="simperm", winR=NULL, winT=NULL){
+  if(!type %in% c("simperm", "sim", "perm")){
+    stop("type must be simperm, sim, or perm")
+  }
+
+  #get new vector
+  if(type=="simperm"){
+    vec=simpermvec(traitvec, trimmedtree)
+  }
+  if(type=="sim"){
+    vec=simulatevec(traitvec, trimmedtree)
+  }
+  if(type=="perm"){
+    vec=permutevec(traitvec)
+  }
+
+  #get cor results
+  # paths=RERconverge::char2Paths(na.omit(vec), genetrees)
+  out=getAllCorExtantOnly(RERmat, na.omit(vec), method="p", min.pos=0, winsorizeRER=winR, winsorizetrait = winT)
+  out
+}
 
 #'Adaptively calculates permulation p-value for a single element
 #' @param rer a row matrix for the given element (e.g., a row from the matrix output from \code{\link{getAllResiduals}})
@@ -1267,10 +1892,10 @@ permpvalenrich=function(realenrich, permvals){
   enrichpvals
 }
 
-#'Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}}
+#'Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}} and \code{\link{getPermsBinary}}
 #' @param realcor Real enrichment statistics from \code{\link{fastwilcoxGMTall}}
-#' @param permvals output from \code{\link{getPermsContinuous}}
-#' @return A vector with permulation p-values
+#' @param permvals output from \code{\link{getPermsContinuous}} or \code{\link{getPermsBinary}}
+#' @return A data frame containing permulation p-values and permulation statistics (positive denotes acceleration, negative denotes deceleration)
 #' @export
 permpvalcor=function(realcor, permvals){
 
@@ -1282,18 +1907,38 @@ permpvalcor=function(realcor, permvals){
 
   permpvals=vector(length=length(realstat))
   names(permpvals)=names(realstat)
+  permstats=vector(length=length(realstat))
+  names(permstats)=names(realstat)
   count=1
   while(count<=length(realstat)){
     if(is.na(realstat[count])){
-      permpvals[count]=NA
+	  permpvals[count]=NA
     }else{
-      num=sum(abs(permcor[count,])>abs(realstat[count]), na.rm=T)
-      denom=sum(!is.na(permcor[count,]))
-      permpvals[count]=num/denom
+	  permcor_i = permcor[count,]
+	  permcor_i = permcor_i[!is.na(permcor_i)]
+	  if (length(permcor_i)==0){
+	    permpvals[count]=NA
+	    permstats[count]=NA
+	  } else {
+	    median_permcor = median(permcor_i)
+	    if (realstat[count] >= median_permcor){
+		  num = length(which(permcor_i >= realstat[count]))
+		  denom = length(which(permcor_i >= median_permcor))
+	    } else {
+		  num = length(which(permcor_i <= realstat[count]))
+		  denom = length(which(permcor_i <= median_permcor))
+	    }
+	    #num=sum(abs(permcor[count,])>abs(realstat[count]), na.rm=T)
+	    #denom=sum(!is.na(permcor[count,]))
+	    permpvals[count]=(num+1)/(denom+1)
+	    permstats[count] = -log10(permpvals[count])*sign(realstat[count]-median_permcor)
+	  }
     }
     count=count+1
   }
-  permpvals
+  permstats[which(is.na(permpvals))] = NA
+  out = data.frame('permpval'=permpvals, 'permstats'=permstats)
+  out
 }
 
 getNullCor=function(traitvec, RERmat, trimmedtree, genetrees, type="simperm", winR=NULL, winT=NULL){
@@ -1474,5 +2119,774 @@ plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, outpu
   out
 }
 
+################################################################################
+# Code for Permulations for Categorical Traits
+
+# generates a set of N null tips with the number of species in each category matching the actual phenotype data
+#' @keywords internal
+getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary") {
+
+  # GET TRUE TIP COUNTS
+  true_counts = table(intlabels$mapped_states)
+
+  # MAKE MATRIX TO STORE THE SETS OF NULL TIPS AND SETS OF INTERNAL NODES
+  tips = matrix(nrow = N, ncol = length(tree$tip.label), dimnames = list(NULL, tree$tip.label))
+  nodes = matrix(nrow = N, ncol = tree$Nnode)
+
+  cnt = 0
+  #roots = c() # testing
+  while(cnt < N) {
+    # SIMULATE STATES
+    sim = simulate_mk_model(tree, Q, root_probabilities = root_prob)
+    sim_counts = table(sim$tip_states)
+
+    # CHECK THAT ALL STATES GET SIMULATED IN THE TIPS
+    if(length(unique(sim$tip_states)) < length(true_counts)) {
+      next
+    }
+
+    # IF THE TIP COUNTS MATCH THE TIP COUNTS IN THE REAL DATA, ADD TO THE LIST
+    if(sum(true_counts == sim_counts) == length(true_counts)) {
+      cnt = cnt + 1
+
+      print(cnt)
+
+      tips[cnt,] = sim$tip_states
+      nodes[cnt,] = sim$node_states
+      #roots = c(roots, sim$node_states[1]) # testing
+    }
+  }
+  #print(table(roots))
+  return(list(tips = tips, nodes = nodes))
+}
+
+# shuffles the categories around the tree based on ancestral likelihoods
+# serves as a starting point for the function improveTree
+#' @keywords internal
+shuffleInternalNodes <- function(shuffled_states, available_nodes, ancliks, Nnode, ntips) {
+  internal_states = vector(mode = "numeric", length = Nnode)
+
+  if(length(shuffled_states) != nrow(ancliks)){
+    stop("number of shuffled states and number of nodes with ancestral likelihoods do not match")
+  }
+
+  for(state in shuffled_states){
+    if(length(available_nodes) > 1) {
+      liks = ancliks[,state]
+      node = sample(available_nodes, size = 1, prob = liks)
+      available_nodes = available_nodes[- which(available_nodes == node)]
+      ancliks = ancliks[- which(rownames(ancliks) == as.character(node)),]
+      internal_states[node - ntips] = state
+    }
+    else { # only one node left
+      internal_states[available_nodes - ntips] = state
+    }
+  }
+  return(internal_states)
+}
+
+# For a set of null tips, shuffles the correct number of each category around the internal nodes
+#' @keywords internal
+getNullTrees <- function(node_states, null_tips, tree, Q) {
+
+  nullTrees = list()
+
+  for(i in 1:nrow(null_tips)) {
+    print(i)
+    tips = null_tips[i,]
+
+    ancliks = getAncLiks(tree, tipvals = tips, Q = Q)
+
+    ntips = length(tree$tip.label)
+    available_nodes = (ntips + 1):(tree$Nnode + ntips)
+    rownames(ancliks) = available_nodes
+
+    shuffled_states = sample(node_states)
+    internal_states = shuffleInternalNodes(shuffled_states,
+                                           available_nodes = available_nodes,
+                                           ancliks = ancliks,
+                                           Nnode = tree$Nnode, ntips = ntips)
+    tr = list(tips = tips, nodes = internal_states)
+    nullTrees = append(nullTrees, list(tr))
+  }
+  return(nullTrees)
+}
+
+# rearranges the shuffled internal nodes to improve the likelihoods of the permulated trees
+#' @keywords internal
+improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
+
+  # get ancliks and max_states
+  ancliks = getAncLiks(tree, tips, Q)
+  max_states = getStatesAtNodes(ancliks)
+
+  # calculate tree likelihoods
+  # states = c(tips, max_states)
+  # max_lik = 1
+  # for(i in 1:nrow(tree$edge)){
+  #   a = states[tree$edge[i,1]]
+  #   d = states[tree$edge[i,2]]
+  #   max_lik = max_lik * P[[i]][a, d]
+  # }
+
+  states = c(tips, nodes)
+  curr_lik = 1
+  for(i in 1:nrow(tree$edge)){
+    a = states[tree$edge[i,1]]
+    d = states[tree$edge[i,2]]
+    curr_lik = curr_lik * P[[i]][a, d]
+  }
+
+  # calculate initial ratios
+  nstates = nrow(Q)
+  ratios = c() # list of ratios
+  ratio_info = matrix(nrow = (nstates - 1) * tree$Nnode, ncol = 3, dimnames = list(NULL, c("node", "state", "other.state"))) # info for each ratio
+
+  # ns aren't the node numbers in the tree - they are the index of the internal node in nodes, node number in tree is n + ntips
+  for(n in 1:tree$Nnode) {
+    # calculate ratios
+    pie = ancliks[n,]
+    rr = pie[-nodes[n]] / pie[nodes[n]] # other states / state
+    ratios = c(ratios, rr)
+    # fill in ratio_info
+    # rows = c((n-1)*3 + 1, (n-1)*3 + 2, (n-1)*3 + 3)
+    rows = ((n-1)*(nstates-1) + 1):((n-1)*(nstates-1) + (nstates-1))
+    ratio_info[rows,"node"] = rep(n, nstates - 1)
+    ratio_info[rows,"state"] = rep(nodes[n], nstates - 1)
+    ratio_info[rows,"other.state"] = (1:nstates)[-nodes[n]]
+  }
+
+  # pre-calculate and store edge numbers for each node
+  ntips = length(tree$tip.label)
+  edg_nums = lapply(seq_along(vector(mode = "list", length = tree$Nnode + ntips)), function(x){
+    c(which(tree$edge[,1] == x),(which(tree$edge[,2] == x)))
+  })
+
+  j = 1 # iteration counter
+  k = 1 # cycle counter
+  Tk = T0
+
+  while(k <= cycles) {
+
+    # get 2 nodes to swap
+    nn = nodes
+
+    # 1: pick a node randomly, weighted by the ratios
+    r1 = sample(1:length(ratios), 1, prob = ratios)
+    n1 = ratio_info[r1, "node"] # node 1
+    s1 = ratio_info[r1, "state"] # state1
+    s2 = ratio_info[r1, "other.state"] # state2
+
+    # 2: pick a node to swap it with
+    ii = intersect(which(ratio_info[,"state"] == s2), which(ratio_info[,"other.state"] == s1))
+    if(length(ii) > 1) {
+      n2 = sample(ratio_info[ii,"node"], 1, prob = ratios[ii]) # node2
+    } else { # only one node with state2
+      n2 = ratio_info[ii,"node"]
+    }
+
+    # make the swap
+    nn[n1] = s2
+    nn[n2] = s1
+
+    # calculate new likelihood
+    states_new = c(tips, nn)
+    states_old = c(tips, nodes)
+
+    r = 1
+    for(i in unique(c(edg_nums[[n1 + ntips]], edg_nums[[n2 + ntips]]))){ # check this over many cases including when n1 and n2 effect the same edge
+      ao = states_old[tree$edge[i,1]]
+      do = states_old[tree$edge[i,2]]
+
+      an = states_new[tree$edge[i,1]]
+      dn = states_new[tree$edge[i,2]]
+      r = r * (P[[i]][an,dn] / P[[i]][ao, do])
+    }
+
+    if(r >= 1) { # if the swap increases likelihood, commit to the swap
+
+      nodes = nn
+
+      curr_lik = curr_lik * r # this should do the same thing, BUT CHECK THIS GETS THE SAME RESULT IN MULTIPLE CASES!
+
+      # update ratios
+      # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
+      rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
+
+      pie = ancliks[n1,]
+      rr = pie[-s2] / pie[s2] # other states / state
+      ratios[rows1] = rr
+
+      # fill in ratio_info
+      ratio_info[rows1,"state"] = rep(s2, nstates - 1)
+      ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
+
+      # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
+      rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
+
+      pie = ancliks[n2,]
+      rr = pie[-s1] / pie[s1] # other states / state
+      ratios[rows2] = rr
+
+      # fill in ratio_info
+      ratio_info[rows2,"state"] = rep(s1, nstates - 1)
+      ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
+
+    }
+    else { # make jump with probability u
+
+      # calculate u which includes dividing by tmp
+      dh = -log(curr_lik * r) + log(curr_lik)
+      u = exp(-dh/Tk)
+      if(u == 0) warning("u is zero")
+
+      # if(u == 0) stop(paste("temp is", Tk))
+
+      if(runif(1) <= u) {
+
+        nodes = nn
+
+        curr_lik = curr_lik * r # CHECK THIS GETS THE SAME RESULT
+
+        # update ratios
+        # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
+        rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
+
+        pie = ancliks[n1,]
+        rr = pie[-s2] / pie[s2] # other states / state
+        ratios[rows1] = rr
+        # fill in ratio_info
+
+        ratio_info[rows1,"state"] = rep(s2, nstates - 1)
+        ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
+
+        # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
+        rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
+
+        pie = ancliks[n2,]
+        rr = pie[-s1] / pie[s1] # other states / state
+        ratios[rows2] = rr
+        # fill in ratio_info
+        ratio_info[rows2,"state"] = rep(s1, nstates - 1)
+        ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
+      }
+    }
+
+    # increment j
+    j = j + 1
+
+    # print(curr_lik)
+
+    # move to next cycle if necessary
+    if(j >= Nk) {
+      j = 1 # reset j
+      # Tk = T0 * alpha^k
+      # Tk = T0 / (1 + alpha * log(k))
+      Tk = T0 / (1 + alpha*k)
+      k = k + 1
+    }
+
+  }
+  end = Sys.time()
+  return(list(nodes = nodes, lik = log10(curr_lik)))
+}
+
+#' @param treesObj trees object returned by readTrees
+#' @param phenvals the named phenotype vector
+#' @param rm the rate model, it should be the same as the one used to reconstruct the ancestral history of the trait
+#' @param rp root prior, the default is auto
+#' @param ntrees the number of null trees to generate
+#' @param root_prob The probabilities of the different states at the root for the simulations. Can be "flat", "stationary", or a numeric vector of length Nstates. See the root_probabilities parameter under simulate_mk_model in the castor package for more information.
+#' @return a set of permulated phenotype trees
+#' @export
+categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto",
+                                    ntrees, root_prob = "stationary",
+                                    extantOnly = FALSE){
+
+  # PRUNE TREE, ORDER PHENVALS, MAP TO STATE SPACE
+  tree = treesObj$masterTree
+  keep = intersect(names(phenvals), tree$tip.label)
+  tree = pruneTree(tree, keep)
+  phenvals = phenvals[tree$tip.label]
+  intlabels = map_to_state_space(phenvals)
+
+  # FIT A TRANSITION MATRIX ON THE DATA
+  message("Fitting transition matrix")
+  Q = fit_mk(tree, intlabels$Nstates, intlabels$mapped_states,
+             rate_model = rm, root_prior = rp)$transition_matrix
+
+  # GET NULL TIPS (AND STORE INTERNAL NODES FROM SIMULATIONS TOO)
+  message("Simulating trees")
+  simulations = getNullTips(tree, Q, ntrees, intlabels, root_prob = root_prob)
+
+  # IF extantOnly = TRUE, RETURN THE TREES WITHOUT INTERNAL STEP
+  if(extantOnly) {
+    message("Done")
+    return(simulations$tips) # a matrix where each row is a different simulation
+  }
+  else {
+    ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
+    node_states = getStatesAtNodes(ancliks)
+
+    # GET SHUFFLED STARTING-POINT TREES
+    message("Shuffling internal states")
+    nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
+
+    P = lapply(tree$edge.length, function(x){expm(Q * x)})
+
+    # IMPROVE LIKELIHOOD OF EACH NULL TREE
+    message("Improving tree likelihoods")
+    improvedNullTrees = lapply(nullTrees, function(x){
+      list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
+    })
+
+    # RETURN
+    message("Done")
+    return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
+  }
+}
+
+#' @param realCors the output of correlateWithCategoricalPhenotype
+#' @param nullPhens the list item named trees in the output of categoricalPermulations. If categoricalPermulations is run with extantOnly = TRUE, nullPhens is a matrix in which each row is a set of tips and getPermPvalsCategorical should be run with extantOnly = TRUE as well.
+#' @param phenvals the named phenotype vector
+#' @param treesObj the trees object returned by readTrees
+#' @param RERmat the matrix of RERs returned by getAllResiduals, should be the same one used to calculate realCors
+#' @param method either "kw" for Kruskal Wallis, the default, or "aov" for ANOVA
+#' @return Permulation p-values for a categorical phenotype
+#' @export
+getPermPvalsCategorical <- function(realCors, nullPhens, phenvals,
+                                    treesObj, RERmat, method = "kw",
+                                    min.sp = 10, min.pos = 2,
+                                    winsorizeRER=NULL, winsorizetrait=NULL,
+                                    weighted=F,
+                                    extantOnly = FALSE) {
+  # CHECK IF TRAIT IS BINARY
+  binary = FALSE
+  if(method != "kw" & method != "aov"){
+    message("Binary method provided. Setting binary to TRUE. Note: binary phenotype values should be TRUE and FALSE for correct results.")
+    binary = TRUE
+  }
+
+  # PRUNE TREE
+  tree = treesObj$masterTree
+  keep = intersect(names(phenvals), tree$tip.label)
+  tree = pruneTree(tree, keep)
+
+  # UNROOT THE TREE IF IT IS ROOTED
+  if (is.rooted(tree)) {
+    tree = unroot(tree)
+  }
+
+  # GENERATE PATHS IF NOT EXTANT ONLY
+  if(!extantOnly){
+    # generate the paths
+    if(!binary) {
+      message("Generating null paths")
+      nullPaths = lapply(nullPhens, function(x){
+        tr = tree # make a copy of the tree
+        tr$edge.length = c(x$tips, x$nodes)[tr$edge[,2]] # assign states to edges
+        tree2Paths(tr, treesObj, categorical = TRUE, useSpecies = names(phenvals)) # calculate paths
+      })
+    } else {
+      message("Generating null paths")
+      nullPaths = lapply(nullPhens, function(x){
+        tr = tree # make a copy of the tree
+        tr$edge.length = c(x$tips, x$nodes)[tr$edge[,2]] # assign states to edges
+        # subtract 1 to convert 1 - FALSE, 2 - TRUE to 0 and 1
+        # THIS IS A QUICK FIX, WON'T WORK IF THE FOREGROUND IS 1 AND BACKGROUND IS 2!!!
+        tree2Paths(tr, treesObj, categorical = TRUE, useSpecies = names(phenvals)) - 1 # calculate paths
+      })
+    }
+  }
+
+  # calculate correlation statistics
+  message("Calculating correlation statistics")
+
+  # make matrices to store the results
+  if(!extantOnly){
+    corsMatPvals = matrix(nrow = nrow(RERmat), ncol = length(nullPhens),
+                          dimnames = list(rownames(RERmat), NULL))
+    corsMatEffSize = matrix(nrow = nrow(RERmat), ncol = length(nullPhens),
+                            dimnames = list(rownames(RERmat), NULL))
+  } else {
+    corsMatPvals = matrix(nrow = nrow(RERmat), ncol = nrow(nullPhens),
+                          dimnames = list(rownames(RERmat), NULL))
+    corsMatEffSize = matrix(nrow = nrow(RERmat), ncol = nrow(nullPhens),
+                            dimnames = list(rownames(RERmat), NULL))
+  }
+
+
+  if(!binary){
+    # make matrices for the pairwise testing
+    Ppvals = lapply(1:length(realCors[[2]]), matrix, data = NA, nrow = nrow(RERmat),
+                    ncol = length(nullPhens), dimnames = list(rownames(RERmat), NULL))
+    names(Ppvals) = names(realCors[[2]])
+
+    Peffsize = lapply(1:length(realCors[[2]]), matrix, data = NA, nrow = nrow(RERmat),
+                      ncol = length(nullPhens), dimnames = list(rownames(RERmat), NULL))
+    names(Peffsize) = names(realCors[[2]])
+  }
+
+  # run getAllCor on every null phenotype and store the pval/effect size for every gene
+  if(extantOnly) {
+    if(!binary) {
+      for(i in 1:nrow(nullPhens)) {
+        # phenvals is row i of nullPhens
+        cors = getAllCorExtantOnly(RERmat, nullPhens[i,], method = method,
+                                   min.sp = min.sp, min.pos = min.pos, winsorizeRER = winsorizeRER,
+                                   winsorizetrait = winsorizetrait)
+        corsMatPvals[,i] = cors[[1]]$P # store p values
+        corsMatEffSize[,i] = cors[[1]]$Rho # store effect size
+
+        # add results of pairwise tests
+        for(j in 1:length(cors[[2]])){ # loop through each table in cors[[2]]
+          Ppvals[[names(cors[[2]])[j]]][,i] = cors[[2]][[j]]$P
+          Peffsize[[names(cors[[2]])[j]]][,i] = cors[[2]][[j]]$Rho
+        }
+      }
+    } else {
+      for(i in 1:nrow(nullPhens)) {
+        print(i)
+        # phenvals is row i of nullPhens
+        cors = getAllCorExtantOnly(RERmat, nullPhens[i,], method = method,
+                                   min.sp = min.sp, min.pos = min.pos, winsorizeRER = winsorizeRER,
+                                   winsorizetrait = winsorizetrait)
+        corsMatPvals[,i] = cors$P # store p values
+        corsMatEffSize[,i] = cors$Rho # store effect size
+      }
+    }
+  } else {
+    if(!binary) {
+      for(i in 1:length(nullPaths)) {
+        cors = getAllCor(RERmat, nullPaths[[i]], method = method, min.sp=min.sp,
+                         min.pos=min.pos, winsorizeRER=winsorizeRER,
+                         winsorizetrait=winsorizetrait, weighted=weighted)
+        corsMatPvals[,i] = cors[[1]]$P # store p values
+        corsMatEffSize[,i] = cors[[1]]$Rho # store effect size
+
+        # add results of pairwise tests
+        for(j in 1:length(cors[[2]])){ # loop through each table in cors[[2]]
+          Ppvals[[names(cors[[2]])[j]]][,i] = cors[[2]][[j]]$P
+          Peffsize[[names(cors[[2]])[j]]][,i] = cors[[2]][[j]]$Rho
+        }
+      }
+    } else {
+      for(i in 1:length(nullPaths)) {
+        cors = getAllCor(RERmat, nullPaths[[i]], method = method, min.sp=min.sp,
+                         min.pos=min.pos, winsorizeRER=winsorizeRER,
+                         winsorizetrait=winsorizetrait, weighted=weighted)
+        corsMatPvals[,i] = cors$P # store p values
+        corsMatEffSize[,i] = cors$Rho # store effect size
+      }
+    }
+  }
+
+  message("Obtaining permulations p-values")
+  if(!binary){
+    # calculate empirical pvals
+    N = nrow(realCors[[1]])
+
+    realCors[[1]]$permP = rep(NA, N) # add a column to the real results for the empirical pvals
+
+    for(j in 1:length(realCors[[2]])){ # loop through each table in realCors[[2]]
+      realCors[[2]][[j]]$permP = rep(NA, N)
+    }
+
+    for(gene in 1:N) {
+      # check whether the gene is NA in realCors and if so, set p = NA
+      if(is.na(realCors[[1]]$Rho[gene])) {
+        p = NA
+      } else {
+        # count number of times null is more extreme than observed
+        # effect size for Kruskal-Wallis is epsilon squared, only assumes non-negative values
+        # ANOVA is still using eta2 (as of right now)
+        p = sum(corsMatEffSize[gene,] > realCors[[1]]$Rho[gene], na.rm = TRUE) / sum(!is.na(corsMatEffSize[gene,]))
+      }
+      realCors[[1]]$permP[gene] = p
+
+      for(j in 1:length(realCors[[2]])) {
+        if(is.na(realCors[[2]][[j]]$Rho[gene])) {
+          p = NA
+        } else {
+          # I think the effect size for Tukey and Dunn are bidirectional - using absolute value, NEED TO CHECK WITH AMANDA
+          p = sum(abs(Peffsize[[names(realCors[[2]][j])]][gene,]) > abs(realCors[[2]][[j]]$Rho[gene]), na.rm = TRUE) / sum(!is.na(Peffsize[[names(realCors[[2]][j])]][gene,]))
+        }
+        realCors[[2]][[j]]$permP[gene] = p
+      }
+    }
+  } else {
+    # calculate empirical pvals
+    N = nrow(realCors)
+
+    realCors$permP = rep(NA, N) # add a column to the real results for the empircal pvals
+
+    for(gene in 1:N) {
+      if(is.na(realCors$Rho[gene])){
+        p = NA
+      } else {
+        # count number of times null is more extreme than observed
+        # use abs because stat can be positive or negative
+        p = sum(abs(corsMatEffSize[gene,]) > abs(realCors$Rho[gene]), na.rm = TRUE) / sum(!is.na(corsMatEffSize[gene,]))
+      }
+      realCors$permP[gene] = p
+    }
+  }
+
+  message("Done")
+  # return results
+  if(!binary){
+    return(list(res = realCors, pvals = list(corsMatPvals,Ppvals), effsize = list(corsMatEffSize,Peffsize)))
+  }
+  else {
+    return(list(res = realCors, pvals = corsMatPvals, effsize = corsMatEffSize))
+  }
+}
+
+#' @param cors the output of correlateWithCategoricalPhenotype
+#' @param annotlist the list of annotations from which to calculate enrichment statistics
+#' @param outputGeneVals a boolean indicating whether to include gene names in the output
+#' @return enrichment statistics for the categorical test and each pairwise test
+#' @export
+getRealEnrichments <- function(cors, annotlist, outputGeneVals = FALSE){
+  # make a list to store all the enrichments
+  enrich_list = list()
+
+  # calculate enrichments for cors[[1]]
+  enrich_list[[1]] = fastwilcoxGMTall(getStat(cors[[1]]), annotList = annotlist, outputGeneVals = outputGeneVals, alternative = "greater")
+
+  # loop through and calculate enrichments for cors[[2]]
+  enrich_list[[2]] = vector(mode = "list", length = length(cors[[2]]))
+  names(enrich_list[[2]]) = names(cors[[2]])
+
+  for(i in 1:length(cors[[2]])) {
+    enrich_list[[2]][[i]] = fastwilcoxGMTall(getStat(cors[[2]][[i]]), annotList = annotlist, outputGeneVals = outputGeneVals)
+  }
+  # return the list of enrichments (match same kind of format as cors for consistency)
+  return(enrich_list)
+}
+
+#' @param perms the output of getPermPvalsCategorical
+#' @param realenrich the output of getRealEnrichments
+#' @param annotlist the list of annotations from which to calculate enrichment statistics
+#' @return enrichment statistics
+#' @export
+getEnrichPermsCategorical <- function(perms, realenrich, annotlist){
+  res = vector(mode = "list", length = 2)
+
+  # get enrichment results for KW/ANOVA on all categories
+  res[[1]] = getEnrichAllCategories(perms, realenrich, annotlist)
+
+  res[[2]] = vector(mode = "list", length = length(realenrich[[2]]))
+  names(res[[2]]) = names(realenrich[[2]])
+
+  # get enrichment results for each pairwise test
+  for(name in names(res[[2]])){
+    res[[2]][[name]] = getEnrichFromPairwiseTest(perms, realenrich, annotlist, name)
+  }
+  return(res)
+}
+
+# helper function that gets enrichment statistics for the KW/ANOVA results on all the categories
+#' @keywords internal
+getEnrichAllCategories <- function(perms, realenrich, annotlist){
+  numperms = ncol(perms$pvals[[1]])
+
+  # make the lists and data frames to store the results
+
+  enrichP = vector(mode = "list", length = length(realenrich[[1]]))
+  enrichStat = vector(mode = "list", length = length(realenrich[[1]]))
+
+  names(enrichP) = names(realenrich[[1]])
+  names(enrichStat) = names(realenrich[[1]])
+
+  # give the rows in these matrices the same names as in the realenrich
+  for(c in 1:length(realenrich[[1]])){
+    enrichP[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[1]][[c]])))
+    rownames(enrichP[[c]]) = rownames(realenrich[[1]][[c]])
+    enrichStat[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[1]][[c]])))
+    rownames(enrichStat[[c]]) = rownames(realenrich[[1]][[c]])
+  }
+
+  # calculate enrichment stats for each permulation
+  for(count in 1:numperms){
+    # print(count)
+    # get the p value and enrich stat vectors
+    P = perms$pvals[[1]][,count]
+    effsize = perms$effsize[[1]][,count]
+
+    # make a stat vector
+    stat = getStat(data.frame(P = P, Rho = effsize))
+
+    # run the enrichment
+    enrich = fastwilcoxGMTall(stat, annotlist, outputGeneVals = FALSE, alternative="greater")
+
+    # store the enrichment values
+    for(c in 1:length(enrich)){
+      #                                   the row indices in enrich[[c]] of the row names in enrichP
+      enrichP[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$pval
+      enrichStat[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$stat
+    }
+  }
+
+  # return the results
+  return(list(enrichP = enrichP, enrichStat = enrichStat))
+}
+
+# this function returns results for ONE pairwise test, it gets called mulitple times in the main function
+# name is the name of the pairwise test e.g. "1 - 3"
+#' @keywords internal
+getEnrichFromPairwiseTest <- function(perms, realenrich, annotlist, name){
+  numperms = ncol(perms$pvals[[1]])
+  # make the lists and data frames to store the results
+
+  enrichP = vector(mode = "list", length = length(realenrich[[2]][[name]]))
+  enrichStat = vector(mode = "list", length = length(realenrich[[2]][[name]]))
+
+  names(enrichP) = names(realenrich[[2]][[name]])
+  names(enrichStat) = names(realenrich[[2]][[name]])
+
+  # give the rows in these matrices the same names as in the realenrich
+  for(c in 1:length(realenrich[[1]])){
+    enrichP[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[2]][[name]][[c]])))
+    rownames(enrichP[[c]]) = rownames(realenrich[[2]][[name]][[c]])
+    enrichStat[[c]] = data.frame(matrix(ncol = numperms, nrow = nrow(realenrich[[2]][[name]][[c]])))
+    rownames(enrichStat[[c]]) = rownames(realenrich[[2]][[name]][[c]])
+  }
+
+  # calculate enrichment stats for each permulation
+  for(count in 1:numperms){
+    print(count)
+    # get the p value and enrich stat vectors
+    P = perms$pvals[[2]][[name]][,count]
+    effsize = perms$effsize[[2]][[name]][,count]
+
+    # make a stat vector
+    stat = getStat(data.frame(P = P, Rho = effsize))
+
+    # run the enrichment
+    enrich = fastwilcoxGMTall(stat, annotlist, outputGeneVals = FALSE)
+
+    # store the enrichment values
+    for(c in 1:length(enrich)){
+      #                                   the row indices in enrich[[c]] of the row names in enrichP
+      enrichP[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$pval
+      enrichStat[[c]][,count] = enrich[[c]][match(rownames(enrichP[[c]]), rownames(enrich[[c]])),]$stat
+    }
+  }
+
+  # return the results
+  return(list(enrichP = enrichP, enrichStat = enrichStat))
+}
+
+#' @param permenrich output of getEnrichPermsCategorical
+#' @param realenrich output of getRealEnrichments
+#' @param binary whether the trait is binary i.e. has two categories or not
+#' @return the p-values for each enrichment category
+#' @export
+getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
+  if(!binary){ # code for categorical traits with pairwise tests
+    # calculate pvals for the enrichment of all categories
+
+    # make a list of groups to store the pvalues
+    pval_groups = vector(mode = "list", length = length(realenrich[[1]]))
+    names(pval_groups) = names(realenrich[[1]])
+
+    # loop through the groups of the enrichment
+    for(c in 1:length(realenrich[[1]])){
+      # make a list to store the pvals for that group
+      pvals = c()
+      for(i in 1:nrow(realenrich[[1]][[c]])){
+        # for debugging - check that row names match, this should never happen because they were given the same row names
+        if(rownames(realenrich[[1]][[c]])[i] != rownames(permenrich[[1]]$enrichStat[[c]])[i]){
+          warning("row names between real enrichment and perm enrich stats do not match!")
+        }
+        # if the stat is NA, add NA to pval list
+        if(is.na(realenrich[[1]][[c]]$stat[i])) {
+          pvals = c(pvals, NA)
+        }
+        # otherwise calculate the p-value
+        # do NOT use absolute value because it is a one-sided test
+        else {
+          p = sum(permenrich[[1]]$enrichStat[[c]][i,] > realenrich[[1]][[c]]$stat[i], na.rm = TRUE)
+          p = p/sum(!is.na(permenrich[[1]]$enrichStat[[c]][i,]))
+          pvals = c(pvals, p)
+        }
+      }
+      # store the pvals in pval_groups list
+      names(pvals) = rownames(realenrich[[1]][[c]])
+      pval_groups[[c]] = pvals
+    }
+
+    # calculate pvals for the pairwise tests
+    pw_pvals = vector(mode = "list", length = length(realenrich[[2]]))
+    names(pw_pvals) = names(realenrich[[2]])
+
+    for(n in 1:length(pw_pvals)){
+      # make a list of groups to store the pvalues
+      pval_groupstmp = vector(mode = "list", length = length(realenrich[[2]][[n]]))
+      names(pval_groupstmp) = names(realenrich[[2]][[n]])
+
+      # loop through the groups of the enrichment
+      for(c in 1:length(realenrich[[2]][[n]])){
+        # make a list to store the pvals for that group
+        pvals = c()
+        for(i in 1:nrow(realenrich[[2]][[n]][[c]])){
+          # for debugging - check that row names match, this should never happen because they were given the same row names
+          if(rownames(realenrich[[2]][[n]][[c]])[i] != rownames(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]])[i]){
+            warning("row names between real enrichment and perm enrich stats do not match!")
+          }
+          # if the stat is NA, add NA to pval list
+          if(is.na(realenrich[[2]][[n]][[c]]$stat[i])) {
+            pvals = c(pvals, NA)
+          }
+          # otherwise calculate the p-value
+          # use absolute value because it is a two-sided test
+          else {
+            p = sum(abs(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]][i,]) > abs(realenrich[[2]][[n]][[c]]$stat[i]), na.rm = TRUE)
+            p = p/sum(!is.na(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]][i,]))
+            pvals = c(pvals, p)
+          }
+        }
+        # store the pvals in pval_groups list
+        names(pvals) = rownames(realenrich[[2]][[n]][[c]])
+        pval_groupstmp[[c]] = pvals
+      }
+      # store pval_groups in the pw_pvals list
+      pw_pvals[[n]] = pval_groupstmp
+    }
+
+    return(list(pval_groups, pw_pvals))
+
+  } else { # code for binary traits (permenrich is a list of lenght 2 with enrichP and enrichStat)
+    pval_groups = vector(mode = "list", length = length(realenrich))
+    names(pval_groups) = names(realenrich)
+
+    # loop through the groups of the enrichment
+    for(c in 1:length(realenrich)){
+      # make a list to store the pvals for that group
+      pvals = c()
+      for(i in 1:nrow(realenrich[[c]])){
+        # for debugging - check that row names match, this should never happen because they were given the same row names
+        if(rownames(realenrich[[c]])[i] != rownames(permenrich$enrichStat[[c]])[i]){
+          warning("row names between real enrichment and perm enrich stats do not match!")
+        }
+        # if the stat is NA, add NA to pval list
+        if(is.na(realenrich[[c]]$stat[i])) {
+          pvals = c(pvals, NA)
+        }
+        # otherwise calculate the p-value
+        else {
+          p = sum(abs(permenrich$enrichStat[[c]][i,]) > abs(realenrich[[c]]$stat[i]), na.rm = TRUE)
+          p = p/sum(!is.na(permenrich$enrichStat[[c]][i,]))
+          pvals = c(pvals, p)
+        }
+      }
+      # store the pvals in pval_groups list
+      names(pvals) = rownames(realenrich[[c]])
+      pval_groups[[c]] = pvals
+    }
+    return(pval_groups)
+  }
+}
 
 

@@ -12,10 +12,3 @@ RERconverge
 
 RERconverge
 }
-\author{
-
-
-
-
-
-}

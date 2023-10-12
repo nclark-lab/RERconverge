@@ -2,7 +2,7 @@
 #include <math.h>
 
 using namespace Rcpp;
-//using namespace arma;
+using namespace arma;
 
 //[[Rcpp::depends(RcppArmadillo)]]
 // This is a simple example of exporting a C++ function to R. You can
@@ -15,10 +15,7 @@ using namespace Rcpp;
 //   http://gallery.rcpp.org/
 //
 
-// [[Rcpp::export]]
-NumericVector timesTwo(NumericVector x) {
-  return x * 2;
-}
+
 
 // [[Rcpp::export]]
 List missingSampler() {
@@ -194,4 +191,40 @@ arma::mat fastLmResidMatWeightedNoNACheck(const arma::mat& Y, const arma::mat& X
   return(rmat);
 }
 
+// [[Rcpp::export]]
+arma::mat fastLmResidWeightedPredict(const arma::mat& Y, const arma::mat& X,  const arma::rowvec& wa, const arma::mat& newX){
+
+  int n = X.n_rows, k = X.n_cols;
+  arma::mat res;
+
+
+  arma::mat W=diagmat(wa);
+
+
+  arma::mat coef = Y*W*X*inv(trans(X)*W*X);    // fit model y ~ X
+  res  = coef*trans(newX);           // predictions
+
+
+  return res;
+}
+
+
+// [[Rcpp::export]]
+arma::mat fastLmResidMatWeightedPredict(const arma::mat& Y, const arma::mat& X, const arma::mat& W, const arma::mat& newX) {
+  uvec ids;
+  arma::mat rmat=mat(Y.n_rows, newX.n_rows);
+
+  arma::uvec vec_i=uvec(1);
+  int i,j;
+  int nc=rmat.n_cols-1;
+  int nrNew=newX.n_rows-1;
+
+  for (int i=0; i<Y.n_rows; i++){
+    vec_i[0]=i;
+    ids=isNotNArowvec(Y.row(i));
+    //    rmat.submat(vec_i, ids)=fastLmResidWeighted(Y.submat(vec_i, ids), X.rows(ids), W.submat(vec_i, ids));
+    rmat.submat(span(i,i),span(0,nrNew))=fastLmResidWeightedPredict(Y.submat(vec_i,ids), X.rows(ids), W.submat(vec_i,ids), newX);
+  }
+  return(rmat);
+}
 

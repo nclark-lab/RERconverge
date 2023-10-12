@@ -1,0 +1,313 @@
+---
+title: "Categorical Permulation Walkthrough"
+author: "Ruby Redlich"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document: default
+  html_document: default
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This walkthrough explains how to perform permulation analysis to calculate empirical p-values for genes and pathways for Categorical traits. For a description of what permulations are and why they are important, refer to the [Permulations Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/PermulationWalkthrough.Rmd).
+
+## Categorical Permulations Overview
+
+Categorical permulations are accomplished slightly differently than binary and categorical permulations because the simulation step is not based on a Brownian motion model. Instead, a simulated phenotype is generated according to a continuous time Markov Model, the same model that was used to reconstruct the ancestral history of the trait. As with binary and categorical permulations, the simulation is based on a phylogeny with branch lengths representing the average genome-wide evolutionary rate along that branch. Next, 3 steps are taken to ensure that the permulated phenotype contains the same number of species with each trait value as the original phenotype:
+
+1)  Rejection: any simulated phenotype in which there are not the same number of **extant** species with each trait value as the original phenotype is rejected.
+
+2)  Permutation of internal traits: the simulated values for **internal** species are ignored. Instead, the original trait values for the internal species in the phylogeny are permuted and assigned to internal species in the permulated phenotype.
+
+3)  Re-organize internal traits: a search technique similar to simulated annealing is used to re-organize the internal traits relative to the traits of the extant species to improve the likelihood of the permulated phenotype. This generates a plausible trait history that exactly matches trait category counts and has a comparable probabilistic likelihood to the original simulation.
+
+**Note that the permulation functions can take a long time to run on large data sets and for large numbers of permulations.**
+
+# Categorical Permulations
+
+This vignette will use the basal metabolic rate (BMR) categorical phenotype to demonstrate how to run a categorical permulation analysis. This vignette will briefly walk through the steps for ancestral state reconstruction (ASR) and calculating correlation statistics that are required for this analysis, but for more details regarding these steps please refer to the [Categorical Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/CategoricalWalkthrough2.Rmd) and the [ASR Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/ASR-walkthrough.Rmd).
+
+## Getting Started With a Categorical Trait Analysis in RERconverge
+
+Start by loading the RERconverge library. For more detailed instructions on getting started with RERconverge, refer to the [RERconverge Analysis Walkthrough vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+```{r results='hide', message = FALSE, warning = FALSE, cache=TRUE}
+if (!require("RERconverge", character.only = T, quietly = T)) {
+  require(devtools)
+  install_github("nclark-lab/RERconverge", ref = "master")
+  # ref refers to the branch of RERconverge being installed
+}
+library(RERconverge)
+```
+
+Next read in the phenotype data and the gene trees. Additionally, calculate the relative evolutionary rates. For more details on using `readTrees` and `getAllResiduals` refer to the [RERconverge Analysis Walkthrough vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+```{r results = 'hide', fig.show = 'hide', message = FALSE, cache = TRUE, warning = FALSE}
+
+# find where the package is located on your machine
+rerpath = find.package('RERconverge')
+
+# read in the trees with the given file name
+toytreefile = "subsetMammalGeneTrees.txt" 
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+
+# load the phenotype data into your workspace
+# This will create a named vector with the name basalRate
+data("basalRate")
+
+# calculate the relative evolutionary rates with getAllResiduals
+RERmat = getAllResiduals(toyTrees, useSpecies = names(basalRate))
+```
+
+The next steps is to infer the phenotypes of the ancestral species and calculate paths using the function `char2PathsCategorical`. For the purpose of this walkthrough, we will just use `"ARD"` (all rates different) as the model of evolution. (Note that the choice of rate model impacts the ancestral reconstruction and the analysis. Refer to the [ASR Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/ASR-walkthrough.Rmd) for more details).
+
+The `toyTrees` object contains a separate gene tree for each gene in the analysis with branch lengths representing the evolutionary rates of that gene. All of the gene trees have the same overall topology as the master tree, but some of them are missing certain species. To handle missing species, RERconverge generates something called paths. For a more detailed discussion of paths see the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf).
+
+```{r, cache = TRUE}
+# get the names of all the species for which there is phenotype data
+allspecs = names(basalRate)
+
+# infer ancestral states and calculate paths
+charP = char2PathsCategorical(basalRate, toyTrees, useSpecies = allspecs, model = "ARD", 
+                              plot = TRUE)
+```
+
+Next calculate the association statistics relating the relative evolutionary rates to basal metabolic rate phenotype. For more details on how the output of `correlateWithCategoricalPhenotype` is organized, refer to the [Categorical Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/CategoricalWalkthrough2.Rmd).
+
+```{r, warning=FALSE, cache=TRUE}
+# Kruskal Wallis/Dunn posthoc testing (default)
+cors = correlateWithCategoricalPhenotype(RERmat, charP)
+
+# view the first few results
+head(cors[[1]][order(cors[[1]]$P),])
+```
+
+## Performing Permulations
+
+The goal of running the permulation analysis is to generate many permulated phenotypes then calculate correlation statistics relating evolutionary rates of genes to the trait for each permulated phenotype. This generates a set of null correlation statistics -- the statistics we would expect by chance given the same phylogeny and same numbers of species with each trait value. Permulation p-values are thus the fraction of correlation statistics among the permulated phenotypes that are more extreme than the correlation statistic calculated for the original trait data.
+
+### Generate Permulated Phenotypes
+
+To run a permulation analysis, start by generating a set of permulated phenotypes using the function `categoricalPermulations`. In this example we generate 100 permulated phenotypes. For a more rigorous analysis we recommend using 1000 or more permulations (though this may be time consuming). This is because the permulation p-values can only be as precise as one over the number of permulations performed. `categoricalPermulations` takes the following as input:
+
+-   `treesObj` : The trees object containing every gene tree returned by `readTrees`
+
+-   `phenvals` : The named vector of phenotype data (should be a categorical phenotype)
+
+-   `rm` : The rate model. **This should be the same rate model as passed to `char2PathsCategorical` to perform the ancestral reconstruction.**
+
+-   `rp` : The root probabilities to use when simulating the phenotype. This gives the probability of each state at the root. The default value is `"auto"`. It can also be a numeric vector with length equal to the number of phenotype categories. Other options are `"stationary"` and `"flat"`. `"flat"` sets the probabilities of all categories at the root equal. `"stationary"` uses the stationary distribution of the transition matrix. For more details refer to the [documentation](https://rdrr.io/cran/castor/man/simulate_mk_model.html) for the castor function `simulate_mk_model` [@castor].
+
+-   `ntrees` : the number of permulated phenotypes to generate
+
+The following code generates 100 permulated phenotypes. This step may take a few minutes.
+
+```{r, warning=FALSE, cache=TRUE, results = 'hide'}
+perms <- categoricalPermulations(toyTrees, phenvals = basalRate, rm = "ARD", 
+                                 rp = "auto", ntrees = 100)
+```
+
+`perms`, the output of `categoricalPermulations` is a 3-element list. The first element `sims` contains the original simulated trees. `sims` is a list of two matrices, `tips` and `nodes`. The matrices have `ntrees` rows corresponding to the `ntrees` simulations. Columns of the `tips` and `nodes` matrices correspond to the extant or internal species respectively. The second element is `trees`. These are the permulated phenotypes. `trees` is an `ntrees`-element list. Each element of `trees` is itself a list containing a `tips` vector and a `nodes` vector corresponding to the states of the extant and internal species. The third element of `perms` is `startingTrees`. `startingTrees` has the same structure as `trees` and corresponds to the permulated phenotypes before step 3, re-organize internal traits (see [Categorical Permulations Overview]).
+
+### Visualize Permulated Phenotypes
+
+We can easily visualize some of the permulated phenotypes. For convenience we define a function that will plot the states as colored circles on the tree. Note that your trees will look slightly different from the ones shown here.
+
+```{r, results='hide', message = FALSE}
+# define a function to plot the permulated phenotypes on the tree
+library(RERconverge)
+```
+
+```{r}
+plotPermPhen <- function(tree, tips, internal_states) {
+  plot(tree, label.offset = 0.005, cex = 0.5)
+  tiplabels(pie = to.matrix(tips, sort(unique(tips))),cex = 0.5)
+  nodelabels(pie = to.matrix(internal_states, sort(unique(internal_states))), cex = 0.5)
+}
+
+# prune the master tree to only contain species for which there are phenotype values
+tree = toyTrees$masterTree
+tree = pruneTree(tree, names(basalRate))
+
+# plot some of the permulated trees
+plotPermPhen(tree, perms$trees[[1]]$tips, perms$trees[[1]]$nodes)
+plotPermPhen(tree, perms$trees[[25]]$tips, perms$trees[[25]]$nodes)
+plotPermPhen(tree, perms$trees[[50]]$tips, perms$trees[[50]]$nodes)
+plotPermPhen(tree, perms$trees[[75]]$tips, perms$trees[[75]]$nodes)
+plotPermPhen(tree, perms$trees[[100]]$tips, perms$trees[[100]]$nodes)
+```
+
+### Obtain Permulation P-values
+
+We can obtain permulation p-values using the function `getPermPvalsCategorical`. This function takes as input:
+
+-   `realCors` : the correlation statistics object returned by `correlateWithCategoricalPhenotype`.
+
+-   `nullPhens` : the permulated phenotypes. This should be the `trees` element in the list returned by `categoricalPermulations`.
+
+-   `phenvals` : The named phenotype vector.
+
+-   `treesObj` : The trees object returned by `readTrees`.
+
+-   `RERmat` : The matrix of relative evolutionary rates returned by `getAllResiduals`.
+
+-   `method` : either `"kw"` for Kruskal Wallis or `"aov"` for ANOVA; this should be whichever method was used to calculate the correlation statistics using `correlateWithCategoricalPhenotype`, the default method of which is `"kw"`. If another method is provided that is not `"kw"` or `"aov"`, then the trait will be treated as a binary trait.
+
+```{r, warning = FALSE, cache=TRUE}
+pres <- getPermPvalsCategorical(realCors = cors, nullPhens = perms$trees,
+                              phenvals = basalRate, treesObj = toyTrees,
+                              RERmat = RERmat, method = "kw")
+```
+
+The output of `getPermPvalsCategorical` is a 3-element list. The first element, `res`, has the same format as `cors`, the output of `correlateWithCategoricalPhenotype`, except each data frame has an additional column called `permP` containing the permulation p-values. The second and third elements are `pvals` and `effsize`. Each of these is a 2-element list. The first element contains a (number of genes) x (number of permulations) table containing the p-value or effect size of each gene for each permulation. The second element contains a list of tables for each pairwise test. Each table has dimensions (number of genes) x (number of permulations) and contains the p-value or effect size of each gene for each permulation.
+
+If the trait is binary (has only 2 categories) then the output will look very similar except it will not contain lists of tables for the pairwise tests.
+
+The pairwise tables are named with the integer mappings to the categories e.g. `"1 - 2"`. Recall that the integer mapping is printed by `char2PathsCategorical` and can also be obtained by running the following code:
+
+```{r}
+# view the names of the pairwise tables
+names(pres$res[[2]])
+
+# get the category to integer mapping
+intlabels = map_to_state_space(basalRate)
+print(intlabels$name2index)
+```
+
+```{r}
+# view the results ordered by permulation p-value
+head(pres$res[[1]][order(pres$res[[1]]$permP),])
+
+# view the results of the pairwise tests ordered by permulation p-value
+head(pres$res[[2]][[1]][order(pres$res[[2]][[1]]$permP),]) # high - low
+head(pres$res[[2]][[2]][order(pres$res[[2]][[2]]$permP),]) # high - med
+head(pres$res[[2]][[3]][order(pres$res[[2]][[3]]$permP),]) # low - med
+```
+
+## Categorical Permulations for Pathway Enrichment Statistics
+
+For details on how pathway enrichment statistics are calculated, refer to the [RERconverge Analysis Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/FullWalkthroughUTD.pdf) vignette. Essentially a pathway enrichment analysis identifies groups of genes that are evolving faster or slower with the phenotype of interest. We recommend calculating permulation p-values for the pathway enrichment statistics in addition to the gene-evolutionary rate association statistics due to non-independence between genes in pathways.
+
+### Getting Started with Pathway Enrichment
+
+You will need to download the gene sets and gene symbols from [GSEA-MSigDB](http://software.broadinstitute.org/gsea/downloads.jsp) as gmtfile.gmt. Follow the instructions in the "RERconverge Analysis Walkthrough" [vignette](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/BioinformaticsRERconvergeSupp_old.pdf) in order to properly download and save the gmt file in your current working directory. The "RERconverge Analysis Walkthrough" may say to download the file named c2.all.v6.2.symbols.gmt, however if that is not available, c2.all.v7.5.1.symbols.gmt will work. Ensure that the name of the gmt file in your working directory is "gmtfile.gmt".
+
+```{r results = 'hide', message = FALSE, cache=TRUE}
+# read in the annotations
+annots = read.gmt("gmtfile.gmt")
+
+# format in a list
+annotlist=list(annots)
+names(annotlist)="MSigDBpathways"
+```
+
+### Obtain Permulation P-values for Pathway Enrichment Statistics
+
+#### Calculate Enrichment Statistics for the Original Gene Association Results
+
+The first step is the calculate the pathway enrichment statistics for the original gene association results before permulations (the output of `correlateWithCategoricalPhenotype`). This can be done using the function `getRealEnrichments` which calls the RERconverge function, `fastwilcoxGMTall`, to calculate enrichment statistics for the categorical results and the results of each posthoc pairwise test.
+
+Note that running `getRealEnrichments` can be time consuming especially if the number of pairwise tests is large.
+
+`getRealEnrichments` takes the following as input:
+
+-   `cors` : the output of `correlateWithCategoricalPhenotype`
+
+-   `annotlist` : the pathway annotations formatted as a list
+
+-   `outputGeneVals` : the default value is `FALSE`. If set to `TRUE`, the genes in each pathway will be included in the output.
+
+```{r results = 'hide', message = FALSE, cache=TRUE}
+# run enrichments
+realenrich <- getRealEnrichments(cors, annotlist)
+```
+
+The output of `getRealEnrichments` is a 2-element list. The first element contains the enrichment statistics for the categorical correlations results. The second element contains a list of enrichment statistics for each posthoc pairwise test. For more information on interpreting pathway enrichment results, refer to the Enrichment Walkthrough section in the [RERconverge Analysis Walkthrough](https://github.com/nclark-lab/RERconverge/blob/master/vignettes/FullWalkthroughUTD.Rmd) vignette.
+
+#### Calculate Permulation P-values
+
+Recall that `getPermPvalsCategorical` returns a list of p-value matrices and effect size matrices. Each column in these matrices corresponds to the parametric p-values or effect size statistics returned by `correlateWithCategoricalPhenotype` (or `getAllCors`) for one permulated phenotype. To calculate permulation p-values for the enrichment statistics, null enrichment statistics are calculated for each permulated phenotype using a ranked gene list based on the p-values and effect size statistics for that permulated phenotype. This is handled by the functions, `getEnrichPermsCategorical`. Then the permulation p-value is determined by the proportion of times the null enrichment statistics are more extreme than the real enrichment statistics returned by `getRealEnrichments`. This is handled by the function `getEnrichPermPvals`.
+
+During a call to `getEnrichPermsCategorical`, `fastwilcoxGMTall` (the RERconverge function that calculates enrichmentis statistics) is called many times (once per permulation for the categorical results and once per permulations for EACH pairwise test). As a result `getEnrichPermsCategorical` can take a long time to run.
+
+`getEnrichPermsCategorical` takes the following as input:
+
+-   `perms`: The output of `getPermPvalsCategorical`; the object containing the null p-values and null enrichment statistics for each permulated phenotype.
+
+-   `realenrich`: The output of `getRealEnrichments`; the pathway enrichment statistics on the original gene association results.
+
+-   `annotlist`: the list of pathway annotations formatted as a list as shown above
+
+```{r, results = 'hide', message = FALSE, cache=TRUE}
+# run enrichments permulations
+permenrich = getEnrichPermsCategorical(perms = pres, realenrich = realenrich, 
+                                       annotlist = annotlist) 
+```
+
+`permenrich`, the output of `getEnrichPermsCategorical`, is a 2-element list. The first element contains a list of tables of P-values and a list of tables of enrichment statistics. There is one table of p-values or enrichment statistics for each annotation pathway set. For the annotation list in this walkthrough these sets are: mgi, canonical, GO, hairfollicle, and tissueannots. The second element contains a list of such lists, one for each posthoc pairwise test.
+
+To calculate permulation p-values, call the function `getEnrichPermPvals` which takes the following as input:
+
+-   `permenrich`: the output of `getEnrichPermsCategorical` containing the enrichment statistics and p-values for each permulated phenotype
+
+-   `realenrich`: the output of `getRealEnrichments` containing the enrichment statistics and p-values for the original gene association results for the original phenotype.
+
+```{r, cache=TRUE}
+pvals = getEnrichPermPvals(permenrich, realenrich)
+```
+
+The output of `getEnrichPermPvals` is also a 2-element list of very similar format to the output of of `getEnrichPermsCategorical` except that instead of tables of p-values and enrichment statistics, there is a list of named numeric vectors of permulation p-values for each pathway in each annotation pathway set.
+
+The code below demonstrates how to view the permulation p-values for the enrichment pathways.
+
+```{r}
+# convert the mgi annotations ordered by p-value to a dataframe
+df = as.data.frame(pvals[[1]]$MSigDBpathways[order(pvals[[1]]$MSigDBpathways)])
+colnames(df) = c("permulation p-values")
+head(df)
+
+# do the same for the first posthoc pairwise test
+# change the number 1 in the second set of brackets (to 2 or 3) to view the other posthoc tests
+df = as.data.frame(pvals[[2]][[1]]$MSigDBpathways[order(pvals[[2]][[1]]$MSigDBpathways)])
+colnames(df) = c("permulation p-values")
+head(df)
+```
+
+We are often interested not only in the permulation p-values of the pathways, but the direction and magnitude of the association given by the enrichment statistic. The following code demonstrates how to add the permulation p-values to the original enrichment results.
+
+```{r}
+# make a copy of the real enrichment results
+enrichWithPvals = realenrich
+
+# add p-values for each annotation set in the first element of enrichWithPvals
+for(cnt in 1:length(enrichWithPvals[[1]])) {
+  indices = match(rownames(enrichWithPvals[[1]][[cnt]]), names(pvals[[1]][[cnt]]))
+  enrichWithPvals[[1]][[cnt]]$permpvals = pvals[[1]][[cnt]][indices]
+}
+
+# add p-values for each annotation set in the second element of enrichWithPvals 
+# (the list of posthoc pairwise tests)
+for(j in 1:length(enrichWithPvals[[2]])){
+  name = names(enrichWithPvals[[2]])[j] # the name of the pairwise test
+  for(cnt in 1:length(enrichWithPvals[[2]][[j]])){
+    indices = match(rownames(enrichWithPvals[[2]][[j]][[cnt]]), 
+                    names(pvals[[2]][[name]][[cnt]]))
+    enrichWithPvals[[2]][[j]][[cnt]]$permpvals = pvals[[2]][[name]][[cnt]][indices]
+  }
+}
+
+# view some of the results
+head(enrichWithPvals[[1]]$MSigDBpathways[order(enrichWithPvals[[1]]$MSigDBpathways$permpvals),])
+
+# view some of the results for the first pairwise test
+head(enrichWithPvals[[2]][[1]]$MSigDBpathways[order(enrichWithPvals[[2]][[1]]$MSigDBpathways$permpvals),])
+```
+
+# Conclusion
+
+This concludes the walkthrough of how to use the functions for permulations for categorical traits in RERconverge. Thank you!

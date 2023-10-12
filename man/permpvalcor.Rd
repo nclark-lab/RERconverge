@@ -2,18 +2,18 @@
 % Please edit documentation in R/PermulationFuncs.R
 \name{permpvalcor}
 \alias{permpvalcor}
-\title{Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}}}
+\title{Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}} and \code{\link{getPermsBinary}}}
 \usage{
 permpvalcor(realcor, permvals)
 }
 \arguments{
 \item{realcor}{Real enrichment statistics from \code{\link{fastwilcoxGMTall}}}
 
-\item{permvals}{output from \code{\link{getPermsContinuous}}}
+\item{permvals}{output from \code{\link{getPermsContinuous}} or \code{\link{getPermsBinary}}}
 }
 \value{
-A vector with permulation p-values
+A data frame containing permulation p-values and permulation statistics (positive denotes acceleration, negative denotes deceleration)
 }
 \description{
-Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}}
+Calculates correlation permutation pvals from output of \code{\link{getPermsContinuous}} and \code{\link{getPermsBinary}}
 }
