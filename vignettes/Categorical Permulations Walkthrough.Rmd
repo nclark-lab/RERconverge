@@ -26,7 +26,7 @@ Categorical permulations are accomplished slightly differently than binary and c
 
 3)  Re-organize internal traits: a search technique similar to simulated annealing is used to re-organize the internal traits relative to the traits of the extant species to improve the likelihood of the permulated phenotype. This generates a plausible trait history that exactly matches trait category counts and has a comparable probabilistic likelihood to the original simulation.
 
-**Note that the permulation functions can take a long time to run on large data sets, high category numbers,  and for large numbers of permulations.**
+**Note that the permulation functions can take a long time to run on large data sets, high category numbers,  and for large numbers of permulations. Relaxation can be used to speed up permulations.**
 **For permulations with four or more categories, using relaxation is recommended.**
 
 # Categorical Permulations
@@ -107,7 +107,7 @@ To run a permulation analysis, start by generating a set of permulated phenotype
 
 -   `ntrees` : the number of permulated phenotypes to generate
 
--   `percent_relax` : the percentage that the number of simulated tips in each category can differ from the actual number of tips. Provided as a numeric between 0 and 1. Efficiency of speed increase from relaxed permulations follows a parabolic pattern, with an optimal percentage producing the most efficient speed increase, diminishing returns of speed increase per relaxation-percent to either side of the optimal value. *We recommend a relaxation of 0.10 as a starting point when using relaxed phenotypes.*
+-   `percent_relax` : the percentage that the number of simulated tips in each category can differ from the actual number of tips. Relaxation is used to speed up permulation times, particularly when many categories are being compared. It is provided as a numeric between 0 and 1. Efficiency of speed increase from relaxed permulations follows a parabolic pattern, with an optimal percentage producing the most efficient speed increase, diminishing returns of speed increase per relaxation-percent to either side of the optimal value. *We recommend a relaxation of 0.10 as a starting point when using relaxed phenotypes.*
 
 The following code generates 100 permulated phenotypes. This step may take a few minutes.
 
