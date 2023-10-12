@@ -2124,7 +2124,7 @@ plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, outpu
 
 # generates a set of N null tips with the number of species in each category matching the actual phenotype data
 #' @keywords internal
-getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary") {
+getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary", percent_relax) {
 
   # GET TRUE TIP COUNTS
   true_counts = table(intlabels$mapped_states)
@@ -2134,7 +2134,6 @@ getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary") {
   nodes = matrix(nrow = N, ncol = tree$Nnode)
 
   cnt = 0
-  #roots = c() # testing
   while(cnt < N) {
     # SIMULATE STATES
     sim = simulate_mk_model(tree, Q, root_probabilities = root_prob)
@@ -2146,17 +2145,16 @@ getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary") {
     }
 
     # IF THE TIP COUNTS MATCH THE TIP COUNTS IN THE REAL DATA, ADD TO THE LIST
-    if(sum(true_counts == sim_counts) == length(true_counts)) {
+    # sum(true_counts == sim_counts) == length(true_counts)
+    if(sum(abs(sim_counts - true_counts) <= true_counts*percent_relax) == length(true_counts)) {
       cnt = cnt + 1
 
       print(cnt)
 
       tips[cnt,] = sim$tip_states
       nodes[cnt,] = sim$node_states
-      #roots = c(roots, sim$node_states[1]) # testing
     }
   }
-  #print(table(roots))
   return(list(tips = tips, nodes = nodes))
 }
 
