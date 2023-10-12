@@ -2385,6 +2385,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 #' @param rp root prior, the default is auto
 #' @param ntrees the number of null trees to generate
 #' @param root_prob The probabilities of the different states at the root for the simulations. Can be "flat", "stationary", or a numeric vector of length Nstates. See the root_probabilities parameter under simulate_mk_model in the castor package for more information.
+#' @param percent_relax The percentage that the number of species in each category can be incorrect. Given as a value between 0 and 1. Used to speed up permulations, particularly when using high number of categories. If using relaxation, 0.1 (10%) is recommended as a starting point.  Can be provided as either: single value (shared for all categories); as a vector containing a unique percentage for each category, in the same category order as reported by char2TreeCategorical.
 #' @return a set of permulated phenotype trees
 #' @export
 categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto", ntrees, percent_relax = 0){
