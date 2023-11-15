@@ -4,7 +4,7 @@
 #Run from RERconverge repo main directory as working directory
 
 #Source RERfuncs from MatchingTrees branch:
-source('R/RERfuncs.R')
+library(RERconverge)
 
 #Load toy trees data:
 rerpath = find.package('RERconverge')

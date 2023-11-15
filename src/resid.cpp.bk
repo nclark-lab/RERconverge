@@ -192,16 +192,16 @@ arma::mat fastLmResidMatWeightedNoNACheck(const arma::mat& Y, const arma::mat& X
 }
 
 // [[Rcpp::export]]
-arma::mat fastLmResidWeightedPredict(const arma::mat& Y, const arma::mat& X,  const arma::rowvec& wa, const arma::mat& newX){
+mat fastLmResidWeightedPredict(const mat& Y, const mat& X,  const rowvec& wa, const mat& newX){
 
   int n = X.n_rows, k = X.n_cols;
-  arma::mat res;
+  mat res;
 
 
-  arma::mat W=diagmat(wa);
+  mat W=diagmat(wa);
 
 
-  arma::mat coef = Y*W*X*inv(trans(X)*W*X);    // fit model y ~ X
+  mat coef = Y*W*X*inv(trans(X)*W*X);    // fit model y ~ X
   res  = coef*trans(newX);           // predictions
 
 
@@ -210,11 +210,11 @@ arma::mat fastLmResidWeightedPredict(const arma::mat& Y, const arma::mat& X,  co
 
 
 // [[Rcpp::export]]
-arma::mat fastLmResidMatWeightedPredict(const arma::mat& Y, const arma::mat& X, const arma::mat& W, const arma::mat& newX) {
+mat fastLmResidMatWeightedPredict(const mat& Y, const mat& X, const mat& W, const mat& newX) {
   uvec ids;
-  arma::mat rmat=mat(Y.n_rows, newX.n_rows);
+  mat rmat=mat(Y.n_rows, newX.n_rows);
 
-  arma::uvec vec_i=uvec(1);
+  uvec vec_i=uvec(1);
   int i,j;
   int nc=rmat.n_cols-1;
   int nrNew=newX.n_rows-1;

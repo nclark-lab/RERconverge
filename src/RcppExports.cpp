@@ -11,17 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// timesTwo
-NumericVector timesTwo(NumericVector x);
-RcppExport SEXP _RERconverge_timesTwo(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(timesTwo(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 // missingSampler
 List missingSampler();
 RcppExport SEXP _RERconverge_missingSampler() {
@@ -153,9 +142,36 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fastLmResidWeightedPredict
+arma::mat fastLmResidWeightedPredict(const arma::mat& Y, const arma::mat& X, const arma::rowvec& wa, const arma::mat& newX);
+RcppExport SEXP _RERconverge_fastLmResidWeightedPredict(SEXP YSEXP, SEXP XSEXP, SEXP waSEXP, SEXP newXSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::rowvec& >::type wa(waSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type newX(newXSEXP);
+    rcpp_result_gen = Rcpp::wrap(fastLmResidWeightedPredict(Y, X, wa, newX));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fastLmResidMatWeightedPredict
+arma::mat fastLmResidMatWeightedPredict(const arma::mat& Y, const arma::mat& X, const arma::mat& W, const arma::mat& newX);
+RcppExport SEXP _RERconverge_fastLmResidMatWeightedPredict(SEXP YSEXP, SEXP XSEXP, SEXP WSEXP, SEXP newXSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type W(WSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type newX(newXSEXP);
+    rcpp_result_gen = Rcpp::wrap(fastLmResidMatWeightedPredict(Y, X, W, newX));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_RERconverge_timesTwo", (DL_FUNC) &_RERconverge_timesTwo, 1},
     {"_RERconverge_missingSampler", (DL_FUNC) &_RERconverge_missingSampler, 0},
     {"_RERconverge_isNA", (DL_FUNC) &_RERconverge_isNA, 1},
     {"_RERconverge_isNotNArowvec", (DL_FUNC) &_RERconverge_isNotNArowvec, 1},
@@ -167,6 +183,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RERconverge_fastLmPredictedMat", (DL_FUNC) &_RERconverge_fastLmPredictedMat, 2},
     {"_RERconverge_fastLmResidMatWeighted", (DL_FUNC) &_RERconverge_fastLmResidMatWeighted, 3},
     {"_RERconverge_fastLmResidMatWeightedNoNACheck", (DL_FUNC) &_RERconverge_fastLmResidMatWeightedNoNACheck, 3},
+    {"_RERconverge_fastLmResidWeightedPredict", (DL_FUNC) &_RERconverge_fastLmResidWeightedPredict, 4},
+    {"_RERconverge_fastLmResidMatWeightedPredict", (DL_FUNC) &_RERconverge_fastLmResidMatWeightedPredict, 4},
     {NULL, NULL, 0}
 };
 
