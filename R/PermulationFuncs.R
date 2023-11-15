@@ -716,7 +716,7 @@ simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL, pat
 
 
 
-#' @keywords internal
+#' @export
 getDepthOrder=function(fgTree){
   unq_edge_lengths = unique(fgTree$edge.length)
   if (length(which(!(unq_edge_lengths %in% c(0,1)))) > 0){
@@ -2124,7 +2124,7 @@ plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, outpu
 
 # generates a set of N null tips with the number of species in each category matching the actual phenotype data
 #' @keywords internal
-getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary") {
+getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary", percent_relax) {
 
   # GET TRUE TIP COUNTS
   true_counts = table(intlabels$mapped_states)
@@ -2134,7 +2134,6 @@ getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary") {
   nodes = matrix(nrow = N, ncol = tree$Nnode)
 
   cnt = 0
-  #roots = c() # testing
   while(cnt < N) {
     # SIMULATE STATES
     sim = simulate_mk_model(tree, Q, root_probabilities = root_prob)
@@ -2146,17 +2145,16 @@ getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary") {
     }
 
     # IF THE TIP COUNTS MATCH THE TIP COUNTS IN THE REAL DATA, ADD TO THE LIST
-    if(sum(true_counts == sim_counts) == length(true_counts)) {
+    # sum(true_counts == sim_counts) == length(true_counts)
+    if(sum(abs(sim_counts - true_counts) <= true_counts*percent_relax) == length(true_counts)) {
       cnt = cnt + 1
 
       print(cnt)
 
       tips[cnt,] = sim$tip_states
       nodes[cnt,] = sim$node_states
-      #roots = c(roots, sim$node_states[1]) # testing
     }
   }
-  #print(table(roots))
   return(list(tips = tips, nodes = nodes))
 }
 
@@ -2218,16 +2216,6 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 
   # get ancliks and max_states
   ancliks = getAncLiks(tree, tips, Q)
-  max_states = getStatesAtNodes(ancliks)
-
-  # calculate tree likelihoods
-  # states = c(tips, max_states)
-  # max_lik = 1
-  # for(i in 1:nrow(tree$edge)){
-  #   a = states[tree$edge[i,1]]
-  #   d = states[tree$edge[i,2]]
-  #   max_lik = max_lik * P[[i]][a, d]
-  # }
 
   states = c(tips, nodes)
   curr_lik = 1
@@ -2397,11 +2385,15 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 #' @param rp root prior, the default is auto
 #' @param ntrees the number of null trees to generate
 #' @param root_prob The probabilities of the different states at the root for the simulations. Can be "flat", "stationary", or a numeric vector of length Nstates. See the root_probabilities parameter under simulate_mk_model in the castor package for more information.
+#' @param percent_relax The percentage that the number of species in each category can be incorrect. Given as a value between 0 and 1. Used to speed up permulations, particularly when using high number of categories. If using relaxation, 0.1 (10%) is recommended as a starting point.  Can be provided as either: single value (shared for all categories); as a vector containing a unique percentage for each category, in the same category order as reported by char2TreeCategorical.
 #' @return a set of permulated phenotype trees
 #' @export
-categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto",
-                                    ntrees, root_prob = "stationary",
-                                    extantOnly = FALSE){
+categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto", ntrees, percent_relax = 0){
+
+  # check percent_relax is one value or a vector of length = # traits
+  if(!(length(percent_relax) == 1 || length(percent_relax) == length(unique(phenvals)))) {
+    stop("percent_relax is the wrong length")
+  }
 
   # PRUNE TREE, ORDER PHENVALS, MAP TO STATE SPACE
   tree = treesObj$masterTree
@@ -2417,33 +2409,27 @@ categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto",
 
   # GET NULL TIPS (AND STORE INTERNAL NODES FROM SIMULATIONS TOO)
   message("Simulating trees")
-  simulations = getNullTips(tree, Q, ntrees, intlabels, root_prob = root_prob)
+  simulations = getNullTips(tree, Q, ntrees, intlabels,
+                            percent_relax = percent_relax)
 
-  # IF extantOnly = TRUE, RETURN THE TREES WITHOUT INTERNAL STEP
-  if(extantOnly) {
-    message("Done")
-    return(simulations$tips) # a matrix where each row is a different simulation
-  }
-  else {
-    ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
-    node_states = getStatesAtNodes(ancliks)
+  ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
+  node_states = getStatesAtNodes(ancliks)
 
-    # GET SHUFFLED STARTING-POINT TREES
-    message("Shuffling internal states")
-    nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
+  # GET SHUFFLED STARTING-POINT TREES
+  message("Shuffling internal states")
+  nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
 
-    P = lapply(tree$edge.length, function(x){expm(Q * x)})
+  P = lapply(tree$edge.length, function(x){expm(Q * x)})
 
-    # IMPROVE LIKELIHOOD OF EACH NULL TREE
-    message("Improving tree likelihoods")
-    improvedNullTrees = lapply(nullTrees, function(x){
-      list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
-    })
+  # IMPROVE LIKELIHOOD OF EACH NULL TREE
+  message("Improving tree likelihoods")
+  improvedNullTrees = lapply(nullTrees, function(x){
+    list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
+  })
 
-    # RETURN
-    message("Done")
-    return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
-  }
+  # RETURN
+  message("Done")
+  return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
 }
 
 #' @param realCors the output of correlateWithCategoricalPhenotype
