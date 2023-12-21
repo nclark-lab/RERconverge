@@ -6,10 +6,12 @@ output:
   pdf_document: default
   html_document: default
 bibliography: references.bib
+link-citations: true
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
 ```
 
 # Introduction
@@ -93,6 +95,8 @@ The goal of running the permulation analysis is to generate many permulated phen
 
 ### Generate Permulated Phenotypes
 
+#### Standard Approach
+
 To run a permulation analysis, start by generating a set of permulated phenotypes using the function `categoricalPermulations`. In this example we generate 100 permulated phenotypes. For a more rigorous analysis we recommend using 1000 or more permulations (though this may be time consuming). This is because the permulation p-values can only be as precise as one over the number of permulations performed. `categoricalPermulations` takes the following as input:
 
 -   `treesObj` : The trees object containing every gene tree returned by `readTrees`
@@ -113,6 +117,17 @@ perms <- categoricalPermulations(toyTrees, phenvals = basalRate, rm = "ARD",
 ```
 
 `perms`, the output of `categoricalPermulations` is a 3-element list. The first element `sims` contains the original simulated trees. `sims` is a list of two matrices, `tips` and `nodes`. The matrices have `ntrees` rows corresponding to the `ntrees` simulations. Columns of the `tips` and `nodes` matrices correspond to the extant or internal species respectively. The second element is `trees`. These are the permulated phenotypes. `trees` is an `ntrees`-element list. Each element of `trees` is itself a list containing a `tips` vector and a `nodes` vector corresponding to the states of the extant and internal species. The third element of `perms` is `startingTrees`. `startingTrees` has the same structure as `trees` and corresponds to the permulated phenotypes before step 3, re-organize internal traits (see [Categorical Permulations Overview]).
+
+#### Relaxed Approach
+
+The `categoricalPermulations` function in fact takes another optional parameter, `percent_relax`, which by default is set to zero. This argument defines the percentage of the original category counts by which the permulated phenotype may differ. It can either be a single percentage value or a vector of percentage values - one for each category, in the same order as the integer labels used by `char2TreeCategorical` and `char2PathsCategorical`. For phenotypes with a large number of categories, using relaxation may be required to get permulations to run in a tractable amount of time. A small relaxation, of around 10%, has been shown to work for phenotypes with up to 6 categories without noticeably impacting the quality of the results [@redlich]. The following code can be used to generate permulations with relaxation. (Shown with a relaxation of 10%). 
+
+```{r, warning=FALSE, cache=TRUE, results = 'hide'}
+relaxedPerms <- categoricalPermulations(toyTrees, phenvals = basalRate, rm = "ARD", 
+                                 rp = "auto", ntrees = 100, percent_relax = 10)
+```
+
+The output is in the same format as when there is no relaxation applied, and all subsequent steps are identical.
 
 ### Visualize Permulated Phenotypes
 
