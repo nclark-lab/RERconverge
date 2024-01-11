@@ -247,8 +247,8 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
 #' @param annotlist Pathway annotations
 #' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
 #' @export
-getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, mastertree, permmode="cc", method="k", min.pos=2, trees_list=NULL, calculateenrich=F, annotlist=NULL){
-  pathvec = foreground2Paths(fg_vec, trees, clade="all",plotTree=F)
+getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, mastertree, permmode="cc", method="k", min.pos=2, trees_list=NULL, calculateenrich=F, annotlist=NULL, clade="all", transition="unidirectional"){
+  pathvec = foreground2Paths(fg_vec, trees, clade=clade, plotTree=F, transition=transition)
   col_labels = colnames(trees$paths)
   names(pathvec) = col_labels
 
