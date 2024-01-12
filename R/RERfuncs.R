@@ -2260,6 +2260,8 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
 #' Makes a binary path vector from either a tree of class "phylo" or a foreground species set supplied as a character vector
 #' @param input Either a phenotype tree of class "phylo" (with branch length encoding a phenotype) or a character vector of foreground branches
 #' @param  treesObj A treesObj created by \code{\link{readTrees}}
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
 makeBinaryPaths=function(input, treesObj){
