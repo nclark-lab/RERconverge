@@ -1408,12 +1408,12 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL){
+foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL, transition="unidirectional"){
   #res = treesObj$masterTree
   #res$edge.length <- rep(0,length(res$edge.length))
   #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
   #names(res$edge.length) = nameEdges(treesObj$masterTree)
-  res = foreground2Tree(foreground, treesObj, plotTree=plotTree, clade=clade, useSpecies=useSpecies)
+  res = foreground2Tree(foreground, treesObj, plotTree=plotTree, clade=clade, useSpecies=useSpecies, transition=transition)
   tree2Paths(res, treesObj)
 }
 
