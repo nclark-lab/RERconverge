@@ -128,10 +128,15 @@ getBinaryPermulationInputsFromTree=function(fgTree){
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @param plotTree A boolean indicator for plotting the output tree (default=FALSE)
 #' @param useSpecies An array containing the tip labels in the output tree
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return fg.tree A binary phenotype tree corresponding to the input information
 #' @export
-foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpecies=NULL){
-  res.list = getForegroundInfoClades(fg_vec,sisters_list=sisters_list,trees,plotTree=plotTree,useSpecies=useSpecies)
+foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,
+                               useSpecies=NULL,transition="unidirectional"){
+  res.list = getForegroundInfoClades(fg_vec,sisters_list=sisters_list,trees,
+                                     plotTree=plotTree,useSpecies=useSpecies,
+                                     transition=transition)
   fg.tree = res.list$tree
   fg.tree
 }
@@ -329,7 +334,8 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees,
     unique.trees = trees_list[ind.unique.trees]
 
     # precompute clade mapping for each unique tree
-    unique.map.list = mapply(matchAllNodesClades,unique.trees,MoreArgs=list(treesObj=trees))
+    unique.map.list = mapply(matchAllNodesClades,unique.trees,
+                             MoreArgs=list(treesObj=trees,transition=transition))
 
     # calculate paths for each permulation
     unique.permulated.binphens = permulated.binphens[ind.unique.trees]
@@ -699,7 +705,8 @@ nameEdgesPerms=function(tree){
 simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL,
                        pathvec, plotTreeBool=F, transition="unidirectional"){
   tip.labels = mastertree$tip.label
-  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,
+                                useSpecies=tip.labels,transition=transition)  #### This function has problems
   fg_tree = res$tree
   fg.table = res$fg.sisters.table
 
@@ -771,7 +778,8 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL,
 simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL,
                                pathvec, plotTreeBool=F, transition="unidirectional"){
   tip.labels = mastertree$tip.label
-  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,
+                                useSpecies=tip.labels,transition=transition)  #### This function has problems
   fg_tree = res$tree
   fg.table = res$fg.sisters.table
 
@@ -938,7 +946,8 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL,
   } else {
     fg_k = tip.labels[ind_fg] # the list of the observed foreground animals that exist in the gene tree
 
-    res = getForegroundInfoClades(fg_k,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
+    res = getForegroundInfoClades(fg_k,sisters_list,trees,plotTree=F,
+                                  useSpecies=tip.labels,transition=transition)
     fg_tree = res$tree
     fg.table = res$fg.sisters.table
 
@@ -1032,15 +1041,25 @@ findPairs=function(binary.tree){
 #' @param fg_vec A vector containing the foreground species
 #' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param pathvec A path vector generated from the real set of foreground animals
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return output.list a list containing the set of binary permulated trees
 #' @export
-generatePermulatedBinPhen=function(tree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc"){
+generatePermulatedBinPhen=function(tree, numperms, trees, root_sp, fg_vec,
+                                   sisters_list, pathvec, permmode="cc",
+                                   transition="unidirectional"){
   if (permmode=="cc"){
     tree_rep = lapply(1:numperms,rep_tree,tree=trees)
-    permulated.binphens = lapply(tree_rep, simBinPhenoCC,mastertree=trees$masterTree,root_sp=root_sp, fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec,plotTreeBool=F)
+    permulated.binphens = lapply(tree_rep, simBinPhenoCC,
+                                 mastertree=trees$masterTree,root_sp=root_sp,
+                                 fg_vec=fg_vec,sisters_list=sisters_list,
+                                 pathvec=pathvec,plotTreeBool=F,transition=transition)
   } else if (permmode=="ssm"){
     tree_rep = lapply(1:numperms,rep_tree,tree=tree)
-    permulated.binphens = lapply(tree_rep,simBinPhenoSSM,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec)
+    permulated.binphens = lapply(tree_rep,simBinPhenoSSM,trees=trees,
+                                 root_sp=root_sp,fg_vec=fg_vec,
+                                 sisters_list=sisters_list,pathvec=pathvec,
+                                 transition=transition)
   } else {
     stop("Invalid binary permulation mode.")
   }
@@ -1253,10 +1272,12 @@ calculatePermulatedPaths=function(permulated.trees,map,treesObj){
 #'A modification of the tree2Paths function that takes in pre-calculated mappings
 #' @param tree the input tree to be converted into paths
 #' @param trees treesObj from \code{\link{readTrees}}
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @export
-tree2PathsClades=function(tree,trees){
-  map = matchAllNodesClades(tree,trees)
-  path = tree2Paths_map(tree,map[[1]],trees)
+tree2PathsClades=function(tree,trees,transition="unidirectional"){
+  map = matchAllNodesClades(tree,trees,transition=transition)
+  path = tree2Paths_map(tree,map[[1]],trees,transition=transition)
   names(path) = colnames(trees$paths)
   path
 }
@@ -1508,12 +1529,16 @@ linearizeCorResults=function(cor_result){
 #' @param fg_vec a vector containing the foreground species
 #' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A binary permulated tree
 #' @export
-simBinPhenoRank=function(trees, root_sp, fg_vec, sisters_list=NULL, plotTreeBool=F){
+simBinPhenoRank=function(trees, root_sp, fg_vec, sisters_list=NULL,
+                         plotTreeBool=F, transition="unidirectional"){
   mastertree = trees$masterTree
   tip.labels = mastertree$tip.label
-  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)
+  res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,
+                                useSpecies=tip.labels,transition=transition)
   fg_tree = res$tree
   pathvec = tree2PathsClades(fg_tree, trees)
 
