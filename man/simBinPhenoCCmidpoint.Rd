@@ -10,7 +10,8 @@ simBinPhenoCCmidpoint(
   fg_vec,
   sisters_list = NULL,
   pathvec,
-  plotTreeBool = F
+  plotTreeBool = F,
+  transition = "unidirectional"
 )
 }
 \arguments{
@@ -25,6 +26,9 @@ simBinPhenoCCmidpoint(
 \item{pathvec}{A path vector generated from the real set of foreground animals}
 
 \item{plotTreeBool}{Boolean indicator for plotting the output tree (default=FALSE)}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 A CC binary permulated tree

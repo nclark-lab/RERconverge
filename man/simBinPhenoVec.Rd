@@ -4,7 +4,15 @@
 \alias{simBinPhenoVec}
 \title{Generates a permulated phenotype vector whose phylogeny matches a desired structure.  User may specify the number of foreground branches that are internal branches.}
 \usage{
-simBinPhenoVec(trees, root, phenvec, fgnum = NULL, internal = 0, drop = NULL)
+simBinPhenoVec(
+  trees,
+  root,
+  phenvec,
+  fgnum = NULL,
+  internal = 0,
+  drop = NULL,
+  transition = "unidirectional"
+)
 }
 \arguments{
 \item{trees}{treesObj output from \code{\link{readTrees}}}
@@ -18,6 +26,9 @@ simBinPhenoVec(trees, root, phenvec, fgnum = NULL, internal = 0, drop = NULL)
 \item{internal}{Number of foreground species that should be internal branches - only required if internal foreground branches are required}
 
 \item{drop}{Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 A vector of permulated foreground species

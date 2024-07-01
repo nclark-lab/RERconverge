@@ -11,7 +11,8 @@ char2TreeCategorical(
   model = "ER",
   root_prior = "auto",
   plot = FALSE,
-  anctrait = NULL
+  anctrait = NULL,
+  transition = "unidirectional"
 )
 }
 \arguments{
@@ -29,6 +30,10 @@ char2TreeCategorical(
 \item{plot}{Plots a phenotype tree}
 
 \item{anctrait}{The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
+Only used in cases with 2 categories.}
 }
 \value{
 A tree with edge.length representing phenotype states

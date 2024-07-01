@@ -9,7 +9,8 @@ foreground2Paths(
   treesObj,
   plotTree = F,
   clade = c("ancestral", "terminal", "all", "weighted"),
-  useSpecies = NULL
+  useSpecies = NULL,
+  transition = "unidirectional"
 )
 }
 \arguments{
@@ -23,6 +24,9 @@ of the strings "ancestral", "terminal", "all", or "weighted".}
 
 \item{useSpecies}{Give only a subset of the species to use for ancestral state reconstruction
 (e.g., only those species for which the trait can be reliably determined).}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 
 \item{foreground.}{A character vector containing the foreground species}
 }

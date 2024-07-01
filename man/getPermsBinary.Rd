@@ -17,7 +17,8 @@ getPermsBinary(
   min.pos = 2,
   trees_list = NULL,
   calculateenrich = F,
-  annotlist = NULL
+  annotlist = NULL,
+  transition = "unidirectional"
 )
 }
 \arguments{
@@ -46,6 +47,9 @@ getPermsBinary(
 \item{calculateenrich}{A boolean variable indicating if null permulation p-values for enrichment statistics}
 
 \item{annotlist}{Pathway annotations}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 A list object with enrichment statistics, correlation p-val, rho, and correlation effect size

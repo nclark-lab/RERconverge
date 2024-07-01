@@ -4,12 +4,15 @@
 \alias{matchAllNodesClades}
 \title{Calculates the clade mappings between the gene tree and the master tree (with the complete topology)}
 \usage{
-matchAllNodesClades(gene_tree, treesObj)
+matchAllNodesClades(gene_tree, treesObj, transition = "unidirectional")
 }
 \arguments{
 \item{gene_tree}{A binary phenotype tree of a gene}
 
 \item{treesObj}{treesObj from \code{\link{readTrees}}}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 output.map A list containing a dataframe of clades mapping

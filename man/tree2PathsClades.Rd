@@ -4,12 +4,15 @@
 \alias{tree2PathsClades}
 \title{A modification of the tree2Paths function that takes in pre-calculated mappings}
 \usage{
-tree2PathsClades(tree, trees)
+tree2PathsClades(tree, trees, transition = "unidirectional")
 }
 \arguments{
 \item{tree}{the input tree to be converted into paths}
 
 \item{trees}{treesObj from \code{\link{readTrees}}}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \description{
 A modification of the tree2Paths function that takes in pre-calculated mappings

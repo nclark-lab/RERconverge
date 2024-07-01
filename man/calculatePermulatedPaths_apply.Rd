@@ -4,7 +4,12 @@
 \alias{calculatePermulatedPaths_apply}
 \title{Calculates the paths for all permulated trees for a list of genes}
 \usage{
-calculatePermulatedPaths_apply(permulated.trees.list, map.list, treesObj)
+calculatePermulatedPaths_apply(
+  permulated.trees.list,
+  map.list,
+  treesObj,
+  transition = "unidirectional"
+)
 }
 \arguments{
 \item{permulated.trees.list}{A nested list of permulated phenotype trees for all the genes. The top layer lists the genes, and the nested layer lists the permulated binary trees (phylo objects) for each gene}
@@ -12,6 +17,9 @@ calculatePermulatedPaths_apply(permulated.trees.list, map.list, treesObj)
 \item{map.list}{A list of maps corresponding to the genes listed in permulated.trees.list, the output of matchAllNodesClades}
 
 \item{treesObj}{treesObj from \code{\link{readTrees}}}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 permulated.paths.list A nested list of permulated paths corresponding to the nested list of permulated phenotype trees

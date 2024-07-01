@@ -9,7 +9,8 @@ getForegroundInfoClades(
   sisters_list = NULL,
   trees,
   plotTree = T,
-  useSpecies = NULL
+  useSpecies = NULL,
+  transition = "unidirectional"
 )
 }
 \arguments{
@@ -22,6 +23,9 @@ getForegroundInfoClades(
 \item{plotTree}{A boolean indicator for plotting the output tree (default=FALSE)}
 
 \item{useSpecies}{An array containing the tip labels in the output tree}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 output.list A list containing 1) "tree" = a binary phenotype tree corresponding to the input information, 2) "fg.sisters.table" = a table containing all sister species in the foreground set

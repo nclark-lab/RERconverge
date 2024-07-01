@@ -9,7 +9,8 @@ foreground2TreeClades(
   sisters_list = NULL,
   trees,
   plotTree = T,
-  useSpecies = NULL
+  useSpecies = NULL,
+  transition = "unidirectional"
 )
 }
 \arguments{
@@ -22,6 +23,9 @@ foreground2TreeClades(
 \item{plotTree}{A boolean indicator for plotting the output tree (default=FALSE)}
 
 \item{useSpecies}{An array containing the tip labels in the output tree}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 fg.tree A binary phenotype tree corresponding to the input information

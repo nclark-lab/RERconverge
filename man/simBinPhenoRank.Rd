@@ -4,7 +4,14 @@
 \alias{simBinPhenoRank}
 \title{Produces one binary permulation based on ranking of simulated branch lengths}
 \usage{
-simBinPhenoRank(trees, root_sp, fg_vec, sisters_list = NULL, plotTreeBool = F)
+simBinPhenoRank(
+  trees,
+  root_sp,
+  fg_vec,
+  sisters_list = NULL,
+  plotTreeBool = F,
+  transition = "unidirectional"
+)
 }
 \arguments{
 \item{trees}{treesObj from \code{\link{readTrees}}}
@@ -16,6 +23,9 @@ simBinPhenoRank(trees, root_sp, fg_vec, sisters_list = NULL, plotTreeBool = F)
 \item{sisters_list}{A list containing pairs of "sister species" in the foreground set (put NULL if empty)}
 
 \item{plotTreeBool}{Boolean indicator for plotting the output tree (default=FALSE)}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 A binary permulated tree

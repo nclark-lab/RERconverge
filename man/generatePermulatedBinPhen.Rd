@@ -12,7 +12,8 @@ generatePermulatedBinPhen(
   fg_vec,
   sisters_list,
   pathvec,
-  permmode = "cc"
+  permmode = "cc",
+  transition = "unidirectional"
 )
 }
 \arguments{
@@ -29,6 +30,9 @@ generatePermulatedBinPhen(
 \item{sisters_list}{A list containing pairs of "sister species" in the foreground set (put NULL if empty)}
 
 \item{pathvec}{A path vector generated from the real set of foreground animals}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 output.list a list containing the set of binary permulated trees
