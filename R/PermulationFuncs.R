@@ -143,19 +143,24 @@ foreground2TreeClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpec
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @param plotTree A boolean indicator for plotting the output tree (default=FALSE)
 #' @param useSpecies An array containing the tip labels in the output tree
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return output.list A list containing 1) "tree" = a binary phenotype tree corresponding to the input information, 2) "fg.sisters.table" = a table containing all sister species in the foreground set
 #' @export
-getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSpecies=NULL){
+getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,
+                                 useSpecies=NULL,transition="unidirectional"){
   if (length(useSpecies)==0){
     useSpecies = trees$masterTree$tip.label
   }
 
   if (is.null(sisters_list)){
     fg.sisters.table=NULL
-    fg_tree = foreground2Tree(fg_vec, trees, plotTree=F, clade="terminal", useSpecies=useSpecies)
+    fg_tree = foreground2Tree(fg_vec, trees, plotTree=F, clade="terminal",
+                              useSpecies=useSpecies,transition=transition)
   } else {
     # Start with a temp phenotype tree assuming that all internal nodes are foregrounds
-    fg_tree = foreground2Tree(fg_vec,trees,plotTree=F,clade="all",useSpecies=useSpecies)
+    fg_tree = foreground2Tree(fg_vec,trees,plotTree=F,clade="all",
+                              useSpecies=useSpecies,transition=transition)
     edge = fg_tree$edge
     edge.length=fg_tree$edge.length
 
@@ -245,10 +250,16 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
 #' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
 #' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
 #' @param annotlist Pathway annotations
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
 #' @export
-getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, mastertree, permmode="cc", method="k", min.pos=2, trees_list=NULL, calculateenrich=F, annotlist=NULL){
-  pathvec = foreground2Paths(fg_vec, trees, clade="all",plotTree=F)
+getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees,
+                        mastertree, permmode="cc", method="k", min.pos=2,
+                        trees_list=NULL, calculateenrich=F, annotlist=NULL,
+                        transition="unidirectional"){
+  pathvec = foreground2Paths(fg_vec, trees, clade="all",plotTree=F,
+                             transition=transition)
   col_labels = colnames(trees$paths)
   names(pathvec) = col_labels
 
@@ -259,7 +270,8 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
     permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc")
     permulated.fg = mapply(getForegroundsFromBinaryTree, permulated.binphens[[1]])
     permulated.fg.list = as.list(data.frame(permulated.fg))
-    phenvec.table = mapply(foreground2Paths,permulated.fg.list,MoreArgs=list(treesObj=trees,clade="all"))
+    phenvec.table = mapply(foreground2Paths,permulated.fg.list,
+                           MoreArgs=list(treesObj=trees,clade="all",transition=transition))
     phenvec.list = lapply(seq_len(ncol(phenvec.table)), function(i) phenvec.table[,i])
 
     print("Calculating correlations")
@@ -427,67 +439,69 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
 #'@param fudge The number up to which the permulated tree can differ in total foreground species
 #'@param cors The gene correlation results from \code{\link{correlateWithBinaryPhenotype}}
 #'@param phenvec A named vector of the phenotype
+#'@param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #'@return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
 #'@export
 getPermsBinaryFudged <- function(fgdspecs, RERs, trees, useSpecies, ntrees, root, fudge = 5, cors,
-                           phenvec) {
+                           phenvec, transition = "unidirectional") {
   # get counts on original tree
   t = foreground2Tree(fgdspecs, trees, plotTree = TRUE, clade = "all",
-                      useSpecies = useSpecies)
+                      useSpecies = useSpecies, transition = transition)
   fgnum = sum(t$edge.length)
   tips = length(fgdspecs)
   internal = fgnum - tips
-  
+
   # print summary
   print(paste("fgnum:", fgnum))
   print(paste("tips:", tips))
   print(paste("internal:", internal))
-  
+
   # drop species in the tree that we don't want to use
   # this is the tree passed to the simulation function
   drop = trees$masterTree$tip.label[!(trees$masterTree$tip.label %in% useSpecies)]
   t=drop.tip(trees$masterTree, drop)
   t=root.phylo(t, root, resolve.root = T)
-  
+
   # get the ratematrix
   rm=ratematrix(t, phenvec)
-  
-  # make the data frames 
+
+  # make the data frames
   statdf=data.frame(matrix(data=NA, nrow=nrow(RERs),ncol=ntrees),row.names=rownames(RERs))
   pvaldf=data.frame(matrix(data=NA, nrow=nrow(RERs),ncol=ntrees),row.names=rownames(RERs))
-  
+
   # generate the trees
   count=1
   while(count<=ntrees){
-    
+
     #get phenotype:
     blsum=0
-    
+
     while(blsum>(fgnum+fudge) | blsum<(fgnum-fudge)){
       ###########################################
       sims=sim.char(t, rm, nsim = 1)[,,1] #sim.char returns a weird array data structure, [,,1] is the named vector we want
       top=names(sort(sims, decreasing = TRUE))[1:tips]
       ###########################################
-      tf=foreground2Tree(top, trees, clade="all", plotTree = F)
+      tf=foreground2Tree(top, trees, clade="all", plotTree = F, transition = transition)
       blsum=sum(tf$edge.length)
     }
-    
+
     #get path:
     p=tree2Paths(tf, trees, useSpecies = useSpecies)
-    
+
     #run correlation:
     c=correlateWithBinaryPhenotype(RERs, p)
-    
+
     ###########################################
     # this assumes rownames will always match
     statdf[,count]=c$Rho
     pvaldf[,count]=c$P
     ###########################################
-    
+
     print(paste0("finished perm: ", count))
     count=count+1
   }
-  
+
   # get perm p-val:
   corswithpermp=cors
   rows=nrow(corswithpermp)
@@ -503,7 +517,7 @@ getPermsBinaryFudged <- function(fgdspecs, RERs, trees, useSpecies, ntrees, root
     corswithpermp$permP[g]=p
   }
   corswithpermp$permP.adj=p.adjust(corswithpermp$permP, method="BH")
-  
+
   # return results
   return(list(res=corswithpermp, stat=statdf, pval=pvaldf))
 }
@@ -522,13 +536,17 @@ getPermsBinaryFudged <- function(fgdspecs, RERs, trees, useSpecies, ntrees, root
 #' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
 #' @param calculateenrich A boolean variable indicating if null permulation p-values for enrichment statistics
 #' @param annotlist Pathway annotations
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A list object with enrichment statistics, correlation p-val, rho, and correlation effect size
 #' @export
 getPermsBinaryExtantOnly=function(numperms, fg_vec, sisters_list, root_sp,
                                   RERmat, trees, mastertree, permmode="cc",
                                   method="k", min.pos=2, trees_list=NULL,
-                                  calculateenrich=F, annotlist=NULL){
-  pathvec = foreground2Paths(fg_vec, trees, clade="all",plotTree=F)
+                                  calculateenrich=F, annotlist=NULL,
+                                  transition="unidirectional"){
+  pathvec = foreground2Paths(fg_vec, trees, clade="all",plotTree=F,
+                             transition=transition)
   col_labels = colnames(trees$paths)
   names(pathvec) = col_labels
 
@@ -674,9 +692,12 @@ nameEdgesPerms=function(tree){
 #' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param pathvec A path vector generated from the real set of foreground animals
 #' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A CC binary permulated tree
 #' @export
-simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL,
+                       pathvec, plotTreeBool=F, transition="unidirectional"){
   tip.labels = mastertree$tip.label
   res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
   fg_tree = res$tree
@@ -713,7 +734,8 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
       simulatedvec=s[,1]
       names(simulatedvec)=nam
       top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
-      t_iter=foreground2Tree(top, trees, clade="all", plotTree = F)
+      t_iter=foreground2Tree(top, trees, clade="all", plotTree = F,
+                             transition = transition)
       blsum=sum(t_iter$edge.length)
     }
     t_info = getBinaryPermulationInputsFromTree(t_iter)
@@ -742,9 +764,12 @@ simBinPhenoCC=function(trees, mastertree, root_sp, fg_vec, sisters_list=NULL, pa
 #' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param pathvec A path vector generated from the real set of foreground animals
 #' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A CC binary permulated tree
 #' @export
-simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL,
+                               pathvec, plotTreeBool=F, transition="unidirectional"){
   tip.labels = mastertree$tip.label
   res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,useSpecies=tip.labels)  #### This function has problems
   fg_tree = res$tree
@@ -782,7 +807,8 @@ simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL, pat
       simulatedvec=s[,1]
       names(simulatedvec)=nam
       top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
-      t_iter=foreground2Tree(top, trees, clade="all", plotTree = F)
+      t_iter=foreground2Tree(top, trees, clade="all", plotTree = F,
+                             transition = transition)
       blsum=sum(t_iter$edge.length)
     }
     t_info = getBinaryPermulationInputsFromTree(t_iter)
@@ -894,9 +920,12 @@ getDepthOrder=function(fgTree){
 #' @param sisters_list A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param pathvec A path vector generated from the real set of foreground animals
 #' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A SSM binary permulated tree
 #' @export
-simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL,
+                        pathvec, plotTreeBool=F, transition="unidirectional"){
   tip.labels = tree$tip.label # the set of species that exist in the gene tree
   ind_fg = which(tip.labels %in% fg_vec) # indices of the observed foreground animals that exist in the gene tree
 
@@ -944,7 +973,8 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
         top.all=names(sort(simulatedvec, decreasing = TRUE))
         top.tree_k = top.all[top.all %in% tip.labels]
         top = top.tree_k[1:tips]
-        t=foreground2Tree(top, trees, clade="all", plotTree = F, useSpecies=tip.labels)
+        t=foreground2Tree(top, trees, clade="all", plotTree = F,
+                          useSpecies=tip.labels, transition=transition)
         blsum=sum(t$edge.length)
       }
       t_info = getBinaryPermulationInputsFromTree(t)
@@ -1124,11 +1154,14 @@ findGroupedTrees = function(unique.tree,spec.members){
 #'Calculates the clade mappings between the gene tree and the master tree (with the complete topology)
 #' @param gene_tree A binary phenotype tree of a gene
 #' @param treesObj treesObj from \code{\link{readTrees}}
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return output.map A list containing a dataframe of clades mapping
 #' @export
-matchAllNodesClades=function(gene_tree, treesObj){
+matchAllNodesClades=function(gene_tree, treesObj, transition="unidirectional"){
   foregrounds = getForegroundsFromBinaryTree(gene_tree)
-  tree1 = foreground2Tree(foregrounds,treesObj,clade="all",plotTree = F)
+  tree1 = foreground2Tree(foregrounds,treesObj,clade="all",plotTree = F,
+                          transition=transition)
 
   map=matchNodesInject_mod(tree1,treesObj$masterTree)
   map=map[order(map[,1]),]
@@ -1229,7 +1262,8 @@ tree2PathsClades=function(tree,trees){
 }
 
 #' @keywords internal
-tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL){
+tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL,
+                        transition="unidirectional"){
   if (class(tree)[1]=="phylo"){
     stopifnot(class(tree)[1]=="phylo")
     stopifnot(class(treesObj)[2]=="treesObj")
@@ -1238,7 +1272,8 @@ tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL){
       vals=as.double(rep(NA,length(treesObj$ap$dist)))
     } else {
       foregrounds = getForegroundsFromBinaryTree(tree)
-      tree = foreground2Tree(foregrounds,treesObj,clade="all",plotTree = F)
+      tree = foreground2Tree(foregrounds,treesObj,clade="all",plotTree = F,
+                             transition=transition)
 
 
       isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
@@ -2121,9 +2156,12 @@ simpermvec=function(namedvec, treewithbranchlengths){
 #' @param fgnum Total number of foreground species - only required if internal foreground branches are required
 #' @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
 #' @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A tree with permulated phenotype values
 #' @export
-simBinPheno=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
+simBinPheno=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL,
+                     transition="unidirectional"){
   blsum=0
   if(is.null(fgnum)){
     fgnum=sum(phenvec)
@@ -2139,7 +2177,7 @@ simBinPheno=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
     simulatedvec=s[,1]
     names(simulatedvec)=nam
     top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
-    t=foreground2Tree(top, trees, clade="all", plotTree = F)
+    t=foreground2Tree(top, trees, clade="all", plotTree = F, transition=transition)
     blsum=sum(t$edge.length)
   }
   # plot(t)
@@ -2153,9 +2191,12 @@ simBinPheno=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
 #' @param fgnum Total number of foreground species - only required if internal foreground branches are required
 #' @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
 #' @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A vector of permulated foreground species
 #' @export
-simBinPhenoVec=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
+simBinPhenoVec=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL,
+                        transition="unidirectional"){
   blsum=0
   if(is.null(fgnum)){
     fgnum=sum(phenvec)
@@ -2171,7 +2212,7 @@ simBinPhenoVec=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL)
     simulatedvec=s[,1]
     names(simulatedvec)=nam
     top=names(sort(simulatedvec, decreasing = TRUE))[1:tips]
-    t=foreground2Tree(top, trees, clade="all", plotTree = F)
+    t=foreground2Tree(top, trees, clade="all", plotTree = F, transition=transition)
     blsum=sum(t$edge.length)
   }
   # plot(t)
@@ -2215,32 +2256,32 @@ plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, outpu
 # generates a set of N null tips with the number of species in each category matching the actual phenotype data
 #' @keywords internal
 getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary", percent_relax) {
-  
+
   # GET TRUE TIP COUNTS
   true_counts = table(intlabels$mapped_states)
-  
+
   # MAKE MATRIX TO STORE THE SETS OF NULL TIPS AND SETS OF INTERNAL NODES
   tips = matrix(nrow = N, ncol = length(tree$tip.label), dimnames = list(NULL, tree$tip.label))
   nodes = matrix(nrow = N, ncol = tree$Nnode)
-  
+
   cnt = 0
   while(cnt < N) {
     # SIMULATE STATES
     sim = simulate_mk_model(tree, Q, root_probabilities = root_prob)
     sim_counts = table(sim$tip_states)
-    
+
     # CHECK THAT ALL STATES GET SIMULATED IN THE TIPS
-    if(length(unique(sim$tip_states)) < length(true_counts)) { 
+    if(length(unique(sim$tip_states)) < length(true_counts)) {
       next
     }
-    
+
     # IF THE TIP COUNTS MATCH THE TIP COUNTS IN THE REAL DATA, ADD TO THE LIST
     # sum(true_counts == sim_counts) == length(true_counts)
     if(sum(abs(sim_counts - true_counts) <= true_counts*percent_relax) == length(true_counts)) {
       cnt = cnt + 1
-      
+
       print(cnt)
-      
+
       tips[cnt,] = sim$tip_states
       nodes[cnt,] = sim$node_states
     }
@@ -2303,10 +2344,10 @@ getNullTrees <- function(node_states, null_tips, tree, Q) {
 # rearranges the shuffled internal nodes to improve the likelihoods of the permulated trees
 #' @keywords internal
 improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
-  
+
   # get ancliks and max_states
   ancliks = getAncLiks(tree, tips, Q)
-  
+
   states = c(tips, nodes)
   curr_lik = 1
   for(i in 1:nrow(tree$edge)){
@@ -2314,133 +2355,133 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
     d = states[tree$edge[i,2]]
     curr_lik = curr_lik * P[[i]][a, d]
   }
-  
+
   # calculate initial ratios
   nstates = nrow(Q)
   ratios = c() # list of ratios
   ratio_info = matrix(nrow = (nstates - 1) * tree$Nnode, ncol = 3, dimnames = list(NULL, c("node", "state", "other.state"))) # info for each ratio
-  
+
   # ns aren't the node numbers in the tree - they are the index of the internal node in nodes, node number in tree is n + ntips
   for(n in 1:tree$Nnode) {
     # calculate ratios
     pie = ancliks[n,]
     rr = pie[-nodes[n]] / pie[nodes[n]] # other states / state
     ratios = c(ratios, rr)
-    # fill in ratio_info 
+    # fill in ratio_info
     # rows = c((n-1)*3 + 1, (n-1)*3 + 2, (n-1)*3 + 3)
     rows = ((n-1)*(nstates-1) + 1):((n-1)*(nstates-1) + (nstates-1))
     ratio_info[rows,"node"] = rep(n, nstates - 1)
     ratio_info[rows,"state"] = rep(nodes[n], nstates - 1)
     ratio_info[rows,"other.state"] = (1:nstates)[-nodes[n]]
   }
-  
+
   # pre-calculate and store edge numbers for each node
   ntips = length(tree$tip.label)
   edg_nums = lapply(seq_along(vector(mode = "list", length = tree$Nnode + ntips)), function(x){
     c(which(tree$edge[,1] == x),(which(tree$edge[,2] == x)))
   })
-  
+
   j = 1 # iteration counter
-  k = 1 # cycle counter 
-  Tk = T0 
-  
-  while(k <= cycles) { 
-    
+  k = 1 # cycle counter
+  Tk = T0
+
+  while(k <= cycles) {
+
     # get 2 nodes to swap
     nn = nodes
-    
+
     # 1: pick a node randomly, weighted by the ratios
     r1 = sample(1:length(ratios), 1, prob = ratios)
     n1 = ratio_info[r1, "node"] # node 1
     s1 = ratio_info[r1, "state"] # state1
     s2 = ratio_info[r1, "other.state"] # state2
-    
-    # 2: pick a node to swap it with 
+
+    # 2: pick a node to swap it with
     ii = intersect(which(ratio_info[,"state"] == s2), which(ratio_info[,"other.state"] == s1))
     if(length(ii) > 1) {
       n2 = sample(ratio_info[ii,"node"], 1, prob = ratios[ii]) # node2
     } else { # only one node with state2
       n2 = ratio_info[ii,"node"]
     }
-    
+
     # make the swap
     nn[n1] = s2
     nn[n2] = s1
-    
+
     # calculate new likelihood
     states_new = c(tips, nn)
     states_old = c(tips, nodes)
-    
+
     r = 1
     for(i in unique(c(edg_nums[[n1 + ntips]], edg_nums[[n2 + ntips]]))){ # check this over many cases including when n1 and n2 effect the same edge
       ao = states_old[tree$edge[i,1]]
       do = states_old[tree$edge[i,2]]
-      
+
       an = states_new[tree$edge[i,1]]
       dn = states_new[tree$edge[i,2]]
       r = r * (P[[i]][an,dn] / P[[i]][ao, do])
     }
-    
+
     if(r >= 1) { # if the swap increases likelihood, commit to the swap
-      
+
       nodes = nn
-      
+
       curr_lik = curr_lik * r # this should do the same thing, BUT CHECK THIS GETS THE SAME RESULT IN MULTIPLE CASES!
-      
+
       # update ratios
       # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
       rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
-      
+
       pie = ancliks[n1,]
       rr = pie[-s2] / pie[s2] # other states / state
       ratios[rows1] = rr
-      
-      # fill in ratio_info 
-      ratio_info[rows1,"state"] = rep(s2, nstates - 1) 
+
+      # fill in ratio_info
+      ratio_info[rows1,"state"] = rep(s2, nstates - 1)
       ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
-      
+
       # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
       rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
-      
+
       pie = ancliks[n2,]
       rr = pie[-s1] / pie[s1] # other states / state
       ratios[rows2] = rr
-      
-      # fill in ratio_info 
-      ratio_info[rows2,"state"] = rep(s1, nstates - 1) 
+
+      # fill in ratio_info
+      ratio_info[rows2,"state"] = rep(s1, nstates - 1)
       ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
-      
-    } 
+
+    }
     else { # make jump with probability u
-      
+
       # calculate u which includes dividing by tmp
       dh = -log(curr_lik * r) + log(curr_lik)
       u = exp(-dh/Tk)
       if(u == 0) warning("u is zero")
-      
+
       # if(u == 0) stop(paste("temp is", Tk))
-      
+
       if(runif(1) <= u) {
-        
+
         nodes = nn
-        
+
         curr_lik = curr_lik * r # CHECK THIS GETS THE SAME RESULT
-        
+
         # update ratios
         # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
         rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
-        
+
         pie = ancliks[n1,]
         rr = pie[-s2] / pie[s2] # other states / state
         ratios[rows1] = rr
         # fill in ratio_info
-        
+
         ratio_info[rows1,"state"] = rep(s2, nstates - 1)
         ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
-        
+
         # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
         rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
-        
+
         pie = ancliks[n2,]
         rr = pie[-s1] / pie[s1] # other states / state
         ratios[rows2] = rr
@@ -2449,12 +2490,12 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
         ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
       }
     }
-    
+
     # increment j
     j = j + 1
-    
+
     # print(curr_lik)
-    
+
     # move to next cycle if necessary
     if(j >= Nk) {
       j = 1 # reset j
@@ -2463,7 +2504,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
       Tk = T0 / (1 + alpha*k)
       k = k + 1
     }
-    
+
   }
   end = Sys.time()
   return(list(nodes = nodes, lik = log10(curr_lik)))
@@ -2478,44 +2519,44 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 #' @return a set of permulated phenotype trees
 #' @export
 categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto", ntrees, percent_relax = 0){
-  
+
   # check percent_relax is one value or a vector of length = # traits
   if(!(length(percent_relax) == 1 || length(percent_relax) == length(unique(phenvals)))) {
     stop("percent_relax is the wrong length")
   }
-  
+
   # PRUNE TREE, ORDER PHENVALS, MAP TO STATE SPACE
   tree = treesObj$masterTree
   keep = intersect(names(phenvals), tree$tip.label)
   tree = pruneTree(tree, keep)
   phenvals = phenvals[tree$tip.label]
   intlabels = map_to_state_space(phenvals)
-  
+
   # FIT A TRANSITION MATRIX ON THE DATA
   message("Fitting transition matrix")
   Q = fit_mk(tree, intlabels$Nstates, intlabels$mapped_states,
              rate_model = rm, root_prior = rp)$transition_matrix
-  
+
   # GET NULL TIPS (AND STORE INTERNAL NODES FROM SIMULATIONS TOO)
   message("Simulating trees")
-  simulations = getNullTips(tree, Q, ntrees, intlabels, 
+  simulations = getNullTips(tree, Q, ntrees, intlabels,
                             percent_relax = percent_relax)
-  
+
   ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
   node_states = getStatesAtNodes(ancliks)
-  
+
   # GET SHUFFLED STARTING-POINT TREES
   message("Shuffling internal states")
   nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
-  
+
   P = lapply(tree$edge.length, function(x){expm(Q * x)})
-  
+
   # IMPROVE LIKELIHOOD OF EACH NULL TREE
   message("Improving tree likelihoods")
   improvedNullTrees = lapply(nullTrees, function(x){
     list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
   })
-  
+
   # RETURN
   message("Done")
   return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
