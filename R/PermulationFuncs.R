@@ -272,7 +272,10 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees,
     print("Running CC permulation")
 
     print("Generating permulated trees")
-    permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc")
+    permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms,
+                                                    trees, root_sp, fg_vec,
+                                                    sisters_list, pathvec,
+                                                    permmode="cc", transition=transition)
     permulated.fg = mapply(getForegroundsFromBinaryTree, permulated.binphens[[1]])
     permulated.fg.list = as.list(data.frame(permulated.fg))
     phenvec.table = mapply(foreground2Paths,permulated.fg.list,
@@ -306,7 +309,12 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees,
     RERmat = RERmat[match(names(trees_list), rownames(RERmat)),]
 
     print("Generating permulated trees")
-    permulated.binphens = generatePermulatedBinPhenSSMBatched(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec)
+    permulated.binphens = generatePermulatedBinPhenSSMBatched(trees_list,
+                                                              numperms,trees,
+                                                              root_sp,fg_vec,
+                                                              sisters_list,
+                                                              pathvec,
+                                                              transition=transition)
 
     # Get species membership of the trees
     df.list = lapply(trees_list,getSpeciesMembershipStats,masterTree=mastertree,foregrounds=fg_vec)
@@ -339,7 +347,10 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees,
 
     # calculate paths for each permulation
     unique.permulated.binphens = permulated.binphens[ind.unique.trees]
-    unique.permulated.paths = calculatePermulatedPaths_apply(unique.permulated.binphens,unique.map.list,trees)
+    unique.permulated.paths = calculatePermulatedPaths_apply(unique.permulated.binphens,
+                                                             unique.map.list,
+                                                             trees,
+                                                             transition=transition)
 
     permulated.paths = vector("list", length = length(trees_list))
     for (j in 1:length(permulated.paths)){
@@ -370,8 +381,9 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees,
   }
 
   if (calculateenrich){
-    realFgtree = foreground2TreeClades(fg_vec, sisters_list, trees, plotTree=F)
-    realpaths = tree2PathsClades(realFgtree, trees)
+    realFgtree = foreground2TreeClades(fg_vec, sisters_list, trees, plotTree=F,
+                                       transition=transition)
+    realpaths = tree2PathsClades(realFgtree, trees, transition=transition)
     realresults = getAllCor(RERmat, realpaths, method=method, min.pos=min.pos)
     realstat =sign(realresults$Rho)*-log10(realresults$P)
     names(realstat) = rownames(RERmat)
@@ -558,7 +570,11 @@ getPermsBinaryExtantOnly=function(numperms, fg_vec, sisters_list, root_sp,
 
   print("Generating permulated trees")
   # list of permulated binary trees:
-  permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc")
+  permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms,
+                                                  trees, root_sp, fg_vec,
+                                                  sisters_list, pathvec,
+                                                  permmode="cc",
+                                                  transition=transition)
   # matrix of fgd specs (each col is a list of fgd specs)
   permulated.fg = mapply(getForegroundsFromBinaryTree, permulated.binphens[[1]])
   # turn the matrix into a list (each entry is a set of fgd specs)
@@ -1080,9 +1096,13 @@ rep_tree = function(num_input,tree){
 #' @param fg_vec A vector containing the foreground species
 #' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param pathvec A path vector generated from the real set of foreground animals
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return simPhenoList A list containing binary permulated trees for each gene
 #' @export
-generatePermulatedBinPhenSSMBatched=function(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec){
+generatePermulatedBinPhenSSMBatched=function(trees_list,numperms,trees,root_sp,
+                                             fg_vec,sisters_list,pathvec,
+                                             transition="unidirectional"){
   masterTree = trees$masterTree
   master.tips = masterTree$tip.label
   df.list = lapply(trees_list,getSpeciesMembershipStats,masterTree=masterTree,foregrounds=fg_vec)
@@ -1110,7 +1130,12 @@ generatePermulatedBinPhenSSMBatched=function(trees_list,numperms,trees,root_sp,f
   unique.trees = trees_list[ind.unique.trees]
 
   # Generate simulated phenotypes
-  unique.pheno.list = mapply(generatePermulatedBinPhen,unique.trees,MoreArgs = list(numperms=numperms,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec,permmode="ssm"))
+  unique.pheno.list = mapply(generatePermulatedBinPhen,unique.trees,
+                             MoreArgs = list(numperms=numperms,trees=trees,
+                                             root_sp=root_sp,fg_vec=fg_vec,
+                                             sisters_list=sisters_list,
+                                             pathvec=pathvec,permmode="ssm",
+                                             transition=transition))
   # Allocate the simulated phenotypes for unique trees to their respective groups
   simPhenoList = vector("list", length = length(trees_list))
   for (j in 1:length(simPhenoList)){
@@ -1254,16 +1279,23 @@ matchNodesInject_mod=function (tr1, tr2){
 #' @param permulated.trees.list A nested list of permulated phenotype trees for all the genes. The top layer lists the genes, and the nested layer lists the permulated binary trees (phylo objects) for each gene
 #' @param map.list A list of maps corresponding to the genes listed in permulated.trees.list, the output of matchAllNodesClades
 #' @param treesObj treesObj from \code{\link{readTrees}}
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return permulated.paths.list A nested list of permulated paths corresponding to the nested list of permulated phenotype trees
 #' @export
-calculatePermulatedPaths_apply=function(permulated.trees.list,map.list,treesObj){
-  permulated.paths.list = mapply(calculatePermulatedPaths,permulated.trees.list,map.list,MoreArgs=list(treesObj=treesObj))
+calculatePermulatedPaths_apply=function(permulated.trees.list,map.list,treesObj,
+                                        transition="unidirectional"){
+  permulated.paths.list = mapply(calculatePermulatedPaths,permulated.trees.list,
+                                 map.list,MoreArgs=list(treesObj=treesObj,
+                                                        transition=transition))
   permulated.paths.list
 }
 
 #' @keywords internal
-calculatePermulatedPaths=function(permulated.trees,map,treesObj){
-  permulated.paths=lapply(permulated.trees,tree2PathsClades,trees=treesObj)
+calculatePermulatedPaths=function(permulated.trees,map,treesObj,
+                                  transition="unidirectional"){
+  permulated.paths=lapply(permulated.trees,tree2PathsClades,trees=treesObj,
+                          transition=transition)
   output.list = list()
   output.list[[1]] = permulated.paths
   output.list
@@ -1540,7 +1572,7 @@ simBinPhenoRank=function(trees, root_sp, fg_vec, sisters_list=NULL,
   res = getForegroundInfoClades(fg_vec,sisters_list,trees,plotTree=F,
                                 useSpecies=tip.labels,transition=transition)
   fg_tree = res$tree
-  pathvec = tree2PathsClades(fg_tree, trees)
+  pathvec = tree2PathsClades(fg_tree, trees, transition=transition)
 
   t=root.phylo(trees$masterTree, root_sp, resolve.root = T)
   ratem=ratematrix(t, pathvec)
