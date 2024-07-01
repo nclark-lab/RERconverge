@@ -644,7 +644,7 @@ correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos 
   getAllCor(RERmat, charP, min.sp, min.pos, method = method)
 }
 
-#' A sped up version of the Kruskal Wallis/Dunn Test 
+#' A sped up version of the Kruskal Wallis/Dunn Test
 #' @keywords internal
 kwdunn.test <- function(x,g, ncategories){
   ntests <- ncategories*(ncategories -1)/2 # number of pairwise tests
@@ -653,14 +653,14 @@ kwdunn.test <- function(x,g, ncategories){
   glevels <- as.integer(levels(g)) # g must be an integer converted to a factor!
   Data <- matrix(NA, length(x), 3)
   Data[, 1] <- x
-  Data[, 2] <- g  
+  Data[, 2] <- g
   # when g gets converted to numeric in the Data matrix, it is converted to CONSECUTIVE integers in the order of the factors
   # e.g. 1, 2, 4 --> 1, 2, 3
-  
+
   # use frank (fast rank) instead of base rank function
   # REQUIRES THE PACKAGE data.table TO BE ATTACHED!!!
   Data[, 3] <- frank(Data[, 1], ties.method = "average", na.last = NA)
-  
+
   # calculate the ties adjustment term that is shared between kwallis and dunn test
   # define a function to find the tied ranks
   tiedranks <- function(ranks) {
@@ -680,7 +680,7 @@ kwdunn.test <- function(x,g, ncategories){
     }
     return(ties)
   }
-  
+
   # calculate the ties adjustment sum term (same between KW and Dunn)
   k <- length(unique(Data[, 2]))
   ranks <- Data[, 3]
@@ -693,43 +693,43 @@ kwdunn.test <- function(x,g, ncategories){
       tiesadjsum <- tiesadjsum + (tau^{3} - tau)
     }
   }
-  
+
   # pre-calculate indices/sums/stuff to reduce the number of times it's calculated
   groupinds <- lapply(1:k, function(i){Data[, 2] == i}) # rows in Data corresponding to group i (as TRUE/FALSE vector)
   groupranks <- lapply(groupinds, function(i){Data[, 3][i]}) # ranks in each group
   groupranksums <- unlist(lapply(groupranks, function(i){sum(i)})) # sum of ranks in each group
   groupsizes <- unlist(lapply(groupinds, function(i){sum(i)})) # number of observations in each group
-  
+
   # calculate the H statistic and p-value for the KW test
   tiesadj <- 1 - (tiesadjsum/((N^3) - N))
   ranksum <- sum((groupranksums^2)/groupsizes) # use matrix operations in place of for loops
   H <- ((12/(N * (N + 1))) * ranksum - 3 * (N + 1))/tiesadj
   df <- k - 1
   p <- pchisq(H, k - 1, lower.tail = FALSE)
-  
-  # Dunn test: calculate the Z statistic for each pairwise test 
+
+  # Dunn test: calculate the Z statistic for each pairwise test
   m <- k * (k - 1)/2
   Z <- rep(NA, ntests)
   tiesadj <- tiesadjsum/(12 * (N - 1))
-  
+
   # loop through each pairwise comparison
   index <- 1
   for (i in 2:k) {
     for (j in 1:(i - 1)) {
       # make a pairwise test name
       index <- ((glevels[i]-1) * (glevels[i] - 2)/2) + glevels[j]
-      
+
       # do calculation
       meanranki <- groupranksums[i]/groupsizes[i]
       meanrankj <- groupranksums[j]/groupsizes[j]
       z <- (meanrankj - meanranki)/sqrt(((N * (N + 1)/12) - tiesadj) * ((1/groupsizes[j]) + (1/groupsizes[i])))
-      
+
       # add result to Z vector with the name
       Z[index] <- z
     }
   }
   P <- 2*pnorm(abs(Z), lower.tail = FALSE)
-  
+
   # do bonferroni p value adjustment (for pairwise error rate?)
   P.adjust <- pmin(1, P * m)
   return(list(kw = list(H = H, p = p), dunn = list(Z = Z, P = P, P.adjust = P.adjust)))
@@ -793,8 +793,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
   if (method == "aov" || method == "kw") {
     lu = length(unique(charP[!is.na(charP)]))
     n = choose(lu, 2)
-    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat), 
-                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho", 
+    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
+                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho",
                                                                   "P")))
     if(method == "aov") {
       names(tables) = rep(NA, n)
@@ -807,7 +807,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
         }
       }
     }
-    
+
   }
   ##############################################################################
 
@@ -890,12 +890,12 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           kres = kwdunn.test(x, yfacts, ncategories = lu)
           effect_size = kres$kw$H/(nb - 1)
           corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
-         
+
           for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
             tables[[k]][i, "Rho"] = kres$dunn$Z[k]
             tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
           }
-          
+
           # old code before speed up:
           # yfacts = as.factor(y)
           # df = data.frame(x,yfacts)
@@ -907,10 +907,10 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
           # # effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # eta2: (H - k + 1) / (n - k)
           # effect_size = kres_Hval / (nb - 1) # epsilon squared
           # corout[i,1:3] = c(effect_size, nb, kres_pval)
-          # 
+          #
           # # Dunn test
           # dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
-          # 
+          #
           # # add new names to tables
           # groups = dunn$res$Comparison
           # unnamedinds = which(is.na(names(tables)))
@@ -1025,11 +1025,11 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
     phenv = intlabels$mapped_states
     names(phenv) = names(phenvals)
     phenvals = phenv
-    
+
     lu = length(unique(phenvals[!is.na(phenvals)]))
     n = choose(lu, 2)
-    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat), 
-                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho", 
+    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
+                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho",
                                                                   "P")))
     if(method == "aov") {
       names(tables) = rep(NA, n)
@@ -1118,12 +1118,12 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
         kres = kwdunn.test(x, yfacts, ncategories = lu)
         effect_size = kres$kw$H/(nb - 1)
         corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
-        
+
         for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
           tables[[k]][i, "Rho"] = kres$dunn$Z[k]
           tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
         }
-        
+
         # old code before speed up:
         # yfacts = as.factor(y)
         # df = data.frame(x, yfacts)
@@ -1406,6 +1406,8 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 #' of the strings "ancestral", "terminal", "all", or "weighted".
 #' @param useSpecies Give only a subset of the species to use for ancestral state reconstruction
 #' (e.g., only those species for which the trait can be reliably determined).
+#' @param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
 foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL, transition="unidirectional"){
@@ -1520,14 +1522,19 @@ foreground2Tree = function(foreground,treesObj, plotTree=T, clade=c("ancestral",
 #'@param plot Plots a phenotype tree
 #'@param anctrait The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.
 #'@param root_prior The prior probabilities of each trait at the root used to fit the transition matrix. Can be a vector of length equal to the number of states or one of the following: "flat", "empirical", "stationary", "likelihoods", "max_likelihood".
+#'@param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
+#' Only used in cases with 2 categories.
 #'@return A vector of length equal to the number of paths in treesObj
 #'@export
 char2PathsCategorical = function(tipvals, treesObj, useSpecies = NULL,
-                                 model = "ER", plot = FALSE, anctrait = NULL, root_prior = "auto") {
+                                 model = "ER", plot = FALSE, anctrait = NULL,
+                                 root_prior = "auto", transition = "unidirectional") {
   #get tree
   tree = char2TreeCategorical(tipvals = tipvals, treesObj = treesObj,
                               useSpecies = useSpecies, model = model, plot = plot,
-                              anctrait = anctrait, root_prior = root_prior)
+                              anctrait = anctrait, root_prior = root_prior,
+                              transition = transition)
   # get paths
   paths = tree2Paths(tree, treesObj, useSpecies = useSpecies,
                      categorical = T)
@@ -1929,11 +1936,15 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
 #'@param plot Plots a phenotype tree
 #'@param anctrait The trait to use for all ancestral species instead of inferring ancestral states if not NULL. The default is NULL.
 #'@param root_prior The prior probabilities of each trait at the root used to fit the transition matrix. Can be a vector of length equal to the number of states or one of the following: "flat", "empirical", "stationary", "likelihoods", "max_likelihood".
+#'@param transition A character string indicating whether transitions between background and foreground branches
+#' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
+#' Only used in cases with 2 categories.
 #'@return A tree with edge.length representing phenotype states
 #'@export
 char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
                                      model = "ER", root_prior = "auto",
-                                     plot = FALSE, anctrait = NULL)
+                                     plot = FALSE, anctrait = NULL,
+                                  transition = "unidirectional")
 {
   # get the master tree and prune to include useSpecies/species with phenotype data
   mastertree = treesObj$masterTree
@@ -1996,7 +2007,8 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
     if (length(unique(tipvals)) <= 2) {
       fgspecs <- names(tipvals)[tipvals != anctrait]
       res <- foreground2Tree(fgspecs, treesObj, plotTree = plot,
-                             clade = "terminal", useSpecies = useSpecies)
+                             clade = "terminal", useSpecies = useSpecies,
+                             transition = transition)
       print("There are only 2 categories: returning a binary phenotype tree.")
       if(plot) {
         plotTree(res)
@@ -2264,9 +2276,9 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
 #' are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-makeBinaryPaths=function(input, treesObj){
+makeBinaryPaths=function(input, treesObj, transition="unidirectional"){
   if(class(input)=="character"){
-    foreground2Paths(input, treesObj)
+    foreground2Paths(input, treesObj, transition=transition)
   }
   else if (class(input)=="phylo"){
     tree2Paths(input, treesObj)
