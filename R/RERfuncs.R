@@ -1273,9 +1273,6 @@ getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  u
       ai=which(maxn[iiboth]==nb)
 
 
-      message(paste("i=", i))
-
-
       if(T){
 
         ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
