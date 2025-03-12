@@ -613,10 +613,10 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
   }
   #method is k if we do unweighted, method is p if we weight
   if (weighted){
-    getAllCor_mk3(RERmat, charP, min.sp, min.pos, method="p", weighted=weighted, winsorizeRER=winsorize, bootstrap=bootstrap,bootn=bootn)
+    getAllCor(RERmat, charP, min.sp, min.pos, method="p", weighted=weighted, winsorizeRER=winsorize, bootstrap=bootstrap,bootn=bootn)
   }
   else{
-    getAllCor_mk3(RERmat, charP, min.sp, min.pos, method="k", weighted=weighted, winsorizeRER=winsorize, bootstrap=bootstrap,bootn=bootn)
+    getAllCor(RERmat, charP, min.sp, min.pos, method="k", weighted=weighted, winsorizeRER=winsorize, bootstrap=bootstrap,bootn=bootn)
   }
 }
 
@@ -745,7 +745,7 @@ kwdunn.test <- function(x,g, ncategories){
                      #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
-#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override
+#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. 
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.
