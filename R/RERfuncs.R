@@ -591,16 +591,17 @@ getChildren=function(tree, nodeN){
 }
 
 
-
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
-#' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param weighted perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.
+#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.
+#' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
+#' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
 #' @export
-correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto"){
+correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto",winsorize=NULL, bootstrap=F, bootn=1000){
   if(weighted=="auto"){
     if (any(charP>0&charP<1, na.rm=TRUE)){
       message("Fractional values detected, will use weighted correlation mode")
@@ -610,9 +611,15 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
       weighted=F
     }
   }
-  getAllCor(RERmat, charP, min.sp, min.pos, method = "k", weighted=weighted)
-
+  #method is k if we do unweighted, method is p if we weight
+  if (weighted){
+    getAllCor_mk3(RERmat, charP, min.sp, min.pos, method="p", weighted=weighted, winsorizeRER=winsorize, bootstrap=bootstrap,bootn=bootn)
+  }
+  else{
+    getAllCor_mk3(RERmat, charP, min.sp, min.pos, method="k", weighted=weighted, winsorizeRER=winsorize, bootstrap=bootstrap,bootn=bootn)
+  }
 }
+
 
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a continuous phenotype made with \code{\link{char2Paths}}
@@ -735,7 +742,7 @@ kwdunn.test <- function(x,g, ncategories){
   return(list(kw = list(H = H, p = p), dunn = list(Z = Z, P = P, P.adjust = P.adjust)))
 }
 
-#'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+                     #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override
@@ -744,58 +751,50 @@ kwdunn.test <- function(x,g, ncategories){
 #' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.
 #' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme trait values at each end to the value closest to 0.
 #' @param weighted perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.
+#' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
+#' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
-getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeRER=NULL, winsorizetrait=NULL, weighted=F){
+getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeRER=NULL, winsorizetrait=NULL,
+                      weighted=F, bootstrap=F, bootn = 1000){
+  # behold, the polished more readable getAllCor mk. III! -GH
   RERna=(apply(is.na(RERmat),2,all))
   iicharPna=which(is.na(charP))
   if(!all(RERna[iicharPna])){
     warning("Species in phenotype vector are a subset of the those used for RER computation. For best results run getAllResiduals with the useSpecies")
   }
-  if (method=="auto"){
-    lu=length(unique(charP))
-    if(lu==2){
-      method="k"
-      message("Setting method to Kendall")
-    }
-    else if (lu<=5){
-      method="s"
-      message("Setting method to Spearman")
-    }
-    else{
-      method="p"
-      message("Setting method to Pearson")
-      if(is.null(winsorizeRER)){
-        message("Setting winsorizeRER=3")
-        winsorizeRER=3
-      }
-      if(is.null(winsorizetrait)){
-        message("Setting winsorizetrait=3")
-        winsorizetrait=3
-      }
-    }
+  if (!is.null(winsorizeRER) && bootstrap) {
+    print("Warning: generally winsorizing and bootstrapping for outlier control is overkill. If you don't specifically intend to do this, don't waste your compute time!")
   }
-  win=function(x,w){
+  # Exit function if non-extant correlation attempted
+  if (method=="k" && weighted){stop("Error: weighted Kendall correlation currently not supported")}
+  if (method=="s" && weighted){stop("Error: weighted Spearman correlation currently not supported")}
+  if (method=="kw" && weighted){stop("Error: weighted Kruskall/Wallis correlation currently not supported")}
+  if (method=="aov" && weighted){stop("Error: weighted ANOVA correlation currently not supported")}
+  if (method!="p" && weighted){stop("Error: currently, for a weighted correlation, only a pearson correlation is supported. Input method=\"p\".")}
+  
+  win=function(x,n){
+    #windsorizing: outlier control. sets the n highest values to the n+1th highest, same with lows
     xs=sort(x[!is.na(x)], decreasing = T)
-    xmax=xs[w]
-    xmin=xs[length(xs)-w+1]
-
-    x[x>xmax]=xmax
-    x[x<xmin]=xmin
+    #npo: n plus one
+    npomax=xs[n+1]
+    npomin=xs[length(xs)-n]
+    
+    x[x>npomax]=npomax
+    x[x<npomin]=npomin
     x
   }
   corout=matrix(nrow=nrow(RERmat), ncol=3)
   rownames(corout)=rownames(RERmat)
-
+  
   ##############################################################################
   # make tables for each pairwise comparison & a list for the tables
   if (method == "aov" || method == "kw") {
     lu = length(unique(charP[!is.na(charP)]))
     n = choose(lu, 2)
-    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat), 
-                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho", 
-                                                                  "P")))
+    tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
+                    ncol = 2, dimnames = list(rownames(RERmat), c("Rho","P")))
     if(method == "aov") {
       names(tables) = rep(NA, n)
     }
@@ -807,17 +806,20 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
         }
       }
     }
-    
   }
   ##############################################################################
-
+  
   colnames(corout)=c("Rho", "N", "P")
-
+  
   for( i in 1:nrow(corout)){
-
-    if(((nb<-sum(ii<-(!is.na(charP)&!is.na(RERmat[i,]))))>=min.sp)){
+    
+    # ii : Intersect Indexes
+    # binary vector of places where the phenotype vector and RER are not NA: valid indexes
+    ii<-!is.na(charP)&!is.na(RERmat[i,])
+    if((nb<-sum(ii))>=min.sp){
+      #checks that there are >= min.sp species in each category
+      
       ##########################################################################
-      #check that there are >= min.pos species in each category
       if(method =="kw" || method =="aov") {
         counts = table(charP[ii])
         num_groups = length(counts) # k in eta^2 calculation for KW test
@@ -829,128 +831,124 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
       else if (method!="p"&&sum(charP[ii]!=0)<min.pos){
         next
       }
-      if(!weighted){
-
-        x=RERmat[i,]
-
+      
+      ########################################################################## setup for unweighted v
+      if (!weighted){
+        x=RERmat[i,ii]
         #winsorize
-        indstouse=which(!is.na(x) & !is.na(charP))
         if(!is.null(winsorizeRER)){
-          x=win(x[indstouse], winsorizeRER)
-        }else{
-          x=x[indstouse]
+          x=win(x, winsorizeRER)
         }
         if(!is.null(winsorizetrait)){
-          y=win(charP[indstouse], winsorizetrait)
+          y=win(charP[ii], winsorizetrait)
         }else{
           y=charP[indstouse]
         }
-
-        #################################################################
-        if(method == "aov") {
-          # ANOVA
-          # make a data frame from x and y
-          yfacts = as.factor(y) #aov requires categories to be factors
-          df = data.frame(x,yfacts)
-          colnames(df) = c("RER", "category")
-          ares = aov(RER ~ category, data = df)
-          # ares_Fval = summary(ares)[[1]][1,4]
-          # calculate effect size:
-          sumsq = summary(ares)[[1]][1,2]
-          sumsqres = summary(ares)[[1]][2,2]
-          # eta2
-          effect_size = sumsq / (sumsq + sumsqres)
-          ares_pval = summary(ares)[[1]][1,5]
-          corout[i,1:3]=c(effect_size, nb, ares_pval)
-
-          tukey = TukeyHSD(ares)
-
-          # add names to tables that haven't been named yet
-          groups = rownames(tukey[[1]])
-          unnamedinds = which(is.na(names(tables)))
-          if(length(unnamedinds > 0)) {
-            # check for groups not in table already
-            newnamesinds = which(is.na(match(groups, names(tables))))
-            # if there are new groups add them to the next available positions
-            if(length(newnamesinds) > 0) {
-              names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-            }
+      }
+      
+      ########################################################################## AOV unweighted v
+      if(!weighted && method == "aov") {
+        # ANOVA
+        # make a data frame from x and y
+        yfacts = as.factor(y) #aov requires categories to be factors
+        df = data.frame(x,yfacts)
+        colnames(df) = c("RER", "category")
+        ares = aov(RER ~ category, data = df)
+        # ares_Fval = summary(ares)[[1]][1,4]
+        # calculate effect size:
+        sumsq = summary(ares)[[1]][1,2]
+        sumsqres = summary(ares)[[1]][2,2]
+        # eta2
+        effect_size = sumsq / (sumsq + sumsqres)
+        ares_pval = summary(ares)[[1]][1,5]
+        corout[i,1:3]=c(effect_size, nb, ares_pval)
+        
+        tukey = TukeyHSD(ares)
+        
+        # add names to tables that haven't been named yet
+        groups = rownames(tukey[[1]])
+        unnamedinds = which(is.na(names(tables)))
+        if(length(unnamedinds > 0)) {
+          # check for groups not in table already
+          newnamesinds = which(is.na(match(groups, names(tables))))
+          # if there are new groups add them to the next available positions
+          if(length(newnamesinds) > 0) {
+            names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
           }
-
-          # add data to the named tables
-          for(k in 1:length(groups)) {
-            name = groups[k]
-            tables[[name]][i,"Rho"] = tukey[[1]][name,1]
-            tables[[name]][i,"P"] = tukey[[1]][name,4]
-          }
-
-        } else if (method == "kw") {
-          # Kruskal Wallis/Dunn test
-          yfacts = factor(y)
-          kres = kwdunn.test(x, yfacts, ncategories = lu)
-          effect_size = kres$kw$H/(nb - 1)
-          corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
-         
-          for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
-            tables[[k]][i, "Rho"] = kres$dunn$Z[k]
-            tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
-          }
-          
-          # old code before speed up:
-          # yfacts = as.factor(y)
-          # df = data.frame(x,yfacts)
-          # colnames(df) = c("RER", "category")
-          # kres = kruskal.test(RER ~ category, data = df)
-          # kres_Hval = kres$statistic
-          # kres_pval = kres$p.value
-          # # calculate effect size
-          # # effect_size = (kres_Hval - num_groups + 1) / (nb - num_groups) # eta2: (H - k + 1) / (n - k)
-          # effect_size = kres_Hval / (nb - 1) # epsilon squared
-          # corout[i,1:3] = c(effect_size, nb, kres_pval)
-          # 
-          # # Dunn test
-          # dunn = dunnTest(RER ~ category, data = df, method = "bonferroni") # do we want to use bonferroni?
-          # 
-          # # add new names to tables
-          # groups = dunn$res$Comparison
-          # unnamedinds = which(is.na(names(tables)))
-          # if(length(unnamedinds > 0)) {
-          #   # check for groups not in table already
-          #   newnamesinds = which(is.na(match(groups, names(tables))))
-          #   # if there are new groups add them to the next available positions
-          #   if(length(newnamesinds) > 0) {
-          #     names(tables)[unnamedinds][1:length(newnamesinds)] = groups[newnamesinds]
-          #   }
-          # }
-          # # add data to the tables
-          # for(k in 1:length(groups)) {
-          #   name = groups[k]
-          #   tables[[name]][i,"Rho"] = dunn$res$Z[k]
-          #   tables[[name]][i,"P"] = dunn$res$P.adj[k]
-          # }
         }
-        else {
-          cres=cor.test(x, y, method=method, exact=F)
-          corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
+        
+        # add data to the named tables
+        for(k in 1:length(groups)) {
+          name = groups[k]
+          tables[[name]][i,"Rho"] = tukey[[1]][name,1]
+          tables[[name]][i,"P"] = tukey[[1]][name,4]
         }
       }
-      else{
-        charPb=(charP[ii]>0)+1-1
+      ########################################################################## ^ AOV unweighted
+      ########################################################################## v KW unweighted
+      else if (!weighted && method == "kw") {
+        # Kruskal Wallis/Dunn test
+        
+        yfacts = factor(y)
+        kres = kwdunn.test(x, yfacts, ncategories = lu)
+        effect_size = kres$kw$H/(nb - 1)
+        corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
+        
+        for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
+          tables[[k]][i, "Rho"] = kres$dunn$Z[k]
+          tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
+        }
+      }
+      ########################################################################## ^ KW unweighted
+      ########################################################################## v Other (k,p,s) unweighted
+      else if (!weighted){
+        #unweighted other
+        cres=cor.test(x, y, method=method, exact=F)
+        corout[i,1:3]=c(cres$estimate, nb, cres$p.value)
+      }
+      ########################################################################## ^ Other (k,p,s) unweighted
+      ########################################################################## v Other weighted
+      else if (weighted){
+        
+        #skip iteration if the phenotype vector has no good intersects
+        if(sum(charP[ii]) == 0) { next }
+        
+        x=RERmat[i,ii]
+        #winsorize check
+        if(!is.null(winsorizeRER)){ x=win(x, winsorizeRER) }
 
+        charPb=(charP[ii]>0)+1-1
         weights=charP[ii]
         weights[weights==0]=1
-
-        cres=wtd.cor(RERmat[i,ii], charPb, weight = weights, mean1 = F)
-        corout[i, 1:3]=c(cres[1], nb, cres[4])
+        
+        #if not bootstrapped, it'll run as normal
+        cres=wtd.cor(x, charPb, weight = weights, mean1 = F, bootse=bootstrap, bootn=bootn)
+        #Spit back out Rho/correlation, N, and pvalue (which for some reason is a different index if you bootstrap?)
+        corout[i,1:3]=c(cres[which(colnames(cres) == "correlation")], nb, cres[which(colnames(cres) == "p.value")])
       }
+      ########################################################################## ^ Other weighted
     }
-    else{
-      #show(i)
-      #show(c(nb, charP[ii]))
-    }
-
   }
-
+  
+  wt = " unweighted"
+  ws = ""
+  m <- " Pearson"
+  n <- "n "
+  if (!is.null(winsorizeRER)){
+    ws <- paste("winsorized(",winsorizeRER,")",sep="")
+    n <- " "
+  }
+  if (weighted){
+    wt <- " weighted"
+    n <- " "
+  } else{
+    if (method == "kw") m <- " Kruskal Wallis/Dunn"
+    if (method == "aov") m <- " ANOVA"
+    if (method == "s") m <- " Spearman"
+    if (method == "k") m <- " Kendall"
+  }
+  message(paste("Used a",n, ws, wt, m, " correlation.",sep=""))
+  
   corout=as.data.frame(corout)
   corout$p.adj=p.adjust(corout$P, method="BH")
   if (method == "aov" || method == "kw") {
@@ -961,7 +959,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
     }
     # return corout and tables
     return(list(corout,tables))
-  } else {corout}
+  }
+  else {corout}
 }
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype vector for phenotype values at the tips of the tree
