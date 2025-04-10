@@ -3,10 +3,10 @@ title: "RERconverge Analysis Walkthrough"
 bibliography: RERConverge.bib
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     css: custom.css
-    toc: yes
-  pdf_document:
     toc: yes
 authors: Amanda Kowalczyk and Wynn Meyer
 ---
@@ -62,6 +62,7 @@ if (!require("RERconverge", character.only=T, quietly=T)) {
     #"ref" can be modified to specify a particular branch
 }
 library(RERconverge)
+
 ```
 
 This should also download all the files we will be working with to your computer, in the directory where your R library lives. If you'd like to visualize or work with any of these files separately, this is where you can find them:
@@ -149,9 +150,24 @@ plotRers(mamRERw,"BEND3",phenv=phenvExample) #plot RERs
 
 This plot represents the estimated RERs for terminal branches (labeled with species names along the y-axis) and internal branches (plotted in a single row at the base of the y-axis). The foreground branches (set here using `foreground2Paths`) are highlighted in red; these are currently only terminal branches, but if any internal branches were included, there would be a red point or points among the RER points at the base of the y-axis. Notice how the RER for vole is negative; this is because the branch leading to vole in the BEND3 tree is shorter than average. On the other hand, the RER for squirrel is positive because the branch leading to squirrel in the BEND3 tree is longer than average.
 
-We can also save all RERs for a given gene using the `returnRersAsTree` function. If we include `plot=TRUE`, this function will also generate a cladogram for the gene tree with branches labeled with their RERs.
+
+If you want to change the names on the plot between scientific and common names for display purposes, you can use the `species_from` and `species_to` arguments of plotRers. Anything from the first list will be translated to its corresponding element in the second. Here we provide an example ()
+
 
 ```{r fig2b, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
+names_from = c("Squirrel","Vole")
+names_to   = c("Sciurus carolinensis", "Clethrionomys glareolus")
+
+plotRers(mamRERw,"BEND3",phenv=phenvExample, #main plotting function
+         species_from=names_from,species_to=names_to) #optional name translation parameters
+
+```
+
+
+
+We can also save all RERs for a given gene using the `returnRersAsTree` function. If we include `plot=TRUE`, this function will also generate a cladogram for the gene tree with branches labeled with their RERs.
+
+```{r fig2c, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
 #plot RERs as tree
 par(mfrow=c(1,1))
 bend3rers = returnRersAsTree(toyTrees, mamRERw, "BEND3", plot = TRUE,
@@ -176,7 +192,7 @@ write.tree(multirers, file='toyRERs.nwk', tree.names=TRUE)
 
 Another useful function for visualizing RERs for a given tree is `treePlotRers`. When called with `type = label`, it will produce the same plot as shown above, i.e., a cladogram with the branches labeled by RER. Alternatively, when called with `type = color`, it will produce a cladogram with RERs displayed as a color heatmap on the branches.
 
-```{r fig2c, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
+```{r fig2d, fig.height=9,fig.width=10, warning = FALSE, cache = TRUE, tidy = FALSE}
 #visualize RERs along branches as a heatmap
 newbend3rers = treePlotRers(treesObj=toyTrees, rermat=mamRERw, index="BEND3", 
                             type="c", nlevels=9, figwid=10)
@@ -323,10 +339,13 @@ This uses the following input variables (all the options set here are also the d
 -   `min.sp`: the minimum number of species in the gene tree for that gene to be included in the analysis. The default is 10, but you may wish to modify it depending upon the number of species in your master tree.
 -   `min.pos`: the minimum number of independent foreground (non-zero) lineages represented in the gene tree for that gene to be included in the analysis. The default is 2, requiring at least two foreground lineages to be present in the gene tree.
 -   `weighted`: whether to perform a weighted correlation where branch lengths represent weights. This can be used with the `weighted=TRUE` option in `foreground2Tree` or `foreground2Paths` to distribute phenotype weights across multiple lineages in a clade. The default is "auto", which will use weighted correlation if any branch lengths are between 0 and 1, and will use standard correlation otherwise.
+-   `winsorizeRER`/`winsorizetrait`: pulls the most extreme N values (default N=3) in both the positive and negative tails to the value of the N+1 most extreme value. This process mitigates the effect of extreme outliers before calculating correlations.
+-   `bootstrap`/`bootn`: Sets up for bootstrapping. `bootstrap` dictates whether the trees will be bootstrapped, and `bootn` represents how many iterations. We advise against both winsorizing and bootstrapping - either is good, but both is overkill.
 
 ```{r, warning = FALSE, cache = TRUE}
 corMarine=correlateWithBinaryPhenotype(mamRERw, phenvMarine, min.sp=10, min.pos=2,
-                                       weighted="auto")
+                                       weighted="auto", winsorizeRER=NULL, winsorizetrait=NULL,
+                                       bootstrap=FALSE, bootn=1000)
 ```
 
 The text displayed shows which correlation method is used to test for association. Here it uses the default for binary traits: the Kendall rank correlation coefficient, or Tau.

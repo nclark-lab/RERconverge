@@ -131,7 +131,6 @@ arma::mat fastLmResidMat(const arma::mat& Y, const arma::mat& X) {
   arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
   rmat.fill(arma::datum::nan);
   arma::uvec vec_i=arma::uvec(1);
-  int i,j;
   for (int i=0; i<Y.n_rows; i++){
     vec_i[0]=i;
     ids=isNotNArowvec(Y.row(i));
@@ -149,7 +148,6 @@ arma::mat fastLmPredictedMat(const arma::mat& Y, const arma::mat& X) {
   arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
   rmat.fill(arma::datum::nan);
   arma::uvec vec_i=arma::uvec(1);
-  int i,j;
   for (int i=0; i<Y.n_rows; i++){
     vec_i[0]=i;
     ids=isNotNArowvec(Y.row(i));
@@ -167,7 +165,6 @@ arma::mat fastLmResidMatWeighted(const arma::mat& Y, const arma::mat& X, const a
   arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
   rmat.fill(arma::datum::nan);
   arma::uvec vec_i=arma::uvec(1);
-  int i,j;
   for (int i=0; i<Y.n_rows; i++){
     vec_i[0]=i;
     ids=isNotNArowvec(Y.row(i));
@@ -186,7 +183,6 @@ arma::mat fastLmResidMatWeightedNoNACheck(const arma::mat& Y, const arma::mat& X
   arma::mat rmat=arma::mat(Y.n_rows, Y.n_cols);
 
   arma::uvec vec_i=arma::uvec(1);
-  int i,j;
   int nc=rmat.n_cols-1;
   for (int i=0; i<Y.n_rows; i++){
     rmat.submat(arma::span(i,i),arma::span(0, nc))=fastLmResidWeighted(Y.submat(arma::span(i,i),arma::span(0, nc)), X, W.submat(arma::span(i,i),arma::span(0, nc)));

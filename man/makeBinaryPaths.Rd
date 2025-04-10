@@ -10,6 +10,9 @@ makeBinaryPaths(input, treesObj)
 \item{input}{Either a phenotype tree of class "phylo" (with branch length encoding a phenotype) or a character vector of foreground branches}
 
 \item{treesObj}{A treesObj created by \code{\link{readTrees}}}
+
+\item{transition}{A character string indicating whether transitions between background and foreground branches
+are "bidirectional" or "unidirectional" (no foreground to background transitions, the default)}
 }
 \value{
 A vector of length equal to the number of paths in treesObj

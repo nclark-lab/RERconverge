@@ -4,7 +4,7 @@
 \alias{fastwilcoxGMTall}
 \title{Performs Wilcoxon Rank-Sum pathway enrichment on pathway genesets}
 \usage{
-fastwilcoxGMTall(vals, annotList, ...)
+fastwilcoxGMTall(vals, annotList, alternative = "two.sided", ...)
 }
 \arguments{
 \item{vals}{The output from getStat run on RERconverge correlation functions (correlateWithContinuousPhenotype, correlateWithBinaryPhenotype, getAllCor)}

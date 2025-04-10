@@ -659,10 +659,10 @@ returnRersAsTreesAll <- function(treesObj, rermat){
 #' @param rermat. A residual matrix, output of the getAllResiduals() function
 #' @param index. A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix
 #' @param phenv. A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}
+#' @param species_from/species_to. Name translations: two vectors of equal length with corresponding elements. The function will translate any occurrence of species_from[n] to species_to[n] (if applicable).
 #' @return A plot of the RERs with foreground species labelled in red, and the rest in blue
 #' @export
-
-plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method = 'k', xlims = NULL, plot = 1, xextend = 0.2, sortrers = F){
+plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species_from=NULL, species_to=NULL, method = 'k', xlims = NULL, plot = 1, xextend = 0.2, sortrers = F){
   # check if data is categorical
   if(!is.null(phenv) && length(unique(phenv[!is.na(phenv)])) > 2) {
     categorical = TRUE
@@ -672,119 +672,115 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, method 
   } else {
     categorical = FALSE
   }
-
+  
+  if(xor(!is.null(species_from),!is.null(species_to))){
+    stop("For name translation, you must provide both a \"from\" and a \"to\" list.")
+  }
+  if(!is.null(species_to)){
+    colnames(rermat) <- translateNames(species_from,species_to,colnames(rermat))
+  }
+  
+  
   if(is.null(rers)){
-      e1 = rermat[index,][!is.na(rermat[index,])]
-      colids = !is.na(rermat[index,])
-      e1plot <- e1
-      #print(e1plot)
-      if(exists('speciesNames')){
-          names(e1plot) <- speciesNames[names(e1),]
+    colids = !is.na(rermat[index,])
+    e1 = rermat[index,][colids]
+    e1plot <- e1
+    if(is.numeric(index)){
+      gen = rownames(rermat)[index]
+    }else{
+      gen = index
+    }
+  }else{
+    e1plot = rers
+    gen = 'rates'
+  }
+  names(e1plot)[is.na(names(e1plot))]=""
+  if(!is.null(phenv)){
+    phenvid = phenv[colids]
+    
+    if(categorical) {
+      fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)[[1]]
+    } else {
+      fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method) # get cors (to get rho and p)
+    }
+    
+    plottitle = paste0(gen, ': rho = ',round(fgdcor$Rho,4),', p = ',round(fgdcor$P,4))
+    #fgd = setdiff(names(e1plot)[phenvid == 1],"")
+    
+    # make color palette
+    if(categorical){
+      n = length(unique(phenvid))
+      if(n > length(palette())) {
+        pal = colorRampPalette(palette())(n)
+      } else{
+        pal = palette()[1:n]
       }
-      if(is.numeric(index)){
-         gen = rownames(rermat)[index]
-      }else{
-         gen = index
-      }
-     }else{
-      e1plot = rers
-      gen = 'rates'
-     }
-     names(e1plot)[is.na(names(e1plot))]=""
-     if(!is.null(phenv)){
-      phenvid = phenv[colids]
+    }
+    
+    if(categorical) {
+      df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
+        mutate(mole = as.factor(phenvid))
+    } else {
+      df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
+        mutate(mole = as.factor(ifelse(phenvid > 0,2,1))) # returns vector same length as phenv, if > 0 it is 2, otherwise it is 1, then converts these to factors
+    }
+    
+  }else{
+    plottitle = gen
+    #fgd = NULL
+    df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
+      mutate(mole = as.factor(ifelse(0,2,1)))
+  }
+  
+  #print(plottitle)
+  
+  
+  if(sortrers){
+    df = filter(df, species!="") %>%
+      arrange(desc(rer))
+  }
+  
+  if(is.null(xlims)) { ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
+  }  else            { ll=xlims
+  }
+  # create the plot #
+  {
+    g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(1,1,1,1))+ geom_point(aes(size=mole))
+    if(categorical) { g = g + scale_color_manual(values = pal)
+    } else          { g = g + scale_color_manual(values = c("deepskyblue3", "brown1"))
+    }
+    g <- g + scale_x_continuous(limits=ll)+
+      geom_text(hjust=1, size=2)+
+      ylab("Branches")+
+      xlab("relative rate")+
+      ggtitle(plottitle)+
+      geom_vline(xintercept=0, linetype="dotted")+
+      theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
+            panel.background = element_blank(),
+            axis.text=element_text(size=18,face='bold',colour = 'black'),
+            axis.title=element_text(size=24,face="bold"),
+            plot.title= element_text(size = 24, face = "bold"))+
+      theme(axis.line = element_line(colour = 'black',size = 1))+
+      theme(axis.line.y = element_blank())
+  }
+  # plot or return plot object #
+  if(plot){ print(g)
+  } else  { g
+  }
+}
 
-      if(categorical) {
-        fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)[[1]]
-      } else {
-        fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method) # get cors (to get rho and p)
-      }
-
-      plottitle = paste0(gen, ': rho = ',round(fgdcor$Rho,4),', p = ',round(fgdcor$P,4))
-      #fgd = setdiff(names(e1plot)[phenvid == 1],"")
-
-      # make color palette
-      if(categorical){
-        n = length(unique(phenvid))
-        if(n > length(palette())) {
-          pal = colorRampPalette(palette())(n)
-        } else{
-          pal = palette()[1:n]
-        }
-      }
-
-      if(categorical) {
-        df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
-          mutate(mole = as.factor(phenvid))
-      } else {
-        df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
-          mutate(mole = as.factor(ifelse(phenvid > 0,2,1))) # returns vector same length as phenv, if > 0 it is 2, otherwise it is 1, then converts these to factors
-      }
-
-     }else{
-      plottitle = gen
-      #fgd = NULL
-      df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
-          mutate(mole = as.factor(ifelse(0,2,1)))
-     }
-     #print(plottitle)
-     if(sortrers){
-      df = filter(df, species!="") %>%
-          arrange(desc(rer))
-     }
-     #print(df)
-     #df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
-     #     mutate(mole = as.factor(ifelse(names(e1plot) %in% fgd,2,1)))
-     #ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
-     if(is.null(xlims)){
-          ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
-     }else{
-          ll=xlims
-     }
-     # create the plot
-     if(categorical) {
-       g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(1,1,1,1))+ geom_point(aes(size=mole))+
-         scale_color_manual(values = pal) +
-         scale_x_continuous(limits=ll)+
-         # scale_x_continuous(expand = c(.1,.1))+
-         # geom_text(hjust=1, size=5)+
-         geom_text(hjust=1, size=2)+
-         ylab("Branches")+
-         xlab("relative rate")+
-         ggtitle(plottitle)+
-         geom_vline(xintercept=0, linetype="dotted")+
-         theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
-               panel.background = element_blank(),
-               axis.text=element_text(size=18,face='bold',colour = 'black'),
-               axis.title=element_text(size=24,face="bold"),
-               plot.title= element_text(size = 24, face = "bold"))+
-         theme(axis.line = element_line(colour = 'black',size = 1))+
-         theme(axis.line.y = element_blank())
-     } else {
-       g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(1,1,1,1))+ geom_point(aes(size=mole))+
-         scale_color_manual(values = c("deepskyblue3", "brown1"))+
-         scale_x_continuous(limits=ll)+
-         # scale_x_continuous(expand = c(.1,.1))+
-         # geom_text(hjust=1, size=5)+
-         geom_text(hjust=1, size=2)+
-         ylab("Branches")+
-         xlab("relative rate")+
-         ggtitle(plottitle)+
-         geom_vline(xintercept=0, linetype="dotted")+
-         theme(axis.ticks.y=element_blank(),axis.text.y=element_blank(),legend.position="none",
-               panel.background = element_blank(),
-               axis.text=element_text(size=18,face='bold',colour = 'black'),
-               axis.title=element_text(size=24,face="bold"),
-               plot.title= element_text(size = 24, face = "bold"))+
-         theme(axis.line = element_line(colour = 'black',size = 1))+
-         theme(axis.line.y = element_blank())
-     }
-     if(plot){
-      print(g)
-     }
-     else{
-      g
-     }
+# setup step to change names of plotRers points
+#' @keywords internal
+translateNames = function(from, to, row){
+  # from: original translation list
+  # to: what to change originals to
+  # row: operate on
+  if(length(from) != length(to)) stop("Length of translation lists must be the same!")
+  for(i in 1:length(to)){
+    if(is.na(to[i]))next;
+    row[which(row==from[i])] = to[i]
+  }
+  return(row)
 }
 
 

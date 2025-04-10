@@ -12,7 +12,9 @@ getAllCor(
   min.pos = 2,
   winsorizeRER = NULL,
   winsorizetrait = NULL,
-  weighted = F
+  weighted = F,
+  bootstrap = F,
+  bootn = 1000
 )
 }
 \arguments{
@@ -20,7 +22,7 @@ getAllCor(
 
 \item{charP}{phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
 
-\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override}
+\item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}.}
 
 \item{min.sp}{Minimum number of species that must be present for a gene}
 
@@ -31,6 +33,10 @@ getAllCor(
 \item{winsorizetrait}{Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme trait values at each end to the value closest to 0.}
 
 \item{weighted}{perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.}
+
+\item{bootstrap}{toggle bootstrapping (for weighted pearson correlation)}
+
+\item{bootn}{number of runs to use when bootstrapping. Will be ignored if bootstrap is false.}
 }
 \value{
 A list object with correlation values, p-values, and the number of data points used for each tree

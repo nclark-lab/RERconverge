@@ -9,7 +9,8 @@ foreground2Paths(
   treesObj,
   plotTree = F,
   clade = c("ancestral", "terminal", "all", "weighted"),
-  useSpecies = NULL
+  useSpecies = NULL,
+  transition = "unidirectional"
 )
 }
 \arguments{

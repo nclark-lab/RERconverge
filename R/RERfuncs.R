@@ -164,7 +164,8 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
   paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
   for( i in 1:treesObj$numTrees){
     #Make paths all NA if tree topology is discordant
-    paths[i,]=tryCatch(allPathMasterRelativeTrackBranches(treesObj$trees[[i]], master, ap), error=function(err) NA)
+    paths[i,]=allPathMasterRelativeTrackBranches(treesObj$trees[[i]], master, ap,i)
+    
     #calls matchAllNodes -> matchNodesInject
   }
   paths=paths+min(paths[paths>0], na.rm=T)
@@ -257,7 +258,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
 }
 
 #' @keywords  internal
-allPathMasterRelativeTrackBranches=function(tree, masterTree, masterTreePaths=NULL){
+allPathMasterRelativeTrackBranches=function(tree, masterTree, masterTreePaths=NULL,i=NULL){
   if(! is.list(masterTreePaths)){
     masterTreePaths=allPathsTrackBranches(masterTree)
   }
@@ -274,6 +275,10 @@ allPathMasterRelativeTrackBranches=function(tree, masterTree, masterTreePaths=NU
 
   vals=double(length(masterTreePaths$dist))
   vals[]=NA
+  if(sum(is.na(ii))>0 & !is.null(i)) {
+    message("error: discordant tree topology in tree", i)
+    return(vals)
+  }
   vals[ii]=treePaths$dist
   vals
 }

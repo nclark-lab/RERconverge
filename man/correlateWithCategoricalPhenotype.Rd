@@ -9,7 +9,9 @@ correlateWithCategoricalPhenotype(
   charP,
   min.sp = 10,
   min.pos = 2,
-  method = "kw"
+  method = "kw",
+  winsorizeRER = NULL,
+  winsorizetrait = NULL
 )
 }
 \arguments{
@@ -22,6 +24,10 @@ correlateWithCategoricalPhenotype(
 \item{min.pos}{Minimum number of species that must be present in a category}
 
 \item{method}{Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA. It must be one of the strings "kw" or "aov".}
+
+\item{winsorizeRER}{Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.}
+
+\item{winsorizetrait}{Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.}
 }
 \value{
 A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.

@@ -10,6 +10,8 @@ plotRers(
   index = NULL,
   phenv = NULL,
   rers = NULL,
+  species_from = NULL,
+  species_to = NULL,
   method = "k",
   xlims = NULL,
   plot = 1,
@@ -23,6 +25,8 @@ plotRers(
 \item{index.}{A character denoting the name of gene, or a numeric value corresponding to the gene's row index in the residuals matrix}
 
 \item{phenv.}{A phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{foreground2Paths}}}
+
+\item{species_from/species_to.}{Name translations: two vectors of equal length with corresponding elements. The function will translate any occurrence of species_from[n] to species_to[n] (if applicable).}
 }
 \value{
 A plot of the RERs with foreground species labelled in red, and the rest in blue
