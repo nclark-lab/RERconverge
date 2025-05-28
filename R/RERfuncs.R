@@ -2,7 +2,7 @@
 #'
 #'
 #' @docType package
-#' @author
+#' @author 
 #' @import Rcpp
 #' @importFrom Rcpp evalCpp
 #' @useDynLib RERconverge
@@ -22,164 +22,135 @@ require(FSA)
 require(Matrix)
 require(data.table)
 
-#' reads trees from a 2 column , tab seperated, file
+#' Reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
-
+#' This function is faster thatn readTrees but returns paths in a different indexing order
 #' @param file The path to the tree file
-#' @param  max.read This function takes a while for a whole genome, so max.read is useful for testing
+#' @param  max.read This function can take several minutes, so max.read is useful for testing
 #' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
-#' @param  masterTree (optional) User can specify a master tree. Recommended only when
-#' the number of available gene trees with all species is small.
-#' @param  minTreesAll The minimum number of trees with all species present in order to estimate
-#' master tree edge lengths (default 20).
+#' Recommended only when the number of available gene trees with all species is small.
+#' @param  minTreesAll The minimum number of trees with all species present in order to estimate master tree edge lengths (default 20).
 #' @param reestimateBranches Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)
 #' @param minSpecs the minimum number of species that needs to be present in a gene tree to be included in calculating master tree
+#' @param useSpecies Species subset to use (optional).
 #' @return A trees object of class "treeObj"
 #' @export
-readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimateBranches=F, minSpecs=NULL){
+readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimateBranches=F, minSpecs=NULL, useSpecies=NULL){
+  message("Using readTrees 2")
+  message("Reading data")
   tmp=scan(file, sep="\t", what="character", quiet = T)
-  message(paste0("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
+  keeptrees=rep(TRUE,length(trees))
   treenames=character()
   maxsp=0; # maximum number of species
-  allnames=NA # unique tip labels in gene trees
-
-
-
-  #create trees object, get species names and max number of species
+  
   for ( i in 1:min(length(tmp),max.read*2, na.rm = T)){
     if (i %% 2==1){
       treenames=c(treenames, tmp[i])
     }
     else{
-      trees[[i/2]]=tryCatch(unroot(read.tree(text=tmp[i])),
-                            error = function(e) {
-                              message('Cannot parse tree for the following gene: ',treenames[i/2]);
-                              stop()
-                            })
-
-      #reduce to species present in master tree
-      if (!is.null(masterTree)) {
-        trees[[i/2]] = pruneTree(trees[[i/2]],intersect(trees[[i/2]]$tip.label,masterTree$tip.label))
+      trees[[i/2]]=unroot(read.tree(text=tmp[i]))
+      if (i == 2){  #initial setup
+        if(!is.null(useSpecies)){allnames=intersect(trees[[i/2]]$tip.label,useSpecies)
+        } else {allnames=trees[[i/2]]$tip.label}
       }
-
-      # #check if it has more species
-      # if(length(trees[[i/2]]$tip.label)>maxsp){
-      #   maxsp=length(trees[[i/2]]$tip.label)
-      #   allnames=trees[[i/2]]$tip.label
-      # }
-
-      #check if it has new species
-      if (sum(trees[[i/2]]$tip.label %in% allnames == F) > 0) {
+      
+      #check useSpecies parameter
+      if(!is.null(useSpecies)){
+        if(length(intersect(trees[[i/2]]$tip.label,useSpecies)) < 3){
+          keeptrees[[i/2]] = FALSE; next;
+        }
+        trees[[i/2]] = unroot(keep.tip(trees[[i/2]],intersect(trees[[i/2]]$tip.label,useSpecies)))
+      }
+      
+      #check if it has more species
+      if(length(trees[[i/2]]$tip.label)>maxsp){
         allnames = unique(c(allnames,trees[[i/2]]$tip.label))
-        maxsp = length(allnames) - 1
-
+        maxsp = length(allnames)
       }
-      #if(length(trees[[i/2]]$tip.label)>maxsp){
-      #  maxsp=length(trees[[i/2]]$tip.label)
-      #  allnames=trees[[i/2]]$tip.label
-      #}
-
     }
-
+    
   }
-
-
-  allnames = allnames[!is.na(allnames)]
+  trees = trees[keeptrees]
+  treenames = treenames[keeptrees]
   names(trees)=treenames
   treesObj=vector(mode = "list")
   treesObj$trees=trees
   treesObj$numTrees=length(trees)
   treesObj$maxSp=maxsp
-
-  message(paste("max is", maxsp))
-
-
-
-  ### report is a binary matrix showing the species membership of each tree
+  message("Done")
+  message(paste("Max number of species is ", maxsp))
+  
   report=matrix(nrow=treesObj$numTrees, ncol=maxsp)
   colnames(report)=allnames
-
+  
   rownames(report)=treenames
   for ( i in 1:nrow(report)){
     ii=match(allnames, trees[[i]]$tip.label)
     report[i,]=1-is.na(ii)
-
+    
   }
   treesObj$report=report
-
-  ############ This line finds indices of trees that have the complete species
-  ii=which(rowSums(report)==maxsp)
-
-
-
-  ######################################################################
-  if(length(ii)==0 & is.null(masterTree)){
-    stop("no tree has all species - you must supply a master tree")
-  }
-  ######################################################################
-
-
-  #Create a master tree with no edge lengths
-  if (is.null(masterTree)) {
+  
+  
+  if(is.null(masterTree)){
+    
+    
+    ii=which(rowSums(report)==maxsp)
+    
+    #Create a master tree with no edge lengths
     master=trees[[ii[1]]]
     master$edge.length[]=1
-    treesObj$masterTree=master
-  } else {
-
-    master=pruneTree(masterTree, intersect(masterTree$tip.label,allnames))
-    #prune tree to just the species names in the largest gene tree
-    master$edge.length[]=1
-
-    master=unroot(pruneTree(masterTree, intersect(masterTree$tip.label,allnames)))
-    #prune tree to just the species names in the gene trees
-    #master$edge.length[]=1
-
-    treesObj$masterTree=master
   }
-
-
-  treesObj$masterTree=rotateConstr(treesObj$masterTree, sort(treesObj$masterTree$tip.label))
-  #this gets the abolute alphabetically constrained order when all branches
-  #are present
-  tiporder=treeTraverse(treesObj$masterTree)
-
-  #treesObj$masterTree=CanonicalForm(treesObj$masterTree)
-  message("Rotating trees")
-
+  else{
+    master=masterTree
+  }
+  
+  
+  
+  master=Preorder(master)
+  treesObj$masterTree=master
+  
   for ( i in 1:treesObj$numTrees){
-
-    treesObj$trees[[i]]=rotateConstr(treesObj$trees[[i]], tiporder)
-
+    treesObj$trees[[i]]=RenumberTips(treesObj$trees[[i]], master$tip.label)
+    treesObj$trees[[i]]=Preorder(treesObj$trees[[i]])
+    
   }
-
-
-  ap=allPathsTrackBranches(master)
+  
+  ap=allPathsTT(master)
   treesObj$ap=ap
   matAnc=(ap$matIndex>0)+1-1
   matAnc[is.na(matAnc)]=0
-
-
-
+  
   paths=matrix(nrow=treesObj$numTrees, ncol=length(ap$dist))
+  
+  pb <- progress_bar$new(format = "(:spin) [:bar] :percent [Elapsed time: :elapsedfull || Estimated time remaining: :eta]",
+                         total = treesObj$numTrees,
+                         complete = "=",   # Completion bar character
+                         incomplete = "-", # Incomplete bar character
+                         current = ">",    # Current bar character
+                         clear = FALSE,    # If TRUE, clears the bar when finish
+                         width = 100)      # Width of the progress bar
+  
+  message("Extracting paths")
   for( i in 1:treesObj$numTrees){
-    #Make paths all NA if tree topology is discordant
-    paths[i,]=allPathMasterRelativeTrackBranches(treesObj$trees[[i]], master, ap,i)
-    
-    #calls matchAllNodes -> matchNodesInject
+    pb$tick()
+    paths[i,]=allPathsMasterRelativeTT(treesObj$trees[[i]], master, ap)
   }
-  paths=paths+min(paths[paths>0], na.rm=T)
+  
+  
+  #  paths=paths+min(paths[paths>0], na.rm=T)
   treesObj$paths=paths
   treesObj$matAnc=matAnc
   treesObj$matIndex=ap$matIndex
   treesObj$lengths=unlist(lapply(treesObj$trees, function(x){sqrt(sum(x$edge.length^2))}))
-
+  
   #require all species and tree compatibility
   #ii=which(rowSums(report)==maxsp)
   ii=intersect(which(rowSums(report)==maxsp),which(is.na(paths[,1])==FALSE))
-
-
-
+  
+  
+  
   #if masterTree is provided by user, must use minSpecs<maxsp
   #if no user supplied tree and not minSpec, calculate branch lengths from trees with all species
   #if minSpecs<maxsp, calculate branch lengths from trees with minSpecs species
@@ -188,18 +159,18 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
     #minimum is all species
     minSpecs=maxsp
   }
-
+  
   if(!is.null(masterTree) && !reestimateBranches){
     message("Using user-specified master tree")
   }
-
-
+  
+  
   if(minSpecs==maxsp){ #if we're using all species
     if (is.null(masterTree)) { #and if the user did not specify a master tree
       if(length(ii)>=minTreesAll){
-        message (paste0("estimating master tree branch lengths from ", length(ii), " genes"))
+        message (paste0("Estimating master tree branch lengths from ", length(ii), " genes"))
         tmp=lapply( treesObj$trees[ii], function(x){x$edge.length})
-
+        
         allEdge=matrix(unlist(tmp), ncol=2*maxsp-3, byrow = T)
         allEdge=scaleMat(allEdge)
         allEdgeM=apply(allEdge,2,mean)
@@ -214,48 +185,52 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
     #estimating from trees with minimum number of species
     treeinds=which(rowSums(report)>=minSpecs) #which trees have the minimum species
     message (paste0("estimating master tree branch lengths from ", length(treeinds), " genes"))
-
-
+    
+    
     if(length(treeinds)>=minTreesAll){
       pathstouse=treesObj$paths[treeinds,] #get paths for those trees
-
+      
       colnames(pathstouse) = ap$destinNode
       colBranch = vector("integer",0)
       unq.colnames = unique(colnames(pathstouse))
-
+      
       for (i in 1:length(unq.colnames)){
         ind.cols = which(colnames(pathstouse) == unq.colnames[i])
         colBranch = c(colBranch,ind.cols[1])
       }
-
+      
       allEdge = pathstouse[,colBranch]
       allEdgeScaled = allEdge
       for (i in 1:nrow(allEdgeScaled)){
         allEdgeScaled[i,] = scaleDistNa(allEdgeScaled[i,])
       }
       colnames(allEdgeScaled) = unq.colnames
-
+      
       edgelengths = vector("double", ncol(allEdgeScaled))
-
+      
       edge.master = treesObj$masterTree$edge
-
+      
       for (i in 1:nrow(edge.master)){
         destinNode.i = edge.master[i,2]
         col.Node.i = allEdgeScaled[,as.character(destinNode.i)]
         edgelengths[i] = mean(na.omit(col.Node.i))
       }
-
+      
       treesObj$masterTree$edge.length = edgelengths
     }else{
       message("Not enough genes with minSpecs species present: master tree has no edge.lengths")
     }
   }
-
+  
+  
   message("Naming columns of paths matrix")
-  colnames(treesObj$paths)=namePathsWSpecies(treesObj$masterTree)
+  colnames(treesObj$paths)=namePathsWSpeciesTT(treesObj)
+  
+  
   class(treesObj)=append(class(treesObj), "treesObj")
   treesObj
 }
+
 
 #' @keywords  internal
 allPathMasterRelativeTrackBranches=function(tree, masterTree, masterTreePaths=NULL,i=NULL){
@@ -602,8 +577,8 @@ getChildren=function(tree, nodeN){
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
 #' @param weighted perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.
-#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.
-#' @param winsorizetrait Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.
+#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.
+#' @param winsorizetrait Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.
 #' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
 #' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
 #' @export
@@ -761,12 +736,13 @@ kwdunn.test <- function(x,g, ncategories){
 #' @param weighted perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.
 #' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
 #' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
+#' @param sort whether to sort by p-value and sign of rho
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
 getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeRER=NULL, winsorizetrait=NULL,
-                      weighted=F, bootstrap=F, bootn = 1000){
-  # behold, the polished more readable getAllCor mk. III!
+                   weighted=F, bootstrap=F, bootn = 1000,sort=F){
+  # behold, the potent getAllCor mk. IV.
   RERna=(apply(is.na(RERmat),2,all))
   iicharPna=which(is.na(charP))
   if(!all(RERna[iicharPna])){
@@ -776,11 +752,8 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
     print("Warning: generally winsorizing and bootstrapping for outlier control is overkill. If you don't specifically intend to do this, don't waste your compute time!")
   }
   # Exit function if non-extant correlation attempted
-  if (method=="k" && weighted){stop("Error: weighted Kendall correlation currently not supported")}
-  if (method=="s" && weighted){stop("Error: weighted Spearman correlation currently not supported")}
-  if (method=="kw" && weighted){stop("Error: weighted Kruskall/Wallis correlation currently not supported")}
-  if (method=="aov" && weighted){stop("Error: weighted ANOVA correlation currently not supported")}
   if (method!="p" && weighted){stop("Error: currently, only a weighted pearson correlation is supported. Input method=\"p\".")}
+  if (!weighted && !(method %in% c("kw","aov","k","p","s"))){stop("Error: for an unweighted correlation, currently we only support ANOVA, Kruskal/Wallis, Spearman, Kendall, or Pearson correlations. (method=\"aov\",\"kw\",\"s\",\"k\",\"p\", respectively)")}
   
   win=function(x,n){
     #windsorizing: outlier control. sets the n highest values to the n+1th highest, same with lows
@@ -842,13 +815,10 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
       
       ########################################################################## winsorization setup v
       x=RERmat[i,ii]
+      y=charP[ii]
       if(!is.null(winsorizeRER)){ x=win(x, winsorizeRER) }
-      if(!is.null(winsorizetrait)){
-        y=win(charP[ii], winsorizetrait)
-      }else{
-        y=charP[ii]
-      }
-
+      if(!is.null(winsorizetrait)){y=win(charP[ii], winsorizetrait)}
+      
       ########################################################################## AOV unweighted v
       if(!weighted && method == "aov") {
         # ANOVA
@@ -865,9 +835,9 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
         effect_size = sumsq / (sumsq + sumsqres)
         ares_pval = summary(ares)[[1]][1,5]
         corout[i,1:3]=c(effect_size, nb, ares_pval)
-
+        
         tukey = TukeyHSD(ares)
-
+        
         # add names to tables that haven't been named yet
         groups = rownames(tukey[[1]])
         unnamedinds = which(is.na(names(tables)))
@@ -915,7 +885,7 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
         
         #skip iteration if the phenotype vector has no good intersects (distinct from the NA filter earlier)
         if(sum(y) == 0) { next }
-
+        
         charPb=(y>0)+1-1
         weights=y
         weights[weights==0]=1
@@ -957,9 +927,28 @@ getAllCor=function(RERmat, charP, method="auto",min.sp=10, min.pos=2, winsorizeR
       tables[[i]]$p.adj = p.adjust(tables[[i]]$P, method = "BH")
     }
     # return corout and tables
-    return(list(corout,tables))
+    
+    
+    
+    if(!sort){return(list(corout,tables))}
+    else{
+      corout$stat = -log10(corout$P) * sign(corout$Rho)
+      corout<-corout[order(corout$stat, decreasing = TRUE),]
+      return(list(corout,tables))
+    }
+    
+    
   }
-  else {corout}
+  else {
+    if(!sort){return(corout)}
+    else{
+      corout$stat = -log10(corout$P) * sign(corout$Rho)
+      corout<-corout[order(corout$stat, decreasing = TRUE),]
+      return(corout)
+    }
+  }
+  
+  
 }
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype vector for phenotype values at the tips of the tree

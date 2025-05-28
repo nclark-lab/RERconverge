@@ -12,6 +12,7 @@
 require(dplyr)
 require(ggplot2)
 require(ggtree)
+require(ape)
 
 if(F){
 multiplot = function(..., plotlist=NULL, file, cols=1, layout=NULL, widths=NULL, heights=NULL, flip=F) {
@@ -769,7 +770,7 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
   }
 }
 
-# setup step to change names of plotRers points
+#' setup step to change names of plotRers points
 #' @keywords internal
 translateNames = function(from, to, row){
   # from: original translation list
@@ -781,6 +782,18 @@ translateNames = function(from, to, row){
     row[which(row==from[i])] = to[i]
   }
   return(row)
+}
+
+translateTree = function(from, to, tree){
+  # from: original translation list
+  # to: what to change originals to
+  # row: operate on
+  if(length(from) != length(to)) stop("Length of translation lists must be the same!")
+  for(i in 1:length(to)){
+    if(is.na(to[i]))next;
+    tree$tip.label[which(tree$tip.label==from[i])] = to[i]
+  }
+  return(tree)
 }
 
 
@@ -841,8 +854,16 @@ nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
 #' @return A plot of the the (optionally rerooted) tree, with branches highlighted.
 #' @export
 
-plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NULL, main="", useGG=FALSE){
-
+plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NULL, species_from=NULL, species_to=NULL, main="", useGG=FALSE){
+  if(xor(!is.null(species_from),!is.null(species_to))){
+    stop("For name translation, you must provide both a \"from\" and a \"to\" list.")
+  }
+  if(!is.null(species_to)){
+    tree$tip.label = translateNames(species_from,species_to,tree$tip.label)
+  }
+    
+    
+    
   if (is.null(hlcols)) {
     hlcols <- c(2:(length(hlspecies)+1))
   }
@@ -1019,4 +1040,87 @@ plotTreeCategorical = function(tree, category_names = NULL, master = NULL,
            col = colors,
            lwd = 2)
   }
+}
+
+
+# formerly new_plotTreeHighlightBranches.R
+
+#' @param hlspecies the species to highlight
+#' @param hlcols the colors to highlight those species with
+#' @param main the name to give the plot
+plotTreeHighlightBranches = function(tree, outgroup=NULL, hlspecies, hlcols=NULL, main="")
+{
+  if (!is.null(outgroup)) {
+    outgroup <- outgroup[outgroup %in% tree$tip.label]
+    if (length(outgroup) > 0) {
+      #root the tree
+      rooted <- root(tree, outgroup)
+    } else {
+      print("No members of requested outgroup found in tree; keeping unrooted.")
+      rooted <- tree
+      outgroup <- NULL
+    }
+  } else {
+    rooted <- tree
+  }
+  
+  #if hlcols is null make branches blue
+  if (is.null(hlcols)) {
+    hlcols <- rep_len("#0000ff", length(hlspecies)) #if there are fewer colors than species to highlight, repeat colors
+  }else if (length(hlcols) < length(hlspecies)) {
+    hlcols <- rep_len(hlcols, length(hlspecies)) 
+  }
+  
+  #create hlspecies_named
+  hlspecies_named <- vector(mode="character")
+  if(is.numeric(hlspecies)){
+    for(i in 1: length(hlspecies))
+    {
+      hlspecies_named[i] <- tree$tip.label[hlspecies[i]]
+    }
+  }else
+    hlspecies_named <- hlspecies
+  
+  #Make branches of length 0 just *slightly* larger values to visualize tree
+  rooted2 <- rooted
+  mm <- min(rooted2$edge.length[rooted2$edge.length>0])
+  rooted2$edge.length[rooted2$edge.length==0] <- max(0.02,mm/20)
+  
+  
+  #vector of tip label colors
+  tipCols <- vector(mode = "character")
+  x <- 1
+  for(i in 1: length(tree$tip.label))
+  {
+    if(tree$tip.label[i] %in% hlspecies_named)
+    {
+      tipCols[i] <- hlcols[x]
+      x <- x+1
+    }
+    else tipCols[i] <- "black"
+  }
+  
+  #number of labels
+  nlabel <- rooted2$Nnode + length(rooted2$tip.label)
+  
+  edgeCols <- vector(mode="character", length=nlabel)
+  x <- 1
+  for(i in 1: nlabel)
+  {
+    if(i < length(rooted2$tip.label))
+    {
+      if(rooted2$tip.label[i] %in% hlspecies_named)
+      {
+        edgeCols[i] <- hlcols[x]
+        x <- x+1
+      }else
+        edgeCols[i] <- "Black"
+    }else
+      edgeCols[i] <- "Black"
+  }
+  
+  plotobj = ggtree(rooted2, color = edgeCols)
+  plotobj = plotobj + geom_tiplab(color= tipCols, geom="text", cex = 3) + labs(title = main)
+  
+  return(plotobj)
 }
