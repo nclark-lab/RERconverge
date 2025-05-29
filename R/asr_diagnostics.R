@@ -2,7 +2,6 @@
 #'
 #'
 #' @docType package
-#' @author
 #' @import Rcpp
 #' @importFrom Rcpp evalCpp
 #' @useDynLib RERconverge

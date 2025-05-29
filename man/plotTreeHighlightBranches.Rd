@@ -9,12 +9,23 @@ plotTreeHighlightBranches(
   outgroup = NULL,
   hlspecies,
   hlcols = NULL,
-  main = "",
-  useGG = FALSE
+  main = ""
+)
+
+plotTreeHighlightBranches(
+  tree,
+  outgroup = NULL,
+  hlspecies,
+  hlcols = NULL,
+  main = ""
 )
 }
 \arguments{
-\item{useGG}{option to creat plot with ggtree. Improves plot readability for most data sets.}
+\item{hlspecies}{the species to highlight}
+
+\item{hlcols}{the colors to highlight those species with}
+
+\item{main}{the name to give the plot}
 
 \item{tree.}{A tree object.}
 
@@ -25,6 +36,8 @@ plotTreeHighlightBranches(
 \item{hlcols.}{Colors to use in highlighting the branches. If not specified, will use default R colors.}
 
 \item{main.}{Main text for plot.}
+
+\item{useGG}{option to creat plot with ggtree. Improves plot readability for most data sets.}
 }
 \value{
 A plot of the the (optionally rerooted) tree, with branches highlighted.

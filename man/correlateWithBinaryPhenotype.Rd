@@ -27,9 +27,9 @@ correlateWithBinaryPhenotype(
 
 \item{weighted}{perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.}
 
-\item{winsorizeRER}{Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.}
+\item{winsorizeRER}{Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.}
 
-\item{winsorizetrait}{Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the value closest to 0.}
+\item{winsorizetrait}{Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.}
 
 \item{bootstrap}{toggle bootstrapping (for weighted pearson correlation)}
 
