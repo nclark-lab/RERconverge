@@ -29,7 +29,7 @@ knitr::opts_chunk$set(echo = TRUE)
 - Illustrate 'useSpecies' for foreground2Tree. 
 - Add information about enrichment functions. -->
 
-This walkthrough provides instructions for implementing the RERconverge package to identify genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the [wiki](https://github.com/nclark-lab/RERconverge/wiki/install). Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).
+This walkthrough provides instructions for implementing the RERconverge package to identify genes whose evolutionary rates shift in association with change in a trait. For information on how to download and install RERconverge, see the __[wiki](https://github.com/nclark-lab/RERconverge/wiki/install)__. Source code and a quick start guide are available on [github](https://github.com/nclark-lab/RERconverge).
 
 # Overview
 The following document describes the steps necessary to perform a standard RERconverge analysis to identify genomic elements with convergent **rates of evolution** in phenotypically convergent species using a **binary** trait or a **continuous** trait. 
@@ -107,7 +107,7 @@ Briefly, RERs are calculated by normalizing branch lengths across all trees by t
 
 We will use the `getAllResiduals` function to calculate RERs. This uses the following input variables (all the options set here are also the defaults):
 
-* `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the species in our AdultWeightLog vector that will be used for continuous trait analysis. Note that these are also the same species used for binary trait analysis.
+* `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis, or conversely used to exclude species from analyses (branches leading to these species will be set to NA). Here we will use the species in our AdultWeightLog vector that will be used for continuous trait analysis. Note that these are also the same species used for binary trait analysis.
 * `transform`: the method used to transform the raw data. By transforming the raw data, we reduce the heteroscedasticity (relationship between mean and variance) and the influence of outliers. Here we will use a square-root transform.
 * `weighted`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data. 
 * `scale`: whether to scale the individual branches of the gene trees to account for variance across trees. This scales the variance, though not the mean, of each branch length, using the R function `scale`.
@@ -395,7 +395,7 @@ We must convert the trait vector to paths comparable to the paths in the RER mat
 Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls: <Anonymous> ... handle -> withCallingHandlers -> withVisible -> eval -> eval -->
 ```{r chunk_name, include=FALSE}
 #Modify this for a local machine
-repopath = '~/Documents/GitHub/RERConverge'
+repopath = '~/Documents/GitHub/RERconverge'
 if (!exists("char2Paths",mode="function")) {
   source(paste(repopath,"/R/RERfuncs.R",sep=""))
 }
