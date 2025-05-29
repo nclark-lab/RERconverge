@@ -21,6 +21,8 @@ require("castor")
 require(FSA)
 require(Matrix)
 require(data.table)
+require(progress)
+require(TreeTools)
 
 #' Reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
@@ -233,27 +235,30 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
 
 
 #' @keywords  internal
-allPathMasterRelativeTrackBranches=function(tree, masterTree, masterTreePaths=NULL,i=NULL){
+allPathsMasterRelativeTT =function (tree, masterTree, masterTreePaths=NULL,i=NULL){
+  
   if(! is.list(masterTreePaths)){
-    masterTreePaths=allPathsTrackBranches(masterTree)
+    masterTreePaths=allPathsTT(masterTree)
   }
-
-  treePaths=allPaths(tree)
-  map=matchAllNodes(tree,masterTree)
-
+  
+  treePaths=allPathsTT(tree, needIndex = F)
+  map=matchAllnodesTT(tree,masterTree)
+  
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
   treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
-
-
-  ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
-
+  
+  
+  #ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
+  ii=masterTreePaths$matIndex[cbind(treePaths$nodeId[,1],treePaths$nodeId[,2])]
   vals=double(length(masterTreePaths$dist))
-  vals[]=NA
+  
   if(sum(is.na(ii))>0 & !is.null(i)) {
-    message("error: discordant tree topology in tree", i)
+    message("warning: discordant tree topology in tree ", i,", returning NA row",sep="")
     return(vals)
   }
+
+  vals[]=NA
   vals[ii]=treePaths$dist
   vals
 }
@@ -287,6 +292,12 @@ allPathsTrackBranches=function(tree){
   }
   return(list(dist=allD, nodeId=nn, matIndex=matIndex, destinNode=destinNode, ancNode=ancNode))
 }
+
+#' @keywords  internal
+scaleMat =function (mat){t(apply(mat,1,scaleDist))}
+
+#' @keywords  internal
+scaleDist =function (x){ x/sqrt(sum(x^2)) }
 
 #' @keywords  internal
 scaleDistNa=function(x){
@@ -3277,4 +3288,48 @@ matchNodesInjectUpdate=function (tr1, tr2){
   ii
   #ii=ii[order(ii[,1]),]
 }
+
+## v2 functions for readtrees2 ##
+
+
+allPathsTT =function (tree, needIndex=T){
+  pres=PathLengths(tree)
+  
+  allD=pres[,3]
+  
+  nA=length(tree$tip.label)+tree$Nnode
+  if(needIndex){
+    matIndex=matrix(nrow=nA, ncol=nA)
+    for( j in 1:nrow(pres)){
+      matIndex[pres[j,2], pres[j,1]]=j
+    }
+    
+    
+    return(list(dist=allD, nodeId=pres[,c(2,1)], matIndex=matIndex))
+  }
+  else{
+    return(list(dist=allD, nodeId=pres[,c(2,1)]))
+  }
+}
+
+matchAllnodesTT =function (tree, masterTree){
+  index = KeptVerts(masterTree, TipLabels(masterTree) %in% tree$tip.label)
+  key = which(index)
+  map = cbind(seq_along(key), key)
+  map
+}
+
+namePathsWSpeciesTT =function (treesObj){
+  cnames=vector("character", ncol(treesObj$paths))
+  
+  for(i in 1:ncol(treesObj$paths)){
+    tip=which(treesObj$matIndex==i, arr.ind = T)[,1]
+    #  show(tip)
+    if(tip<=treesObj$maxSp){
+      cnames[i]=treesObj$masterTree$tip.label[tip]
+    }
+  }
+  cnames
+}
+
 
