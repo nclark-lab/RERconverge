@@ -2,8 +2,9 @@
 % Please edit documentation in R/RERfuncs.R
 \name{readTrees}
 \alias{readTrees}
-\title{reads trees from a 2 column , tab seperated, file
-The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format}
+\title{Reads trees from a 2 column , tab seperated, file
+The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
+This function is faster thatn readTrees but returns paths in a different indexing order}
 \usage{
 readTrees(
   file,
@@ -11,28 +12,31 @@ readTrees(
   masterTree = NULL,
   minTreesAll = 20,
   reestimateBranches = F,
-  minSpecs = NULL
+  minSpecs = NULL,
+  useSpecies = NULL
 )
 }
 \arguments{
 \item{file}{The path to the tree file}
 
-\item{max.read}{This function takes a while for a whole genome, so max.read is useful for testing}
+\item{max.read}{This function can take several minutes, so max.read is useful for testing}
 
-\item{masterTree}{(optional) User can specify a master tree. Recommended only when
-the number of available gene trees with all species is small.}
+\item{masterTree}{(optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
+Recommended only when the number of available gene trees with all species is small.}
 
-\item{minTreesAll}{The minimum number of trees with all species present in order to estimate
-master tree edge lengths (default 20).}
+\item{minTreesAll}{The minimum number of trees with all species present in order to estimate master tree edge lengths (default 20).}
 
 \item{reestimateBranches}{Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)}
 
 \item{minSpecs}{the minimum number of species that needs to be present in a gene tree to be included in calculating master tree}
+
+\item{useSpecies}{Species subset to use (optional).}
 }
 \value{
 A trees object of class "treeObj"
 }
 \description{
-reads trees from a 2 column , tab seperated, file
+Reads trees from a 2 column , tab seperated, file
 The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
+This function is faster thatn readTrees but returns paths in a different indexing order
 }

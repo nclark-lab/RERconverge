@@ -14,7 +14,8 @@ getAllCor(
   winsorizetrait = NULL,
   weighted = F,
   bootstrap = F,
-  bootn = 1000
+  bootn = 1000,
+  sort = F
 )
 }
 \arguments{
@@ -37,6 +38,8 @@ getAllCor(
 \item{bootstrap}{toggle bootstrapping (for weighted pearson correlation)}
 
 \item{bootn}{number of runs to use when bootstrapping. Will be ignored if bootstrap is false.}
+
+\item{sort}{whether to sort by p-value and sign of rho}
 }
 \value{
 A list object with correlation values, p-values, and the number of data points used for each tree

@@ -2,7 +2,6 @@
 #'
 #'
 #' @docType package
-#' @author 
 #' @import Rcpp
 #' @importFrom Rcpp evalCpp
 #' @useDynLib RERconverge
@@ -292,12 +291,6 @@ allPathsTrackBranches=function(tree){
   }
   return(list(dist=allD, nodeId=nn, matIndex=matIndex, destinNode=destinNode, ancNode=ancNode))
 }
-
-#' @keywords  internal
-scaleMat =function (mat){t(apply(mat,1,scaleDist))}
-
-#' @keywords  internal
-scaleDist =function (x){ x/sqrt(sum(x^2)) }
 
 #' @keywords  internal
 scaleDistNa=function(x){
@@ -3331,5 +3324,14 @@ namePathsWSpeciesTT =function (treesObj){
   }
   cnames
 }
+
+edgeIndexRelativeMasterTT =function (tree, masterTree){
+  map=matchAllnodesTT(tree,masterTree)
+  newedge=tree$edge
+  newedge[,1]=map[newedge[,1],2]
+  newedge[,2]=map[newedge[,2],2]
+  newedge
+}
+
 
 
