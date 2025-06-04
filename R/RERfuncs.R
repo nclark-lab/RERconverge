@@ -1233,7 +1233,7 @@ transformPaths=function(treesObj, transform="sqrt", impute=T){
 #'
 #' @return A list containing calculated residuals
 #' @export
-gar_core=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
+coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
                   useSpecies=NULL,  min.sp=10, min.valid=20,
                   doOnly=NULL, maxT=NULL,
                   block.do=F, weights=NULL, use.weights=T, interaction=F){
@@ -1455,12 +1455,12 @@ gar_core=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
 
 #' Extract a maximal independent residual matrix for each feature Matrix
 #'
-#' @param resOut An object resulting from the NEW \code{\link{getAllResiduals2}} (NOT the original \code{\link{getAllResiduals}})
+#' @param resOut An object resulting from the NEW \code{\link{coreGetResiduals}} (NOT the original getAllResiduals)
 #' @param all Logical, indicating whether to return all of the residuals instead of the independent set(default is FALSE).
 #' @param use.rows A vector of indices of rows/features to return (default is NULL, which means all rows).
 #' @param norm A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").
 #'
-#' @return An residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
+#' @return A residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
 #' assuming all=FALSE
 #' @export
 getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
@@ -1504,6 +1504,33 @@ getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
 
 
 
+#' A wrapper function that runs \code{\link{transformPaths}}, \code{\link{coreGetResiduals}}, and \code{\link{getRMat}}.
+#' @param transform What transformation to apply. "sqrt" by default.
+#' @param impute Whether to impute missing data
+#' @return A treesObj with transformed paths
+#' 
+#' @param treesObj A trees object from readTrees or readTrees2
+#' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
+#' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
+#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
+#' @param useSpecies Species subset to use (optional).
+#' @param min.sp Minimum species in a tree.  (default: 10).
+#' @param min.valid Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).
+#' @param doOnly Only do specific trees (optional).
+#' @param maxT Maximum number of trees to do (optional, mostly useful for debugging).
+#' @param block.do Process rows in blocks (default: FALSE).
+#' @param weights Weights for calculations (optional, if treesObj has weights those are used).
+#' @param use.weights Can be used to turn off weighted regression.
+#' @param interaction Use PC interactions when building the normalization model (default: FALSE).
+#'
+#' @param resOut An object resulting from the NEW \code{\link{getAllResiduals2}} (NOT the original \code{\link{getAllResiduals}})
+#' @param all Logical, indicating whether to return all of the residuals instead of the independent set(default is FALSE).
+#' @param use.rows A vector of indices of rows/features to return (default is NULL, which means all rows).
+#' @param norm A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").
+#'
+#' @return An residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
+#' assuming all=FALSE
+#' @export
 getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths arguments
                          #--------------------------------------------------------#
                          nvMod=NULL, n.pcs=0, cutoff=NULL,      #
@@ -1518,7 +1545,7 @@ getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths
   
   tree2 = transformPaths(treesObj, transform = transform, impute = impute)
   
-  resids = gar_core(tree2, nvMod=nvMod, n.pcs=n.pcs, cutoff=cutoff,
+  resids = coreGetResiduals(tree2, nvMod=nvMod, n.pcs=n.pcs, cutoff=cutoff,
                     useSpecies=useSpecies, min.sp=min.sp, min.valid=min.valid,
                     doOnly=doOnly,maxT=maxT, block.do=block.do, weights=weights,
                     use.weights=use.weights, interaction=interaction)
