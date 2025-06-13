@@ -585,8 +585,9 @@ getChildren=function(tree, nodeN){
 #' @param winsorizetrait Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.
 #' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
 #' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
+#' @param sort whether to sort by p-value and sign of rho
 #' @export
-correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto",winsorizeRER=NULL, winsorizetrait=NULL, bootstrap=F, bootn=1000){
+correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto",winsorizeRER=NULL, winsorizetrait=NULL, bootstrap=F, bootn=1000,sort=F){
   if(weighted=="auto"){
     if (any(charP>0&charP<1, na.rm=TRUE)){
       message("Fractional values detected, will use weighted correlation mode")
@@ -598,7 +599,7 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
   }
   #method is k if we do unweighted, method is p if we weight
   if (weighted){
-    getAllCor(RERmat, charP, min.sp, min.pos, method="p", weighted=weighted, winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait, bootstrap=bootstrap,bootn=bootn)
+    getAllCor(RERmat, charP, min.sp, min.pos, method="p", weighted=weighted, winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait, bootstrap=bootstrap,bootn=bootn,sort=sort)
   }
   else{
     getAllCor(RERmat, charP, min.sp, min.pos, method="k", weighted=weighted, winsorizeRER=winsorizeRER, bootstrap=bootstrap,bootn=bootn)
@@ -614,28 +615,30 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
 #' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
+#' @param sort whether to sort by p-value and sign of rho
 #' @export
 
-correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER=3, winsorizetrait=3){
-  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorizeRER = winsorizeRER, winsorizetrait = winsorizetrait)
+correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER=3, winsorizetrait=3,sort=F){
+  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorizeRER = winsorizeRER, winsorizetrait = winsorizetrait,sort=sort)
 }
 
 
 #' Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a categorical phenotype made with \code{\link{char2PathsCategorical}}
-#'@param RERmat RER matrix returned by \code{\link{getAllResiduals}}
-#'@param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
-#'@param method Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA. It must be one of the strings "kw" or "aov".
-#'@param min.sp Minimum number of species that must be present for a gene
-#'@param min.pos Minimum number of species that must be present in a category
-#'@param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
-#'@param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
-#'@return A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
-#'@export
-correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos = 2, method = "kw", winsorizeRER=NULL, winsorizetrait=NULL){
+#' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
+#' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' @param method Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA. It must be one of the strings "kw" or "aov".
+#' @param min.sp Minimum number of species that must be present for a gene
+#' @param min.pos Minimum number of species that must be present in a category
+#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
+#' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
+#' @param sort whether to sort by p-value and sign of rho
+#' @return A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
+#' @export
+correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos = 2, method = "kw", winsorizeRER=NULL, winsorizetrait=NULL,sort=F){
   if(!(method %in% c("kw", "aov"))) {
     warning("Invalid method. The method must be kw or aov")
   }
-  getAllCor(RERmat, charP, min.sp, min.pos, method = method,winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait)
+  getAllCor(RERmat, charP, min.sp, min.pos, method = method,winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait,sort=sort)
 }
 
 #' A sped up version of the Kruskal Wallis/Dunn Test
