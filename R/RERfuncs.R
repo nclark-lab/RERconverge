@@ -41,7 +41,7 @@ require(impute)
 readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimateBranches=F, minSpecs=NULL, useSpecies=NULL){
   message("Using readTrees 2")
   tmp=scan(file, sep="\t", what="character", quiet = T)
-  message(paste0("Read ",length(tmp)/2, " items", collapse=""))
+  message(paste("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   keeptrees=rep(TRUE,length(trees))
   treenames=character()
