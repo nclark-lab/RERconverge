@@ -27,7 +27,7 @@ require(impute)
 
 #' Reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
-#' This function is faster thatn readTrees but returns paths in a different indexing order
+#' This function is faster than readTrees but returns paths in a different indexing order
 #' @param file The path to the tree file
 #' @param  max.read This function can take several minutes, so max.read is useful for testing
 #' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
@@ -40,8 +40,8 @@ require(impute)
 #' @export
 readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimateBranches=F, minSpecs=NULL, useSpecies=NULL){
   message("Using readTrees 2")
-  message("Reading data")
   tmp=scan(file, sep="\t", what="character", quiet = T)
+  message(paste0("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   keeptrees=rep(TRUE,length(trees))
   treenames=character()
@@ -427,6 +427,7 @@ allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
   
   
   ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
+  print(sum(is.na(ii)))
   
   vals=double(length(masterTreePaths$dist))
   vals[]=NA
@@ -575,8 +576,9 @@ getChildren=function(tree, nodeN){
 #' @param winsorizetrait Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.
 #' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
 #' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
+#' @param sort whether to sort by p-value and sign of rho
 #' @export
-correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto",winsorizeRER=NULL, winsorizetrait=NULL, bootstrap=F, bootn=1000){
+correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto",winsorizeRER=NULL, winsorizetrait=NULL, bootstrap=F, bootn=1000,sort=F){
   if(weighted=="auto"){
     if (any(charP>0&charP<1, na.rm=TRUE)){
       message("Fractional values detected, will use weighted correlation mode")
@@ -588,7 +590,7 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
   }
   #method is k if we do unweighted, method is p if we weight
   if (weighted){
-    getAllCor(RERmat, charP, min.sp, min.pos, method="p", weighted=weighted, winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait, bootstrap=bootstrap,bootn=bootn)
+    getAllCor(RERmat, charP, min.sp, min.pos, method="p", weighted=weighted, winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait, bootstrap=bootstrap,bootn=bootn,sort=sort)
   }
   else{
     getAllCor(RERmat, charP, min.sp, min.pos, method="k", weighted=weighted, winsorizeRER=winsorizeRER, bootstrap=bootstrap,bootn=bootn)
@@ -604,28 +606,30 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
 #' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
+#' @param sort whether to sort by p-value and sign of rho
 #' @export
 
-correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER=3, winsorizetrait=3){
-  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorizeRER = winsorizeRER, winsorizetrait = winsorizetrait)
+correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER=3, winsorizetrait=3,sort=F){
+  getAllCor(RERmat, charP, min.sp, min.pos=0, method = "p", winsorizeRER = winsorizeRER, winsorizetrait = winsorizetrait,sort=sort)
 }
 
 
 #' Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a categorical phenotype made with \code{\link{char2PathsCategorical}}
-#'@param RERmat RER matrix returned by \code{\link{getAllResiduals}}
-#'@param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
-#'@param method Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA. It must be one of the strings "kw" or "aov".
-#'@param min.sp Minimum number of species that must be present for a gene
-#'@param min.pos Minimum number of species that must be present in a category
-#'@param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
-#'@param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
-#'@return A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
-#'@export
-correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos = 2, method = "kw", winsorizeRER=NULL, winsorizetrait=NULL){
+#' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
+#' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' @param method Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA. It must be one of the strings "kw" or "aov".
+#' @param min.sp Minimum number of species that must be present for a gene
+#' @param min.pos Minimum number of species that must be present in a category
+#' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
+#' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
+#' @param sort whether to sort by p-value and sign of rho
+#' @return A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
+#' @export
+correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos = 2, method = "kw", winsorizeRER=NULL, winsorizetrait=NULL,sort=F){
   if(!(method %in% c("kw", "aov"))) {
     warning("Invalid method. The method must be kw or aov")
   }
-  getAllCor(RERmat, charP, min.sp, min.pos, method = method,winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait)
+  getAllCor(RERmat, charP, min.sp, min.pos, method = method,winsorizeRER=winsorizeRER,winsorizetrait=winsorizetrait,sort=sort)
 }
 
 #' A sped up version of the Kruskal Wallis/Dunn Test
@@ -719,7 +723,7 @@ kwdunn.test <- function(x,g, ncategories){
   return(list(kw = list(H = H, p = p), dunn = list(Z = Z, P = P, P.adjust = P.adjust)))
 }
 
-#'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}.
@@ -1222,7 +1226,7 @@ transformPaths=function(treesObj, transform="sqrt", impute=T){
 #' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
 #' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
 #' @param useSpecies Species subset to use (optional).
-#' @param min.sp Minimum species in a tree.  (default: 10).
+#' @param min.sp Minimum species in a tree (default: 10).
 #' @param min.valid Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).
 #' @param doOnly Only do specific trees (optional).
 #' @param maxT Maximum number of trees to do (optional, mostly useful for debugging).
@@ -1239,7 +1243,7 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
                   block.do=F, weights=NULL, use.weights=T, interaction=F){
   
   
-  message("****using getAllResiduals2****")
+  #message("****using getAllResiduals****")
   if (is.null(cutoff)) {
     cutoff = quantile(treesObj$paths, 0.05, na.rm = T)
     message(paste("cutoff is set to", cutoff))
@@ -1509,7 +1513,6 @@ getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
 #' @param impute Whether to impute missing data
 #' @return A treesObj with transformed paths
 #' 
-#' @param treesObj A trees object from readTrees or readTrees2
 #' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
 #' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
 #' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
@@ -1520,10 +1523,9 @@ getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
 #' @param maxT Maximum number of trees to do (optional, mostly useful for debugging).
 #' @param block.do Process rows in blocks (default: FALSE).
 #' @param weights Weights for calculations (optional, if treesObj has weights those are used).
-#' @param use.weights Can be used to turn off weighted regression.
+#' @param use.weights Can be used to turn on/off weighted regression.
 #' @param interaction Use PC interactions when building the normalization model (default: FALSE).
 #'
-#' @param resOut An object resulting from the NEW \code{\link{getAllResiduals2}} (NOT the original \code{\link{getAllResiduals}})
 #' @param all Logical, indicating whether to return all of the residuals instead of the independent set(default is FALSE).
 #' @param use.rows A vector of indices of rows/features to return (default is NULL, which means all rows).
 #' @param norm A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").

@@ -80,16 +80,16 @@ Gene_name Newick_tree
 
 An example file is provided in *inst/extdata/subsetMammalGeneTrees.txt*, which you can view in any text editor.
 
-Now in R, read in the gene trees. The `readTrees` function takes quite a while to read in trees for all genes, so we will limit ourselves to the first 200 using `max.read` (this will still take a minute or so, so be patient):
+Now in R, read in the gene trees. The `useSpecies` input variable can be provided to most RERconverge functions. Excluding one or more species from this vector will exclude them from the analyses. We leave `useSpecies` null here, but you can feed in a list of species you want to limit the trees to if you desire:
 
 ```{r, cache = TRUE}
 toytreefile = "subsetMammalGeneTrees.txt" 
-toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), max.read = 200)
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), useSpecies=NULL)
 ```
 
-First, the code tells us that there are 500 items, or gene trees, in the file. Since we have set `max.read = 200`, it will only read the first 200 of these. Then it says that the maximum number of tips in the gene trees is 62 and, later, it reports that it will use the 32 genes in this set that have data for all 62 species to estimate a **master tree**. The master tree will be used for subsequent analyses.
+First, the code tells us that there are 500 items, or gene trees, in the file. Then it says that the maximum number of tips in the gene trees is 62 and, later, it reports that it will use the 32 genes in this set that have data for all 62 species to estimate a **master tree**. The master tree will be used for subsequent analyses.
 
-RERconverge is intended to be used on genome-scale datasets, containing a large number of gene trees with data present for all species. It thus has a minimum number of such gene trees required for `readTrees` to use to estimate a **master tree**; this is set with the `minTreesAll` option and is 20 by default. If your dataset is smaller, you may adjust this or supply your own master tree using the option `masterTree` (this should be a `phylo` object generated using ape's `read.tree`); however, we recommend interpreting results with caution in this case.
+RERconverge is intended to be used on genome-scale datasets, containing a large number of gene trees with data present for all species. It thus has a minimum number of such gene trees required for `readTrees` to use to estimate a **master tree**; this is set with the `minTreesAll` option and is 20 by default. If your dataset is smaller, you may adjust this or supply your own master tree using the option `masterTree` (this should be a `phylo` object generated using ape's `read.tree`); however, we recommend interpreting results with caution in this case. If you want to read in less trees than your whole dataset for time purposes, set the `max.read` argument to however many gene trees you want it to read in.
 
 ## Estimating relative evolutionary rates (RER) with `getAllResiduals`
 
@@ -100,21 +100,22 @@ Briefly, RERs are calculated by normalizing branch lengths across all trees by t
 We will use the `getAllResiduals` function to calculate RERs. This uses the following input variables (all the options set here are also the defaults):
 
 -   `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the species in our AdultWeightLog vector that will be used for continuous trait analysis. Note that these are also the same species used for binary trait analysis. These species should be a subset of species included in `toyTrees$masterTree$tip.label`.
--   `transform`: the method used to transform the raw data. By transforming the raw data, we reduce the heteroscedasticity (relationship between mean and variance) and the influence of outliers. Here we will use a square-root transform ("sqrt"), which has performed the best at reducing heteroskedasticity in our datasets. Also available are "none" (no transformation) and "log" (natural logarithm transformation).
--   `weighted`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data.
+-   `transform`: the method used to transform the raw data. By transforming the raw data, we reduce the heteroscedasticity (relationship between mean and variance) and the influence of outliers. Here we will use a square-root transform ("sqrt"), which has performed the best at reducing heteroskedasticity in our datasets. Also available are "none" (no transformation) and "log" (natural logarithm transformation) and "asinh" (inverse hyperbolic sine transformation).
+-   `n.pcs`: Number of principal components to normalize by (default: 0, mean normalization).
+-   `use.weights`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data.
+-   `weights`: Manual weights for a weighted regression. If these aren't provided, it uses ones generated in `readTrees`.
 -   `scale`: whether to scale the individual branches of the gene trees to account for variance across trees. This scales the variance, though not the mean, of each branch length, using the R function `scale`.
-
-The `useSpecies` input variable can be provided to most RERconverge functions. Excluding one or more species from this vector will exclude them from the analyses.
+-   The documentation provides other specific parameters for those who want to fine tune their analysis.
 
 Here is the basic method, with the recommended settings:
 
 ```{r, message = FALSE, cache = TRUE}
 data("logAdultWeightcm") 
 mamRERw = getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), 
-                           transform = "sqrt", weighted = T, scale = T)
+                           transform = "sqrt", n.pcs = 0, use.weights = T, scale = T)
 ```
 
-The first output of this function tells you that the cutoff is set to 3.2e-05. Any branches shorter than this will be excluded from the analysis. It then prints out i= 1 ... 200, showing the progress as it calculates relative evolutionary rates for sets of gene trees.
+The first output of this function tells you that the cutoff is set to 3.2e-05. Any branches shorter than this will be excluded from the analysis. It then  calculates relative evolutionary rates for sets of gene trees.
 
 The plots generated by this function show the log variance of the RERs resulting from the original method (on the left) and the variance after transformation and weighted regression (on the right). Notice the heteroscedasticity (positive trend between values and their variance) that is present before the new transformation method is applied, is now gone. The x-axis displays bins of branch lengths on the tree, and the y-axis is the (log-scaled) variance in these branch lengths across trees. As you can see by comparing the right plot to the left plot, transforming and performing a weighted regression reduces the relationship between the mean branch length (x-axis) and the variance in branch length (y-axis). You can alter values for `transform`, `scale`, and `weighted` to attempt to optimize heteroskedasticity correction.
 
@@ -368,7 +369,7 @@ Let's take a look at some of the top genes within this set.
 head(corMarine[order(corMarine$P),])
 ```
 
-Because we might expect different sets of genes to be in the positively or negatively correlated groups, it can be helpful to sort the table by the log-transformed p-values that carry the sign of Rho. Examining the extreme top or bottom of this sorting shows top positively and negatively correlated genes. This can be done as below in which we examine the top positively correlated genes; for negative correlations change `decreasing = FALSE`.
+Because we might expect different sets of genes to be in the positively or negatively correlated groups, it can be helpful to sort the table by the log-transformed p-values that carry the sign of Rho. Examining the extreme top or bottom of this sorting shows top positively and negatively correlated genes. This can be done as below in which we examine the top positively correlated genes; for negative correlations change `decreasing = FALSE`. If you get tired of typing this out you can also add `sort=TRUE` to the `correlateWithBinaryPhenotype` arguments.If you get tired of typing this out you can also add `sort=TRUE` to the `correlateWithBinaryPhenotype` arguments.
 
 ```{r}
   corMarine$stat = -log10(corMarine$P) * sign(corMarine$Rho)
@@ -450,7 +451,7 @@ head(res[order(res$P),])
 
 In these results, Rho is the standard statistic for a Pearson correlation, N is the number of branches included in the analysis, and P is the uncorrected correlation p-value. Since huge numbers of statistical tests are being performed in these analyses, it is essential to correct p-values using a method such as the Benjamini-Hochberg correction (p.adj).
 
-Because we might expect different sets of genes to be in the positively or negatively correlated groups, it can be helpful to sort the table by the log-transformed p-values that carry the sign of Rho. Examining the extreme top and bottom of this sorting shows top positively and negatively correlated genes. This can be done as below in which we examine the top positively correlated genes; for negative correlations change `decreasing = FALSE`. 
+Because we might expect different sets of genes to be in the positively or negatively correlated groups, it can be helpful to sort the table by the log-transformed p-values that carry the sign of Rho. Examining the extreme top and bottom of this sorting shows top positively and negatively correlated genes. This can be done as below in which we examine the top positively correlated genes; for negative correlations change `decreasing = FALSE`. Once again, if you get tired of typing this out you can also add `sort=TRUE` to the `correlateWithBinaryPhenotype` arguments.
 
 ```{r}
   res$stat = -log10(res$P) * sign(res$Rho)
