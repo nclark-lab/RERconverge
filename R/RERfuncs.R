@@ -138,7 +138,7 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
   message("Extracting paths")
   for( i in 1:treesObj$numTrees){
     pb$tick()
-    paths[i,]=allPathsMasterRelativeTT(treesObj$trees[[i]], master, ap)
+    paths[i,]=allPathsMasterRelativeTT(treesObj$trees[[i]], master, ap,i)
   }
   
   

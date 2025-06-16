@@ -12,7 +12,7 @@ authors: Amanda Kowalczyk and Wynn Meyer
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo =  TRUE)
 ```
 
 \newpage
@@ -416,7 +416,7 @@ Error in eval(expr, envir, enclos) : could not find function "char2Paths" Calls:
 ```
 ```{r chunk_name, include=FALSE}
 #Modify this for a local machine
-repopath = '~/Projects/RERConverge/RERConverge'
+repopath = '~/Documents/GitHub/RERconverge_testing'
 if (!exists("char2Paths",mode="function")) {
   source(paste(repopath,"/R/RERfuncs.R",sep=""))
 }
