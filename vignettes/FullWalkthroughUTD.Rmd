@@ -97,14 +97,13 @@ The next step is to estimate **relative evolutionary rates**, or RERs, for all b
 
 Briefly, RERs are calculated by normalizing branch lengths across all trees by the master branch lengths. Branch lengths are then corrected for the heteroskedastic relationship between average branch length and variance using weighted regression. For a more detailed description of how RERs are computed, see [@Chikina2016] and [@Partha2017].
 
-We will use the `getAllResiduals` function to calculate RERs. This uses the following input variables (all the options set here are also the defaults):
+We will use the `getAllResiduals` function to calculate RERs. The following list explains the input variables and their defaults (though there are other arguments in the documentation):
 
 -   `useSpecies`: a vector that can be used to specify a subset of species to use in the analysis. Here we will use the species in our AdultWeightLog vector that will be used for continuous trait analysis. Note that these are also the same species used for binary trait analysis. These species should be a subset of species included in `toyTrees$masterTree$tip.label`.
 -   `transform`: the method used to transform the raw data. By transforming the raw data, we reduce the heteroscedasticity (relationship between mean and variance) and the influence of outliers. Here we will use a square-root transform ("sqrt"), which has performed the best at reducing heteroskedasticity in our datasets. Also available are "none" (no transformation) and "log" (natural logarithm transformation) and "asinh" (inverse hyperbolic sine transformation).
 -   `n.pcs`: Number of principal components to normalize by (default: 0, mean normalization).
 -   `use.weights`: whether to use a weighted regression to estimate RER. Weighting allows further correction for the relationship between mean and variance, which can be directly estimated from the data.
 -   `weights`: Manual weights for a weighted regression. If these aren't provided, it uses ones generated in `readTrees`.
--   `scale`: whether to scale the individual branches of the gene trees to account for variance across trees. This scales the variance, though not the mean, of each branch length, using the R function `scale`.
 -   The documentation provides other specific parameters for those who want to fine tune their analysis.
 
 Here is the basic method, with the recommended settings:
@@ -112,7 +111,7 @@ Here is the basic method, with the recommended settings:
 ```{r, message = FALSE, cache = TRUE}
 data("logAdultWeightcm") 
 mamRERw = getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), 
-                           transform = "sqrt", n.pcs = 0, use.weights = T, scale = T)
+                           transform = "sqrt", n.pcs = 0, use.weights = T)
 ```
 
 The first output of this function tells you that the cutoff is set to 3.2e-05. Any branches shorter than this will be excluded from the analysis. It then  calculates relative evolutionary rates for sets of gene trees.
