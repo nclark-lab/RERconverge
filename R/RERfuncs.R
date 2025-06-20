@@ -301,7 +301,7 @@ computeWeightsAllVar=function (mat, nv = NULL, transform = "none", plot = T, pre
   #matr = naresidCPP(matsub, model.matrix(~1 + nv))
   message("computing unweighted predictions")
   matpred = fastLmPredictedMat(matsub, model.matrix(~1 + nv))
-  message("Done")
+  # message("Done")
   
   matr=matsub-matpred
   mml = as.vector(matsub)
@@ -312,7 +312,7 @@ computeWeightsAllVar=function (mat, nv = NULL, transform = "none", plot = T, pre
   set.seed(123)
   
   # iis = sample(length(mml), min(1e+07, length(mml)))
-  message("reduced sampling")
+  # message("reduced sampling")
   iis = sample(length(mml),  min(5e+05, length(mml)))
   mml = mml[iis]
   varl = varl[iis]
@@ -361,7 +361,7 @@ computeWeightsAllVar=function (mat, nv = NULL, transform = "none", plot = T, pre
       matr=matin-fastLmResidMatWeightedPredict(matin, modx ,weights[iis,], modx)
       matr=matr*sqrt(weights[iis,])
     }
-    message("done")
+    # message("done")
     #    varl = (as.vector(log(matr^2))[ii])[iis]
     #   boxplot((varl) ~ cutres, ylab = "log var", outline = F,
     #         log = "", main = "After", las = 2)
