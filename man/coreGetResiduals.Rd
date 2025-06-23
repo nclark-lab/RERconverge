@@ -31,7 +31,7 @@ coreGetResiduals(
 
 \item{useSpecies}{Species subset to use (optional).}
 
-\item{min.sp}{Minimum species in a tree.  (default: 10).}
+\item{min.sp}{Minimum species in a tree (default: 10).}
 
 \item{min.valid}{Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).}
 

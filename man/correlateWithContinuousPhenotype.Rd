@@ -9,7 +9,8 @@ correlateWithContinuousPhenotype(
   charP,
   min.sp = 10,
   winsorizeRER = 3,
-  winsorizetrait = 3
+  winsorizetrait = 3,
+  sort = F
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ correlateWithContinuousPhenotype(
 \item{winsorizeRER}{Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.}
 
 \item{winsorizetrait}{Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.}
+
+\item{sort}{whether to sort by p-value and sign of rho}
 
 \item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override}
 }

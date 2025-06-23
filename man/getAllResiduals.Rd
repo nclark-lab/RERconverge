@@ -26,8 +26,6 @@ getAllResiduals(
 )
 }
 \arguments{
-\item{treesObj}{A trees object from readTrees or readTrees2}
-
 \item{transform}{What transformation to apply. "sqrt" by default.}
 
 \item{impute}{Whether to impute missing data}
@@ -52,7 +50,7 @@ getAllResiduals(
 
 \item{weights}{Weights for calculations (optional, if treesObj has weights those are used).}
 
-\item{use.weights}{Can be used to turn off weighted regression.}
+\item{use.weights}{Can be used to turn on/off weighted regression.}
 
 \item{interaction}{Use PC interactions when building the normalization model (default: FALSE).}
 
@@ -61,8 +59,6 @@ getAllResiduals(
 \item{use.rows}{A vector of indices of rows/features to return (default is NULL, which means all rows).}
 
 \item{norm}{A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").}
-
-\item{resOut}{An object resulting from the NEW \code{\link{getAllResiduals2}} (NOT the original \code{\link{getAllResiduals}})}
 }
 \value{
 A treesObj with transformed paths

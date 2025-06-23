@@ -4,7 +4,7 @@
 \alias{readTrees}
 \title{Reads trees from a 2 column , tab seperated, file
 The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
-This function is faster thatn readTrees but returns paths in a different indexing order}
+This function is faster than readTrees but returns paths in a different indexing order}
 \usage{
 readTrees(
   file,
@@ -38,5 +38,5 @@ A trees object of class "treeObj"
 \description{
 Reads trees from a 2 column , tab seperated, file
 The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
-This function is faster thatn readTrees but returns paths in a different indexing order
+This function is faster than readTrees but returns paths in a different indexing order
 }
