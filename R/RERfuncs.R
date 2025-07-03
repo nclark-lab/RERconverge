@@ -20,12 +20,14 @@ require("castor")
 require(FSA)
 require(Matrix)
 require(data.table)
+require(rsvd)
 require(progress)
 require(TreeTools)
+require(impute)
 
 #' Reads trees from a 2 column , tab seperated, file
 #' The first columns is the gene name and the second column is the corresponding tree in parenthetic format known as the Newick or New Hampshire format
-#' This function is faster thatn readTrees but returns paths in a different indexing order
+#' This function is faster than readTrees but returns paths in a different indexing order
 #' @param file The path to the tree file
 #' @param  max.read This function can take several minutes, so max.read is useful for testing
 #' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
@@ -38,8 +40,8 @@ require(TreeTools)
 #' @export
 readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimateBranches=F, minSpecs=NULL, useSpecies=NULL){
   message("Using readTrees 2")
-  message("Reading data")
   tmp=scan(file, sep="\t", what="character", quiet = T)
+  message(paste("Read ",length(tmp)/2, " items", collapse=""))
   trees=vector(mode = "list", length = min(length(tmp)/2,max.read, na.rm = T))
   keeptrees=rep(TRUE,length(trees))
   treenames=character()
@@ -233,34 +235,6 @@ readTrees=function(file, max.read=NA, masterTree=NULL, minTreesAll=20, reestimat
 }
 
 
-#' @keywords  internal
-allPathsMasterRelativeTT =function (tree, masterTree, masterTreePaths=NULL,i=NULL){
-  
-  if(! is.list(masterTreePaths)){
-    masterTreePaths=allPathsTT(masterTree)
-  }
-  
-  treePaths=allPathsTT(tree, needIndex = F)
-  map=matchAllnodesTT(tree,masterTree)
-  
-  #remap the nodes
-  treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
-  treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
-  
-  
-  #ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
-  ii=masterTreePaths$matIndex[cbind(treePaths$nodeId[,1],treePaths$nodeId[,2])]
-  vals=double(length(masterTreePaths$dist))
-  
-  if(sum(is.na(ii))>0 & !is.null(i)) {
-    message("warning: discordant tree topology in tree ", i,", returning NA row",sep="")
-    return(vals)
-  }
-
-  vals[]=NA
-  vals[ii]=treePaths$dist
-  vals
-}
 
 #' @keywords  internal
 allPathsTrackBranches=function(tree){
@@ -270,16 +244,16 @@ allPathsTrackBranches=function(tree){
   nA=length(tree$tip.label)+tree$Nnode ######### Total number of nodes in the tree (internal + tips)
   matIndex=matrix(nrow=nA, ncol=nA)
   index=1
-
+  
   destinNode = vector("integer", 0)
   ancNode = vector("integer",0)
-
+  
   for ( i in 1:nA){
     ia=getAncestors(tree,i) #### Getting the ancestors of each node in the tree
-
+    
     destinNode = c(destinNode, rep(i, length(ia)))
     ancNode = c(ancNode, ia)
-
+    
     if(length(ia)>0){
       allD=c(allD, dd[i, ia])
       nn=rbind(nn,cbind(rep(i, length(ia)), ia))
@@ -303,86 +277,102 @@ scaleDistNa=function(x){
 
 
 
-computeWeightsAllVar=function (mat, nv=NULL, transform="none",plot = T, predicted=T){
-
-  if(is.null(nv)){
-    nv=apply(mat, 2, mean,na.rm=T, trim=0.05)
-
+computeWeightsAllVar=function (mat, nv = NULL, transform = "none", plot = T, predicted = T)
+{
+  # message("new function")
+  if (is.null(nv)) {
+    nv = apply(mat, 2, mean, na.rm = T, trim = 0.05)
   }
-  transform=match.arg(transform, choices = c("none", "sqrt", "log"))
-  if(transform=="log"){
-    offset=0;
-    if(min(mat, na.rm=T)<1e-8){
-      offset=min(mat[mat>1e-8])
+  transform = match.arg(transform, choices = c("none", "sqrt",
+                                               "log"))
+  if (transform == "log") {
+    offset = 0
+    if (min(mat, na.rm = T) < 1e-08) {
+      offset = min(mat[mat > 1e-08])
     }
-    mat=log(mat+offset)
-    nv=log(nv+offset)
+    mat = log(mat + offset)
+    nv = log(nv + offset)
   }
-  if (transform=="sqrt"){
-    mat=sqrt(mat)
-    nv=sqrt(nv)
+  if (transform == "sqrt") {
+    mat = sqrt(mat)
+    nv = sqrt(nv)
   }
-
-  matsub=mat
-
-
-  matr=naresidCPP(matsub, model.matrix(~1+nv))
-  matpred=fastLmPredictedMat(matsub, model.matrix(~1+nv))
-
-
-
-  mml=as.vector(matsub)
-  varl=as.vector(log(matr^2))
-  ii=which(!is.na(mml))
-  mml=mml[ii]
-  varl=varl[ii]
+  matsub = mat
+  #matr = naresidCPP(matsub, model.matrix(~1 + nv))
+  message("computing unweighted predictions")
+  matpred = fastLmPredictedMat(matsub, model.matrix(~1 + nv))
+  # message("Done")
+  
+  matr=matsub-matpred
+  mml = as.vector(matsub)
+  varl = as.vector(log(matr^2))
+  ii = which(!is.na(mml))
+  mml = mml[ii]
+  varl = varl[ii]
   set.seed(123)
-  iis=sample(length(mml), min(500000, length(mml)))
-  mml=mml[iis]
-  varl=varl[iis]
-
-  l = lowess(mml,varl, f=0.7, iter = 2)
-
+  
+  # iis = sample(length(mml), min(1e+07, length(mml)))
+  # message("reduced sampling")
+  iis = sample(length(mml),  min(5e+05, length(mml)))
+  mml = mml[iis]
+  varl = varl[iis]
+  
+  
+  l = lowess(mml[!is.na(varl)], varl[!is.na(varl)], f = 0.7, iter = 2)
   f = approxfun(l, rule = 2)
   if (plot) {
-    par(mfrow=c(1,2), omi=c(1,0,0,0))
-    nbreaks=20
-    qq=quantile(mml,seq(0,nbreaks,1)/nbreaks)
-    qqdiff=diff(qq)
-    breaks=qq[1:nbreaks]+qqdiff/2
-    rr=quantile(mml, c(0.0001, 0.99))
-    #breaks=round(breaks,3)
-    breaks=unique(round(breaks,3)) #forces unique breaks
-    nbreaks=length(breaks)
-    cutres<-cut(mml,breaks = breaks)
-
-    cutres_tt=table(cutres)
-
-    boxplot((varl)~ cutres, xlab = "", ylab = "log var", outline=F,  log="", las=2)
+    par(mfrow = c(1, 2), omi = c(1, 0, 0, 0))
+    nbreaks = 100
+    qq = quantile(mml, seq(0, nbreaks, 1)/nbreaks)
+    qqdiff = diff(qq)
+    breaks = qq[1:nbreaks] + qqdiff/2
+    rr = quantile(mml, c(1e-04, 0.99))
+    breaks = unique(round(breaks, 3))
+    nbreaks = length(breaks)
+    cutres <- cut(mml, breaks = breaks)
+    cutres_tt = table(cutres)
+    boxplot((varl) ~ cutres, xlab = "", ylab = "log var",
+            outline = F, log = "", las = 2)
     title("Before")
-
-
-    xx=(qq[1:nbreaks]+breaks)/2
-
+    xx = (qq[1:nbreaks] + breaks)/2
     lines(1:length(xx), (f(qq[1:nbreaks])), lwd = 2, col = 2)
   }
-  wr=1/exp(f(mml))
-
-  if(!predicted){
-    weights=(matrix(1/exp(f(mat)), nrow = nrow(mat)))
+  wr = 1/exp(f(mml))
+  if (!predicted) {
+    weights = (matrix(1/exp(f(mat)), nrow = nrow(mat)))
   }
-  else{
-    weights=(matrix(1/exp(f(matpred)), nrow = nrow(mat)))
+  else {
+    weights = (matrix(1/exp(f(matpred)), nrow = nrow(mat)))
   }
-  if(plot){
-    matr=naresidCPP(matsub, model.matrix(~1+nv), weights)
-    varl=(as.vector(log(matr^2))[ii])[iis]
-    boxplot((varl)~ cutres, ylab = "log var", outline=F,  log="", main="After", las=2)
-    abline(h=0, col="blue3", lwd=2)
-    mtext(side = 1, text="bins", outer = T, line = 2)
+  if (plot) {
+    message("computing weighted residuals on a subset")
+    if(nrow(matsub)<2000){
+      set.seed(1);iis=1:nrow(matsub)
+    }
+    else{
+      iis=1:2000
+    }
+    
+    matin=matsub[iis,]
+    win=weights[iis,]
+    matr = naresidCPP(matin, model.matrix(~1 + nv), weights[iis,])
+    if(F){
+      modx=model.matrix(~1 + nv)
+      matr=matin-fastLmResidMatWeightedPredict(matin, modx ,weights[iis,], modx)
+      matr=matr*sqrt(weights[iis,])
+    }
+    # message("done")
+    #    varl = (as.vector(log(matr^2))[ii])[iis]
+    #   boxplot((varl) ~ cutres, ylab = "log var", outline = F,
+    #         log = "", main = "After", las = 2)
+    plotAsBox( matsub[iis,], log(matr^2), main="After", n = 100)
+    abline(h = 0, col = "blue3", lwd = 2)
+    mtext(side = 1, text = "bins", outer = T, line = 2)
   }
   weights
 }
+
+
 
 #' @keywords  internal
 naresidCPP=function(data, mod, weights=NULL){
@@ -410,7 +400,7 @@ namePathsWSpecies=function(masterTree){
   #each column in the mat is composed of at most one tip edge
   tip.edge=apply(mat[iim,],2,function(x){if(max(x)>0){which(x==1)} else{NA}})
   return(masterTree$tip[tip.edge])
-
+  
 }
 #' @keywords  internal
 scaleMat=function(mat){t(apply(mat,1,scaleDist))}
@@ -427,17 +417,18 @@ allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
   if(! is.list(masterTreePaths)){
     masterTreePaths=allPaths(masterTree)
   }
-
+  
   treePaths=allPaths(tree)
   map=matchAllNodes(tree,masterTree)
-
+  
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
   treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
-
-
+  
+  
   ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
-
+  print(sum(is.na(ii)))
+  
   vals=double(length(masterTreePaths$dist))
   vals[]=NA
   vals[ii]=treePaths$dist
@@ -469,7 +460,7 @@ matchNodesInject=function (tr1, tr2){
   #if(RF.dist(tr1,tr2)>0){
   #  stop("Discordant tree topology detected - trait tree and treesObj$masterTree have irreconcilable topologies")
   #}
-
+  
   toRm=setdiff(tr2$tip.label, tr1$tip.label)
   desc.tr1 <- lapply(1:tr1$Nnode + length(tr1$tip), function(x) extract.clade(tr1,
                                                                               x)$tip.label)
@@ -485,13 +476,13 @@ matchNodesInject=function (tr1, tr2){
                                           desc.tr2[[j]]))
       Nodes[i, 2] <- as.numeric(names(desc.tr2)[j])
   }
-
+  
   iim=match(tr1$tip.label, tr2$tip.label)
   Nodes=rbind(cbind(1:length(tr1$tip.label),iim),Nodes)
   if(any(table(Nodes[,2])>1)){
     stop("Incorrect pseudorooting detected - use fixPseudoroot() function to correct trait tree topology")
   }
-
+  
   Nodes
 }
 
@@ -542,7 +533,7 @@ getAncestors=function(tree, nodeN){
     anc=tree$edge[im,1]
     return(c(anc, getAncestors(tree, anc)))
   }
-
+  
 }
 
 
@@ -554,7 +545,7 @@ treeTraverse=function(tree, node=NULL){
     rt=getRoot(tree)
     ic=getChildren(tree,rt)
     return(c(treeTraverse(tree, ic[1]), treeTraverse(tree, ic[2])))
-
+    
   }
   else{
     if (node<=length(tree$tip)){
@@ -563,7 +554,7 @@ treeTraverse=function(tree, node=NULL){
     else{
       ic=getChildren(tree,node)
       return(c(treeTraverse(tree, ic[1]), treeTraverse(tree, ic[2])))
-
+      
     }
   }
 }
@@ -653,11 +644,11 @@ kwdunn.test <- function(x,g, ncategories){
   Data[, 2] <- g
   # when g gets converted to numeric in the Data matrix, it is converted to CONSECUTIVE integers in the order of the factors
   # e.g. 1, 2, 4 --> 1, 2, 3
-
+  
   # use frank (fast rank) instead of base rank function
   # REQUIRES THE PACKAGE data.table TO BE ATTACHED!!!
   Data[, 3] <- frank(Data[, 1], ties.method = "average", na.last = NA)
-
+  
   # calculate the ties adjustment term that is shared between kwallis and dunn test
   # define a function to find the tied ranks
   tiedranks <- function(ranks) {
@@ -677,7 +668,7 @@ kwdunn.test <- function(x,g, ncategories){
     }
     return(ties)
   }
-
+  
   # calculate the ties adjustment sum term (same between KW and Dunn)
   k <- length(unique(Data[, 2]))
   ranks <- Data[, 3]
@@ -690,49 +681,49 @@ kwdunn.test <- function(x,g, ncategories){
       tiesadjsum <- tiesadjsum + (tau^{3} - tau)
     }
   }
-
+  
   # pre-calculate indices/sums/stuff to reduce the number of times it's calculated
   groupinds <- lapply(1:k, function(i){Data[, 2] == i}) # rows in Data corresponding to group i (as TRUE/FALSE vector)
   groupranks <- lapply(groupinds, function(i){Data[, 3][i]}) # ranks in each group
   groupranksums <- unlist(lapply(groupranks, function(i){sum(i)})) # sum of ranks in each group
   groupsizes <- unlist(lapply(groupinds, function(i){sum(i)})) # number of observations in each group
-
+  
   # calculate the H statistic and p-value for the KW test
   tiesadj <- 1 - (tiesadjsum/((N^3) - N))
   ranksum <- sum((groupranksums^2)/groupsizes) # use matrix operations in place of for loops
   H <- ((12/(N * (N + 1))) * ranksum - 3 * (N + 1))/tiesadj
   df <- k - 1
   p <- pchisq(H, k - 1, lower.tail = FALSE)
-
+  
   # Dunn test: calculate the Z statistic for each pairwise test
   m <- k * (k - 1)/2
   Z <- rep(NA, ntests)
   tiesadj <- tiesadjsum/(12 * (N - 1))
-
+  
   # loop through each pairwise comparison
   index <- 1
   for (i in 2:k) {
     for (j in 1:(i - 1)) {
       # make a pairwise test name
       index <- ((glevels[i]-1) * (glevels[i] - 2)/2) + glevels[j]
-
+      
       # do calculation
       meanranki <- groupranksums[i]/groupsizes[i]
       meanrankj <- groupranksums[j]/groupsizes[j]
       z <- (meanrankj - meanranki)/sqrt(((N * (N + 1)/12) - tiesadj) * ((1/groupsizes[j]) + (1/groupsizes[i])))
-
+      
       # add result to Z vector with the name
       Z[index] <- z
     }
   }
   P <- 2*pnorm(abs(Z), lower.tail = FALSE)
-
+  
   # do bonferroni p value adjustment (for pairwise error rate?)
   P.adjust <- pmin(1, P * m)
   return(list(kw = list(H = H, p = p), dunn = list(Z = Z, P = P, P.adjust = P.adjust)))
 }
 
-                     #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector made with \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
 #' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param method Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}.
@@ -997,7 +988,7 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
       }
     }
   }
-
+  
   # define the function, win
   win = function(x, w) {
     xs = sort(x[!is.na(x)], decreasing = T)
@@ -1007,11 +998,11 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
     x[x < xmin] = xmin
     x
   }
-
+  
   # make the matrix to store the results
   corout = matrix(nrow = nrow(RERmat), ncol = 3)
   rownames(corout) = rownames(RERmat)
-
+  
   # generate tables for the pairwise tests if trait is categorical
   if (method == "aov" || method == "kw") {
     # convert phenvals to integers to work with kwdunn.test function
@@ -1019,7 +1010,7 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
     phenv = intlabels$mapped_states
     names(phenv) = names(phenvals)
     phenvals = phenv
-
+    
     lu = length(unique(phenvals[!is.na(phenvals)]))
     n = choose(lu, 2)
     tables = lapply(1:n, matrix, data = NA, nrow = nrow(RERmat),
@@ -1037,10 +1028,10 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
       }
     }
   }
-
+  
   # name the columns of corout
   colnames(corout) = c("Rho", "N", "P")
-
+  
   # for each gene in the analysis...
   for (i in 1:nrow(corout)) {
     rer = RERmat[i,]
@@ -1048,17 +1039,17 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
     rer = rer[!is.na(rer)]
     # get rid of unnamed values (internal nodes)
     rer = rer[!is.na(names(rer))]
-
+    
     # get the groups
     phens = phenvals
-
+    
     # find which species are in phens and rers
     keep = intersect(names(phens), names(rer))
     # remove the rer values for species not in phens
     rer = rer[keep]
     # put phens in the same order as the rer values
     phens = phens[names(rer)]
-
+    
     if((nb <- length(phens)) >= min.sp) {
       # for a binary or categorical trait, test that # species in fgd or per category is > min.pos
       if (method == "kw" || method == "aov") {
@@ -1070,7 +1061,7 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
       else if(method != "p" && sum(phens != 0) < min.pos) {
         next
       }
-
+      
       x = rer
       if (!is.null(winsorizeRER)) {
         x = win(x, winsorizeRER)
@@ -1112,12 +1103,12 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
         kres = kwdunn.test(x, yfacts, ncategories = lu)
         effect_size = kres$kw$H/(nb - 1)
         corout[i, 1:3] = c(effect_size, nb, kres$kw$p)
-
+        
         for(k in 1:length(kres$dunn$Z)){ # length of kres$dunn$Z should be the same as length(tables) otherwise there's a problem
           tables[[k]][i, "Rho"] = kres$dunn$Z[k]
           tables[[k]][i, "P"] = kres$dunn$P.adjust[k]
         }
-
+        
         # old code before speed up:
         # yfacts = as.factor(y)
         # df = data.frame(x, yfacts)
@@ -1149,7 +1140,7 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
       }
     }
   }
-
+  
   # format and return the output
   corout = as.data.frame(corout)
   corout$p.adj = p.adjust(corout$P, method = "BH")
@@ -1168,181 +1159,403 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 }
 
 
-#' main RER computation function
-#' @param treesObj A treesObj created by \code{\link{readTrees}}
-#' @param a cutoff value for branch lengths bellow which the branch lengths will be discarded, very data dependent but should roughly correspond to 0 or 1 sequence change on that branch. If left NULL this whill be set to the bottom 0.05 quantile. Set to 0 for no cutoff.
-#' @param transform The transformation to apply to the trees branch values before computing relative rates. Available options are sqrt and log, sqrt is recommended.
-#' @param weighted Use weighted regression to compute relative rates, meant to correct for the non-constant mean-variance relationship in evolutionary rate data.
-#' @param useSpecies Give only a subset of the species to use for RER calculation. Some times excluding unusually long branches can provide more stable results
-#' @param min.sp The minimum number of species needed to compute RER
-#' @param scale Scale relative rates internally for each species subset. Increases computation time with little apparent benefit. Better to scale the final matrix.
-#' @param doOnly The index of a specific tree in the treesObj to calculate RER for. Useful if a single result is needed quickly.
-#' @param maxT The maximum number of trees to compute results for. Since this function takes some time this is useful for debugging.
-#' @param plot Whether to plot the output of the correction for mean-variance relationship.
-#' @return A numer of trees by number of paths matrix of relative evolutionary rates. Only an independent set of paths has non-NA values for each tree.
-#' @export
-getAllResiduals=function(treesObj, cutoff=NULL, transform="sqrt", weighted=T,  useSpecies=NULL,  min.sp=10, scale=T,  doOnly=NULL, maxT=NULL, scaleForPproj=F, mean.trim=0.05, plot=T){
 
-  if(is.null(cutoff)){
-    cutoff=quantile(treesObj$paths, 0.05, na.rm=T)
+
+#' Apply a transformation to a trees object
+#' @param transform What transformation to apply. "sqrt" by default.
+#' @param impute Whether to impute missing data
+#' @return A treesObj with transformed paths
+#' @export
+transformPaths=function(treesObj, transform="sqrt", impute=T){
+  transform=match.arg(transform, c("sqrt", "log", "asinh", "none"))
+  nv=getColMeansNV(treesObj$paths)
+  
+  if(transform=="log"){
+    
+    set.seed(1);  iis=sample(nrow(treesObj$paths),500)
+    tmpdat=treesObj$paths[iis,]
+    mval=min(tmpdat[tmpdat>0], na.rm = T)
+    treesObj$paths= log(treesObj$paths+mval)
+    treesObj$logOffset=mval
+    treesObj$transform="log"
+    treesObj$transformFunc=function(x){log(x+mval)}
+    treesObj$transformInv=function(x){exp(x)-mval}
+    nv=log(nv+mval)
+  }
+  else if (transform=="sqrt"){
+    treesObj$paths= sqrt(treesObj$paths)
+    treesObj$transform="sqrt"
+    treesObj$transformFunc=sqrt
+    treesObj$transformInv=function(x){x^2}
+    nv=sqrt(nv)
+  }
+  
+  else if (transform=="asinh"){
+    treesObj$paths= asinh(treesObj$paths)
+    treesObj$transform="asinh"
+    treesObj$transformFunc=asinh
+    treesObj$transformInv=sinh
+    nv=sqrt(nv)
+  }
+  
+  else if (transform=="none"){
+    treesObj$transformFunc=identity
+    treesObj$transformInv=identity
+    treesObj$transform="none"
+  }
+  
+  
+  
+  if(impute){
+    set.seed(1);kres=impute.knn(treesObj$paths, colmax = 95)
+    treesObj$pathsImputed=kres$data
+    
+  }
+  treesObj$weights=computeWeightsAllVar(treesObj$paths, nv = nv, transform = "none")
+  treesObj
+  
+}
+
+
+#' Get All Residuals core function
+#'
+#' Calculate residuals for a given trees object using a set of normalization covariates
+#'
+#' @param treesObj A trees object from readTrees or readTrees2
+#' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
+#' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
+#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
+#' @param useSpecies Species subset to use (optional).
+#' @param min.sp Minimum species in a tree (default: 10).
+#' @param min.valid Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).
+#' @param doOnly Only do specific trees (optional).
+#' @param maxT Maximum number of trees to do (optional, mostly useful for debugging).
+#' @param block.do Process rows in blocks (default: FALSE).
+#' @param weights Weights for calculations (optional, if treesObj has weights those are used).
+#' @param use.weights Can be used to turn off weighted regression.
+#' @param interaction Use PC interactions when building the normalization model (default: FALSE).
+#'
+#' @return A list containing calculated residuals
+#' @export
+coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
+                  useSpecies=NULL,  min.sp=10, min.valid=20,
+                  doOnly=NULL, maxT=NULL,
+                  block.do=F, weights=NULL, use.weights=T, interaction=F){
+  
+  
+  #message("****using getAllResiduals****")
+  if (is.null(cutoff)) {
+    cutoff = quantile(treesObj$paths, 0.05, na.rm = T)
     message(paste("cutoff is set to", cutoff))
   }
-  if (weighted){
-    weights=computeWeightsAllVar(treesObj$paths, transform=transform, plot=plot)
-    residfunc=fastLmResidMatWeighted
+  
+  if(is.null(treesObj$pathsImputed) && n.pcs>0){
+    message("PC normalization not supported without imputation\n
+            Run transformPaths with imputation or set n.pcs=0")
+    return()
   }
-  else{
-    residfunc=fastLmResidMat
+  if(block.do){
+    pStr=apply(treesObj$report, 1, paste, collapse="")
+    uClust=unique(pStr)
+    blockId=match(pStr, uClust)
   }
-  # residfunc=naresid
-
+  
+  tPaths= treesObj$paths
+  if(is.null(nvMod)){
+    if(n.pcs>0){
+      svdres=rsvd(treesObj$pathsImputed, k=n.pcs+1)
+      if(!interaction){
+        nvMod=model.matrix(~1+svdres$v[, 1:n.pcs])
+      }
+      else{
+        nvMod=model.matrix(~1+.^2, data = as.data.frame(svdres$v[, 1:n.pcs]))
+      }
+      
+    }
+    else {
+      message("using average normalization vector")
+      tPathsRaw<-treesObj$transformInv(tPaths)
+      nvAve= treesObj$transformFunc(apply(tPathsRaw, 2, mean, na.rm = T, trim = 0.05))
+      
+      #message("HERE")
+      #nvAve= apply(tPaths, 2, mean, na.rm = T, trim = 0.05)
+      
+      
+      
+      # nvAve=apply(tPaths,2, mean, trim=0.05, na.rm=T)
+      nvMod=model.matrix(~1+nvAve)
+    }
+  }
+  if(any(is.na(nvMod))){
+    message("NA values in model: something is wrong")
+    stop()
+  }
+  
+  
   if (is.null(useSpecies)){
     useSpecies=treesObj$masterTree$tip.label
-    #mappedEdges=trees$mappedEdges
+  }
+  else{
+    #useSpecies has to exist in masterTree
+    useSpecies=intersect(treesObj$masterTree$tip.label, useSpecies)
   }
   if(is.null(maxT)){
     maxT=treesObj$numTrees
   }
-  if(transform!="none"){
-    transform=match.arg(transform,c("sqrt", "log"))
-    transform=get(transform)
+  
+  if(!is.null(weights)){
+    message("using external weights")
   }
-  else{
-    transform=NULL
+  else if(is.null(weights) && !is.null(treesObj$weights)){
+    
+    weights=treesObj$weights
+    
+    message("using included weights")
+    
   }
-
-
-
-  #cm is the names of species that are included in useSpecies and the master tree
-  cm=intersect(treesObj$masterTree$tip.label, useSpecies)
-  sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
-  if (length(sp.miss) > 0) {
-    message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
-                                                                                 collapse = ",")))
-
+  
+  
+  if(is.null(weights) | !use.weights){
+    message("No weights found. Setting weights to 1. Consider adding weights")
+    weights=copyMat(tPaths)
+    weights[]=1
   }
-
-  rr=matrix(nrow=nrow(treesObj$paths), ncol=ncol(treesObj$paths))
-
+  
+  
+  
   #maximum number of present species
-  maxn=rowSums(treesObj$report[,cm])
-
+  maxSpecies=rowSums(treesObj$report[,useSpecies])
+  
+  #this will hold the predictions
+  preds=copyMat(tPaths)
+  preds[]=NA
+  
+  
   if(is.null(doOnly)){
     doOnly=1
   }
   else{
     maxT=1
   }
-  skipped=double(nrow(rr))
-  skipped[]=0
-
+  isDone=vector("logical", nrow(preds))
+  isDone[]=F
+  
+  #this will hold the indicies used to construct the regression
+  #which is a subset of the indicies used for predictions
+  modelIndexList=vector("list", nrow(preds))
+  pb <- progress_bar$new(format = "(:spin) [:bar] :percent [Elapsed time: :elapsedfull || Estimated time remaining: :eta]",
+                         total = maxT,
+                         complete = "=",   # Completion bar character
+                         incomplete = "-", # Incomplete bar character
+                         current = ">",    # Current bar character
+                         clear = FALSE,    # If TRUE, clears the bar when finish
+                         width = 100)      # Width of the progress bar
   for (i in doOnly:(doOnly+maxT-1)){
-
-    if(sum(!is.na(rr[i,]))==0&&!skipped[i]==1){
-
-
+    #TICK
+    # pb$tick()
+    
+    if(!isDone[i]){
+      
+      
       #get the ith tree
       tree1=treesObj$trees[[i]]
-
+      
       #get the common species, prune and unroot
-      both=intersect(tree1$tip.label, cm)
-      if(length(both)<min.sp){
+      thisUseSpecies=intersect(tree1$tip.label, useSpecies)
+      
+      
+      
+      
+      if(length(thisUseSpecies)<min.sp){
+        
         next
       }
-      tree1=unroot(pruneTree(tree1,both))
-
-      #do the same for the refTree
-
-
-      #find all the genes that contain all of the species in tree1
-      allreport=treesObj$report[,both]
-      ss=rowSums(allreport)
-      iiboth=which(ss==length(both)) #this needs to be >1
-      if (length(iiboth) < 2) {
-        message(paste("Skipping i =",i,"(no other genes with same species set)"))
+      
+      
+      #find all the genes that that whose maximal species set is the same as tree1
+      
+      if(block.do){
+        #      thisMaxSpecies=rowSums(treesObj$report[,thisUseSpecies])
+        #     iido=which(maxSpecies==thisMaxSpecies&thisMaxSpecies==length(thisUseSpecies))
+        iido=which(blockId==blockId[i])
+      }
+      else{
+        iido=i
+      }
+      
+      
+      
+      
+      
+      
+      
+      ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
+      
+      #these are the indicies for the paths that span the tree
+      #these are used to build the regression
+      
+      iiPaths= treesObj$matIndex[ee[, c(2,1)]]
+      
+      
+      
+      
+      
+      #extract the tPaths and corresponding weights
+      
+      allbranch=tPaths[iido,iiPaths,drop=F]
+      allbranchw=weights[iido,iiPaths, drop=F]
+      iibad=which(tPaths[iido, iiPaths, drop=F]<cutoff)
+      
+      allbranch[iibad]=NA
+      
+      iidoAll=iido
+      sumCanUse=rowSums(!is.na(allbranch))
+      iigood=which(sumCanUse>=min.valid)
+      
+      if(length(iigood)<1){
         next
       }
-
-      nb=length(both)
-      ai=which(maxn[iiboth]==nb)
-
-
-      if(T){
-
-        ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
-
-        ii= treesObj$matIndex[ee[, c(2,1)]]
-
-        allbranch=treesObj$paths[iiboth,ii]
-        if (is.null(dim(allbranch))) {
-          message(paste("Issue with gettiing paths for genes with same species as tree",i))
-          return(list("iiboth"=iiboth,"ii"=ii))
-        }
-
-        if(weighted){
-          allbranchw=weights[iiboth,ii]
-        }
-        if(scaleForPproj){
-          nv=apply(scaleMatMean(allbranch), 2, mean, na.rm=T, trim=mean.trim)
-        }
-        else{
-          nv=apply(allbranch, 2, mean, na.rm=T, trim=mean.trim)
-        }
-
-        iibad=which(allbranch<cutoff)
-        #don't scale
-        #allbranch=scaleMat(allbranch)
-        if(!is.null(transform)){
-          nv=transform(nv)
-          allbranch=transform(allbranch)
-        }
-        allbranch[iibad]=NA
-
-
-
-
-        if(!scale){
-          if(!weighted){
-            proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv))
-
-          }
-          else{
-
-            proj=residfunc(allbranch[ai, ,drop=F], model.matrix(~1+nv), allbranchw[ai, ,drop=F])
-
-          }
-        }
-
-        else{
-
-          if(!weighted){
-            proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv))
-          }
-          else{
-
-            proj=residfunc(allbranch[, ,drop=F], model.matrix(~1+nv),allbranchw)
-          }
-
-          proj=scale(proj, center = F)[ai, , drop=F]
-
-        }
-
-
-        #we have the projection
-
-
-
-        rr[iiboth[ai],ii]=proj
-
+      allbranch=allbranch[iigood, ,drop=F]
+      allbranchw=allbranchw[iigood, ,drop=F]
+      
+      
+      
+      
+      
+      iido=iido[iigood]
+      
+      #these are all the indecies that are not NA and thus can get predictions
+      iiallnotna=which(!is.na(treesObj$paths[iido[1],]))
+      
+      
+      
+      
+      for(j in 1:length(iido)){
+        
+        modelIndexList[[iido[j]]]=iiPaths[which(!is.na(allbranch[j,]))]
       }
-
-    }}
-  message("Naming rows and columns of RER matrix")
-  rownames(rr)=names(treesObj$trees)
-  colnames(rr)=namePathsWSpecies(treesObj$masterTree)
-  rr
+      
+      
+      
+      preds[iido,iiallnotna]= fastLmResidMatWeightedPredict(allbranch, nvMod[iiPaths,], allbranchw, nvMod[iiallnotna,])
+      
+      
+      isDone[iidoAll]=T
+    }
+  }
+  allresiduals=(tPaths-preds) #subtract residuals
+  
+  rownames(allresiduals)=names(treesObj$trees)
+  
+  if(!is.null(weights)){
+    message("studentizing residuals with weights")
+    allresiduals=allresiduals*sqrt(weights)
+  }
+  return(list(allresiduals=allresiduals, index=modelIndexList, preds=preds, nvMod=nvMod))
+  
+  
 }
 
+
+#' Extract a maximal independent residual matrix for each feature Matrix
+#'
+#' @param resOut An object resulting from the NEW \code{\link{coreGetResiduals}} (NOT the original getAllResiduals)
+#' @param all Logical, indicating whether to return all of the residuals instead of the independent set(default is FALSE).
+#' @param use.rows A vector of indices of rows/features to return (default is NULL, which means all rows).
+#' @param norm A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").
+#'
+#' @return A residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
+#' assuming all=FALSE
+#' @export
+getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
+  norm=match.arg(norm, c("scale", "zscore", "quantile", "none"))
+  allres=copyMat(resOut$allresiduals)
+  if(is.null(use.rows)){
+    use.rows=1:nrow(allres)
+  }
+  resIn=resOut$allresiduals
+  
+  if(norm=="scale"){
+    message("using column-wise scale normalization")
+    resIn=myscale(resIn, center=F)
+  }
+  else if(norm=="zscore"){
+    message("using column-wise zscore normalization")
+    resIn=myscale(resIn, center=T)
+  }
+  else if(norm=="quantile"){
+    message("using column-wise quantile normalization")
+    resIn=normalizeQuantiles(resIn)
+  }
+  
+  
+  if(!all){
+    for(i in use.rows){
+      
+      ii=resOut$index[[i]]
+      allres[i,ii]=resIn[i,ii]
+    }
+    allres
+  }
+  else{
+    allres=resIn
+  }
+  
+  
+  allres
+}
+
+
+
+
+#' A wrapper function that runs \code{\link{transformPaths}}, \code{\link{coreGetResiduals}}, and \code{\link{getRMat}}.
+#' @param transform What transformation to apply. "sqrt" by default.
+#' @param impute Whether to impute missing data
+#' @return A treesObj with transformed paths
+#' 
+#' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
+#' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
+#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
+#' @param useSpecies Species subset to use (optional).
+#' @param min.sp Minimum species in a tree.  (default: 10).
+#' @param min.valid Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).
+#' @param doOnly Only do specific trees (optional).
+#' @param maxT Maximum number of trees to do (optional, mostly useful for debugging).
+#' @param block.do Process rows in blocks (default: FALSE).
+#' @param weights Weights for calculations (optional, if treesObj has weights those are used).
+#' @param use.weights Can be used to turn on/off weighted regression.
+#' @param interaction Use PC interactions when building the normalization model (default: FALSE).
+#'
+#' @param all Logical, indicating whether to return all of the residuals instead of the independent set(default is FALSE).
+#' @param use.rows A vector of indices of rows/features to return (default is NULL, which means all rows).
+#' @param norm A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").
+#'
+#' @return An residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
+#' assuming all=FALSE
+#' @export
+getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths arguments
+                         #--------------------------------------------------------#
+                         nvMod=NULL, n.pcs=0, cutoff=NULL,      #
+                         useSpecies=NULL,  min.sp=10,           #
+                         min.valid=20, doOnly=NULL, maxT=NULL,  # getAllResiduals core function arguments
+                         block.do=F, weights=NULL,              #
+                         use.weights=T, interaction=F,          #
+                         #--------------------------------------------------------#
+                         all=F,  use.rows=NULL, norm="scale")   # getRMat arguments
+{  
+  
+  
+  tree2 = transformPaths(treesObj, transform = transform, impute = impute)
+  
+  resids = coreGetResiduals(tree2, nvMod=nvMod, n.pcs=n.pcs, cutoff=cutoff,
+                    useSpecies=useSpecies, min.sp=min.sp, min.valid=min.valid,
+                    doOnly=doOnly,maxT=maxT, block.do=block.do, weights=weights,
+                    use.weights=use.weights, interaction=interaction)
+  
+  r = getRMat(resids, all=all,use.rows=use.rows,norm=norm)
+  
+  return(r)
+}
 
 
 #' turns a named vector of characters into a paths vector to be used with \code{\link{getAllCor}}
@@ -1365,21 +1578,21 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
     return()
   }
   cm=intersect(treesObj$masterTree$tip,intersect(names(tip.vals), masterTree$tip))
-
+  
   #reduce to the same species set
   master.tree = pruneTree(masterTree, cm)
   tip.vals=tip.vals[cm]
   #make the tree with ancestral states
   charTree = edgeVars(master.tree, tip.vals, metric=metric, se.filter=se.filter, ...)
-
-
+  
+  
   sp.miss = setdiff(treesObj$masterTree$tip, names(tip.vals))
   if (length(sp.miss) > 0) {
     message(paste0("Species not present: ", paste(sp.miss,
                                                   collapse = ",")))
-
+    
   }
-
+  
   ap = allPaths(treesObj$masterTree)
   allPathMasterRelative(charTree, treesObj$masterTree, ap)
 }
@@ -1399,12 +1612,12 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 #' (e.g., only those species for which the trait can be reliably determined).
 #' @return A vector of length equal to the number of paths in treesObj
 #' @export
-foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL, transition="unidirectional"){
+foreground2Paths = function(foreground,treesObj, plotTree=F, clade=c("ancestral","terminal","all","weighted"), useSpecies=NULL){
   #res = treesObj$masterTree
   #res$edge.length <- rep(0,length(res$edge.length))
   #res$edge.length[nameEdges(treesObj$masterTree) %in% foreground] = 1
   #names(res$edge.length) = nameEdges(treesObj$masterTree)
-  res = foreground2Tree(foreground, treesObj, plotTree=plotTree, clade=clade, useSpecies=useSpecies, transition=transition)
+  res = foreground2Tree(foreground, treesObj, plotTree=plotTree, clade=clade, useSpecies=useSpecies)
   tree2Paths(res, treesObj)
 }
 
@@ -1536,21 +1749,21 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
   phy <- reorder(phy)
   n <- length(phy$tip.label)
   ROOT <- n + 1L
-
+  
   if (interactive) {
     node <- identify(phy)$nodes
     cat("You have set resolve.root =", resolve.root, "\n")
   }
-
+  
   ## added to solve some issues (2021-04-15):
   if (!interactive && is.null(node) && length(outgroup) > 1 && resolve.root)
     phy <- unroot(phy)
   ## -> the condition check should insure compatibility
-
+  
   e1 <- phy$edge[, 1L]
   e2 <- phy$edge[, 2L]
   wbl <- !is.null(phy$edge.length)
-
+  
   if (!is.null(node)) {
     if (node <= n) {
       print(n)
@@ -1570,7 +1783,7 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
     }
     if (length(outgroup) == n) return(phy)
     outgroup <- sort(outgroup) # used below
-
+    
     ## First check that the outgroup is monophyletic, unless it has only one tip
     if (length(outgroup) > 1) {
       pp <- prop.part(phy)
@@ -1592,42 +1805,42 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
       MRCA.outgroup <- i + n
     } else newroot <- e1[which(e2 == outgroup)]
   }
-
+  
   N <- Nedge(phy)
   oldNnode <- phy$Nnode
-
+  
   Nclade <- tabulate(e1)[ROOT] # degree of the root node
   ## if only 2 edges connect to the root, we have to fuse them:
   fuseRoot <- Nclade == 2
-
+  
   if (newroot == ROOT) {
     if (!resolve.root) return(phy) # else (resolve.root == TRUE)
     if (length(outgroup) > 1) outgroup <- MRCA.outgroup
     if (!is.null(node))
       stop("ambiguous resolution of the root node: please specify an explicit outgroup")
-
+    
     k <- which(e1 == ROOT) # find the basal edges
     if (length(k) > 2) {
       i <- which(e2 == outgroup) # outgroup is always of length 1 here
       j <- k[k != i]
       newnod <- oldNnode + n + 1L
       phy$edge[j, 1] <- newnod
-
+      
       phy$edge <- rbind(c(ROOT, newnod), phy$edge)
       if (wbl) phy$edge.length <- c(0, phy$edge.length)
-
+      
       phy$Nnode <- phy$Nnode + 1L
     }
   } else {
     phy$root.edge <- NULL # just in case
-
+    
     INV <- logical(N)
     w <- which(e2 == newroot)
     anc <- e1[w]
     i <- w
-
+    
     nod <- anc
-
+    
     if (nod != ROOT) {
       INV[w] <- TRUE
       i <- w - 1L
@@ -1640,12 +1853,12 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
         i <- i - 1L
       }
     }
-
+    
     ## we keep the edge leading to the old root if needed:
     if (!fuseRoot) INV[i] <- TRUE
-
+    
     ## bind the other clades...
-
+    
     if (fuseRoot) { # do we have to fuse the two basal edges?
       k <- which(e1 == ROOT)
       k <- if (k[2] > w) k[2] else k[1]
@@ -1653,23 +1866,23 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
       if (wbl)
         phy$edge.length[k] <- phy$edge.length[k] + phy$edge.length[i]
     }
-
+    
     if (fuseRoot) phy$Nnode <- oldNnode - 1L
-
+    
     ## added after discussion with Jaime Huerta Cepas (2016-07-30):
     if (edgelabel) {
       phy$node.label[e1[INV] - n] <- phy$node.label[e2[INV] - n]
       phy$node.label[newroot - n] <- ""
     }
-
+    
     phy$edge[INV, ] <- phy$edge[INV, 2:1]
-
+    
     if (fuseRoot) {
       phy$edge <- phy$edge[-i, ]
       if (wbl) phy$edge.length <- phy$edge.length[-i]
       N <- N - 1L
     }
-
+    
     if (resolve.root) {
       newnod <- oldNnode + n + 1L
       if (length(outgroup) == 1L) {
@@ -1701,7 +1914,7 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
   newNb[sort(phy$edge[sndcol, 2])] <- n + 2:phy$Nnode
   phy$edge[sndcol, 2] <- newNb[phy$edge[sndcol, 2]]
   phy$edge[, 1] <- newNb[phy$edge[, 1]]
-
+  
   if (!is.null(phy$node.label)) {
     newNb <- newNb[-(1:n)]
     if (fuseRoot) {
@@ -1716,7 +1929,7 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
   }
   attr(phy, "order") <- NULL
   reorder.phylo(phy)
-
+  
   # make a map of old node numbers to new node numbers
   map = cbind((n + 1L):(n + oldNnode), newNb[(n + 1L):(n + oldNnode)])
   colnames(map) = c("old", "new")
@@ -1731,30 +1944,30 @@ Root <- function(phy, outgroup, node = NULL, resolve.root = FALSE,
 #' @return A matrix of ancestral likelihoods with rows in the same order as the internal nodes in the tree
 #' @export
 asymmRerootingMethod <- function(tree, tips, Q) {
-
+  
   ntips = length(tree$tip.label)
   # matrix to store the likelihoods
   marg_anc_liks = matrix(nrow = tree$Nnode, ncol = nrow(Q))
   # convert tips to a matrix
   tips = to.matrix(tips, sort(unique(tips)))
-
+  
   # loop through the internal nodes
   nodes = unique(tree$edge[,1]) # get the internal nodes
-
+  
   for(n in nodes) {
     # reroot at node n
     trInfo = Root(tree, node = n)
-
+    
     # check if it's the original tree
     if(inherits(trInfo, "phylo")) {
       # this is the original tree
       tr = reorder(trInfo, order = "postorder")
-
+      
       # matrix to store likelihoods during pruning algorithm
       liks = matrix(nrow = tr$Nnode, ncol = nrow(Q))
       # add tips to liks
       liks = rbind(tips, liks)
-
+      
       # loop through the internal nodes
       parents = unique(tr$edge[,1])
       for(i in 1:length(parents)) {
@@ -1762,7 +1975,7 @@ asymmRerootingMethod <- function(tree, tips, Q) {
         p = parents[i]
         cc = tr$edge[,2][which(tr$edge[,1] == p)] # children nodes
         ee = tr$edge.length[which(tr$edge[,1] == p)] # edge lengths
-
+        
         v = vector(mode = "list", length = length(cc))
         for(c in 1:length(cc)) {
           P = expm(Q * ee[c])
@@ -1771,51 +1984,51 @@ asymmRerootingMethod <- function(tree, tips, Q) {
         ll = Reduce("*",v)[,1]
         liks[p,] =  ll/sum(ll)  # normalize and store in liks
       }
-
+      
       # add the root likelihood to marg_anc_liks
       marg_anc_liks[(n - ntips),] = liks[n,] # n is the root
-
+      
     }
     else { # not the original tree
       # get the re-rooted tree
       tr = trInfo$phy
       map = trInfo$map
-
+      
       # reorder - postorder traversal for pruning algorihtm
       tr = reorder(tr, order = "postorder")
-
+      
       # matrix to store likelihoods during pruning algorithm
       liks = matrix(nrow = tr$Nnode, ncol = nrow(Q))
       # add tips to liks
       liks = rbind(tips, liks)
-
+      
       # loop through the internal nodes
       parents = unique(tr$edge[,1])
       for(i in 1:length(parents)) {
         # get children of parent node
         p = parents[i]
         oldP = map[,1][which(map[,2] == p)]
-
+        
         cc = tr$edge[,2][which(tr$edge[,1] == p)] # children nodes
         oldcc = sapply(cc, function(x){
           if(x <= ntips) x
           else map[,1][which(map[,2] == x)]
         })
-
+        
         ee = tr$edge.length[which(tr$edge[,1] == p)] # edge lengths
-
+        
         v = vector(mode = "list", length = length(cc))
         for(c in 1:length(cc)) {
           # find the edge defined by oldP and oldcc[c]
           oldEdge = which(apply(tree$edge,1,function(x){oldP %in% x && oldcc[c] %in% x}))
-
+          
           # determine if flipped or not flipped
           if(length(oldEdge > 0)) { # if the oldEdge exists
             flipped = trInfo$flipped_edges[oldEdge]
           } else {
             flipped = FALSE
           }
-
+          
           # if flipped reverse the dot product between P and liks
           P = expm(Q * ee[c])
           if(flipped) {
@@ -1827,7 +2040,7 @@ asymmRerootingMethod <- function(tree, tips, Q) {
         ll = Reduce("*",v)[,1]
         liks[p,] =  ll/sum(ll)  # normalize and store in liks
       }
-
+      
       # add the root likelihood to marg_anc_liks
       root = min(parents)
       marg_anc_liks[(n - ntips),] = liks[root,] # n is the root in the old tree
@@ -1845,16 +2058,16 @@ asymmRerootingMethod <- function(tree, tips, Q) {
 #' @return The ancestral likelihoods at each node in the tree
 #' @export
 getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = "auto") {
-
+  
   ntips = length(tree$tip.label) # number of tips
   nstates = length(unique(tipvals)) # number of states (categories)
-
+  
   # matrix to store the likelihoods
   liks = matrix(nrow = tree$Nnode, ncol = nstates)
   # convert tips to a matrix
   tips = to.matrix(tipvals, sort(unique(tipvals)))
   liks = rbind(tips, liks)
-
+  
   # get transition matrix, Q
   if(is.null(Q)) {
     # intlabels = map_to_state_space(tipvals)
@@ -1865,9 +2078,9 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
                tip_states = tipvals,
                rate_model = rate_model, root_prior = root_prior)$transition_matrix
   }
-
+  
   tree = reorder(tree, order = "postorder")
-
+  
   # forward pass:
   parents = unique(tree$edge[,1])
   for(i in 1:length(parents)) {
@@ -1875,7 +2088,7 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
     p = parents[i]
     cc = tree$edge[,2][which(tree$edge[,1] == p)] # children nodes
     ee = tree$edge.length[which(tree$edge[,1] == p)] # edge lengths
-
+    
     v = vector(mode = "list", length = length(cc))
     for(c in 1:length(cc)) {
       P = expm(Q * ee[c])
@@ -1884,14 +2097,14 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
     ll = Reduce("*",v)[,1]
     liks[p,] =  ll/sum(ll)  # normalize and store in liks
   }
-
+  
   # backward pass:
   for(i in length(parents):1){
     # get children of parent node
     p = parents[i]
     cc = tree$edge[,2][which(tree$edge[,1] == p)] # children nodes
     ee = tree$edge.length[which(tree$edge[,1] == p)] # edge lengths
-
+    
     for(c in 1:length(cc)){
       des = cc[c]
       if(des > ntips) { # if the child node is an internal node, update likelihood
@@ -1923,8 +2136,8 @@ getAncLiks <- function(tree, tipvals, Q = NULL, rate_model = "ER", root_prior = 
 #'@return A tree with edge.length representing phenotype states
 #'@export
 char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
-                                     model = "ER", root_prior = "auto",
-                                     plot = FALSE, anctrait = NULL)
+                                  model = "ER", root_prior = "auto",
+                                  plot = FALSE, anctrait = NULL)
 {
   # get the master tree and prune to include useSpecies/species with phenotype data
   mastertree = treesObj$masterTree
@@ -1947,15 +2160,15 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
   }
   # use ASR to infer phenotype tree
   if (is.null(anctrait)) {
-
+    
     tipvals <- tipvals[mastertree$tip.label]
     intlabels <- map_to_state_space(tipvals)
     print("The integer labels corresponding to each category are:")
     print(intlabels$name2index)
-
+    
     ancliks = getAncLiks(mastertree, intlabels$mapped_states, rate_model = model,
                          root_prior = root_prior)
-
+    
     states = rep(0, nrow(ancliks))
     for (i in 1:length(states)) {
       states[i] = which.max(ancliks[i,])
@@ -1963,7 +2176,7 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
     states = c(intlabels$mapped_states, states)
     tree = mastertree
     tree$edge.length = states[tree$edge[, 2]]
-
+    
     # convert to binary tree if necessary, plot, & return tree
     if(length(unique(tipvals)) == 2) {
       if(sum(! unique(tipvals) %in% c(TRUE,FALSE)) > 0) { # check that the two categories are TRUE/FALSE
@@ -2197,7 +2410,7 @@ fixPseudoroot=function(tree, treesObj){
 tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical = F){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
-
+  
   isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
   if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
     if (isbinarypheno) {
@@ -2210,7 +2423,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
   if (is.rooted(tree)) {
     tree = unroot(tree)
   }
-
+  
   #reduce tree to species in master tree and useSpecies
   sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
   if (length(sp.miss) > 0) {
@@ -2222,17 +2435,17 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
   } else {
     tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
   }
-
+  
   treePaths=allPaths(tree, categorical = categorical)
   map=matchAllNodes(tree,treesObj$masterTree)
-
+  
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
   treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
-
+  
   #indices for which paths to return
   ii=treesObj$ap$matIndex[(treePaths$nodeId[,2]-1)*nrow(treesObj$ap$matIndex)+treePaths$nodeId[,1]]
-
+  
   vals=double(length(treesObj$ap$dist))
   vals[]=NA
   vals[ii]=treePaths$dist
@@ -2282,7 +2495,7 @@ edgeVars=function(mastertree,tip.vals, metric="diff", se.filter=-1, return.var=F
   metric=match.arg(metric, c("diff", "mean", "last"))
   cm=intersect(mastertree$tip.label, names(tip.vals))
   mastertree=pruneTree(mastertree, cm)
-
+  
   #sets edge length to the difference between two nodes, the evolutionary change (i.e. the change between species A and its ancestral species)
   tip.vals=tip.vals[mastertree$tip.label]
   res=fastAnc(mastertree, x=tip.vals, vars=T)
@@ -2291,13 +2504,13 @@ edgeVars=function(mastertree,tip.vals, metric="diff", se.filter=-1, return.var=F
   names(res)[1:length(tip.vals)]=as.character(1:length(tip.vals))
   evals=matrix(nrow=nrow(mastertree$edge), ncol=2)
   evars=matrix(nrow=nrow(mastertree$edge), ncol=2)
-
+  
   evals[,1]=res[mastertree$edge[,1]]
   evals[,2]=res[mastertree$edge[,2]]
   evars[,1]=vars[mastertree$edge[,1]]
   evars[,2]=vars[mastertree$edge[,2]]
   newtree=mastertree
-
+  
   if(metric=="diff"){
     newtree$edge.length=evals[,2]-evals[,1]
     edge.se=sqrt(apply(evars,1,mean, na.rm=T))/sqrt(length(cm))
@@ -2318,7 +2531,7 @@ edgeVars=function(mastertree,tip.vals, metric="diff", se.filter=-1, return.var=F
   else{
     message("Returning variance")
     newtree$edge.length=(edge.se*length(cm))^2
-
+    
     return(newtree)
   }
 }
@@ -2340,7 +2553,7 @@ pruneTree=function(tree, tip.names){
 
 #' @keywords  internal
 transformMat=function(tree){
-
+  
   nA=length(tree$tip.label)+tree$Nnode
   matIndex=matrix(nrow=nA, ncol=nA)
   mat=matrix(nrow=nrow(tree$edge), ncol=0)
@@ -2352,9 +2565,9 @@ transformMat=function(tree){
       ia=c(i,ia)
       for (k in 2:length(ia)){
         j=ia[k]
-
+        
         thisindex=c(thisindex, which(tree$edge[,2]==ia[k-1]&tree$edge[,1]==ia[k]))
-
+        
         vals=rep(0, nrow(mat))
         vals[thisindex]=1
         mat=cbind(mat, vals)
@@ -2385,9 +2598,9 @@ edgeReOrder=function(tree, masterTree){
   newedge[,1]=map[newedge[,1],2]
   newedge[,2]=map[newedge[,2],2]
   edgenames=namePaths(newedge)
-
+  
   masternames=namePaths(masterTree$edge)
-
+  
   match(masternames, edgenames)
 }
 
@@ -2438,7 +2651,7 @@ CanonicalForm=function(tree){
   tree$edge[ii,2]=order(oo)
   #plot(tree)
   rotateConstr(tree, sort(tree$tip.label))
-
+  
 }
 
 
@@ -2496,7 +2709,7 @@ residSQ=function(x,y, plot=F){
 #loess fit
 residLO=function(x,y, plot=F){
   x=as.vector(sqrt(x));y=as.vector(sqrt(y))
-
+  
   fit=loess(x~y, span = 0.99, family = "s")
   if(plot){
     plot(fit$x, fit$y)
@@ -2515,24 +2728,24 @@ projectionSQ=function(allbranch){
 
 checkOrder=function(tree1, tree2, plot=F){
   both=intersect(tree1$tip.label, tree2$tip.label)
-
+  
   tree1=unroot(pruneTree(tree1, both))
   tree2=unroot(pruneTree(tree2, both))
-
+  
   tmpe1=as.data.frame(tree1$edge)
   tmpe1[match(1:length(both),tmpe1[,2]),2]=tree1$tip
   tmpe2=as.data.frame(tree2$edge)
   tmpe2[match(1:length(both),tmpe2[,2]),2]=tree2$tip
-
+  
   map=matchNodes(tree1,tree2, method = "descendant")
   n=length(both)
   im=match(tree1$tip, tree2$tip)
   map=rbind(map, cbind(1:n, im))
   map=map[order(map[,1]),]
-
+  
   edge1remap=tree1$edge
-
-
+  
+  
   edge1remap[,1]=map[edge1remap[,1],2]
   edge1remap[,2]=map[edge1remap[,2],2]
   if(plot){
@@ -2546,9 +2759,9 @@ checkOrder=function(tree1, tree2, plot=F){
     plotWtext(tmpd1, tmpd2, nn[])
   }
   return(all(edge1remap[,1]==tree2$edge[,1]) &&all(edge1remap[,2]==tree2$edge[,2]))
-
+  
   #   #show(tmpd1)
-
+  
   #  return(cbind(tmpd1, tmpd2))
 }
 
@@ -2574,7 +2787,7 @@ getNV=function(name1, name2, treesObj, residfun=residLN, plot=T){
   for ( i in 1:(length(treesObj)-3)){
     if(sum(is.na(match(both, treesObj[[i]]$tip.label)))==0){
       tmptree=(pruneTree(treesObj[[i]], both, mastertree))
-
+      
       # show(c(length(tmptree$edge.length), ncol(allbranch)))
       allbranch=rbind(allbranch, tmptree$edge.length)
     }
@@ -2594,7 +2807,7 @@ getProjection=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
   tree1=unroot(pruneTree(tree1, both))
   tree2=unroot(pruneTree(tree2, both))
   allreport=treesObj$report[1:maxT,both]
-
+  
   ss=rowSums(allreport)
   iiboth=which(ss==length(both))
   torm=setdiff(treesObj$masterTree$tip.label, both)
@@ -2625,7 +2838,7 @@ getProjectionPaths=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
 correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
   maxT=treesObj$numTrees
   if (is.null(maxDo)){
-
+    
     maxDo=maxT*(maxT-1)
   }
   corout=matrix(nrow=maxT, ncol=maxT)
@@ -2650,7 +2863,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
         t0=as.double(Sys.time())
         tree1=treesObj$trees[[i]]
         tree2=treesObj$trees[[j]]
-
+        
         bothIndex=which(colSums(treesObj$report[c(i, j),])==2)
         both=intersect(tree1$tip.label, tree2$tip.label)
         if(!useIndex){
@@ -2662,7 +2875,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
         iiboth=which(ss==length(bothIndex))
         #  torm=setdiff(treesObj$masterTree$tip.label, both)
         # allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-
+        
         t1=as.double(Sys.time())
         message(paste("10 took", t1-t0))
         t0=t1
@@ -2689,7 +2902,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
           t0=t1
           allbranch=scaleMat(allbranch)
         }
-
+        
         message("done")
         nb=length(both)
         proj=t(projection(t(allbranch), method="AVE", returnNV = F))
@@ -2697,7 +2910,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
         #j1=match(j,iiboth)
         #corout[i,j]=cor(proj[i1, ], proj[j1,])
         #  tmpcor=cor(t(proj))
-
+        
         ai=which(maxn[iiboth, iiboth]==nb, arr.ind = T)
         t1=as.double(Sys.time())
         message(paste("30 took", t1-t0))
@@ -2705,14 +2918,14 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
         for (m in 1:nrow(ai)){
           k=sort(ai[m,])[1]
           l=sort(ai[m,])[2]
-
+          
           tmpcor=cor(proj[k,], proj[l,])
           if (is.na(tmpcor)){
             tmpcor=0
           }
           corout[iiboth[k], iiboth[l]]=tmpcor
-
-
+          
+          
         }
         t1=as.double(Sys.time())
         message(paste("40 took", t1-t0))
@@ -2728,7 +2941,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
       }
     }
   }
-
+  
 }
 
 
@@ -2737,7 +2950,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
 correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, species.list=NULL, useSQ=F){
   maxT=treesObj$numTrees
   if (is.null(maxDo)){
-
+    
     maxDo=maxT
   }
   corout=matrix(nrow=maxT, ncol=1)
@@ -2748,13 +2961,13 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
   show((binReport))
   names(binReport)=colnames(treesObj$report)
   maxn=treesObj$report[, species.list]%*%(binReport[species.list])
-
+  
   done=0
   todo=length(maxn>=10)
   corout[maxn<10]=0
-
+  
   for (i in 1:maxT){
-
+    
     if (is.na(corout[i,1])){
       tree1=treesObj$trees[[i]]
       if(! is.null(species.list)){
@@ -2771,7 +2984,7 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
       if(length(both)<10){
         next
       }
-
+      
       if(! usePaths){
         torm=setdiff(treesObj$masterTree$tip.label, both)
         allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
@@ -2781,14 +2994,14 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
         }
       }
       else{
-
+        
         ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
         ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
         #show(ii)
         #show(ii2)
         stopifnot(all(ii=ii2))
         allbranch=treesObj$paths[iiboth,ii]
-
+        
         allbranch=scaleMat(allbranch)
       }
       # message("done")
@@ -2805,12 +3018,12 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
       #  tmpcor=cor(t(proj))
       ai=which(maxn[iiboth, 1]==nb)
       # show(iiboth[1])
-
-
+      
+      
       tmp=simpleAUCmat(binTreeUse$edge.length, (proj[ai, ,drop=F]))
-
+      
       corout[iiboth[ai]]=tmp$auc
-
+      
       pout[iiboth[ai]]=tmp$pp
       done=done+length(ai)
       show(length(ai))
@@ -2823,22 +3036,22 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
       #generate the projection
     }
   }
-
+  
   return(list(r=corout, p=pout))
 }
 
 
 plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
   maxT=treesObj$numTrees
-
+  
   binReport=as.vector(as.numeric(binTree$tip.label %in% colnames(treesObj$report)))
-
+  
   names(binReport)=colnames(treesObj$report)
   maxn=treesObj$report[, species.list]%*%(binReport[species.list])
-
-
-
-
+  
+  
+  
+  
   tree1=treesObj$trees[[index]]
   if(! is.null(species.list)){
     tree1=unroot(pruneTree(tree1, species.list))
@@ -2851,7 +3064,7 @@ plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
   #  torm=setdiff(treesObj$masterTree$tip.label, both)
   binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
   allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-
+  
   ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
   ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
   plot(tree1,use.edge.length = F)
@@ -2861,14 +3074,14 @@ plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
   allbranch=treesObj$paths[iiboth,ii]
   thisgene=which(iiboth==index)
   allbranch=scaleMat(allbranch)
-
+  
   nb=length(both)
-
+  
   proj=t(projection(t(allbranch), method="AVE", returnNV = F))
   nv=t(projection(t(allbranch), method="AVE", returnNV = T))
-
+  
   plot(nv,proj[thisgene,], col=binTreeUse$edge.length+1)
-
+  
 }
 
 
@@ -2898,18 +3111,18 @@ correlateTrees=function(tree1, tree2, mastertree, residfun=residLN, plot=F, cuto
   cc=cor((e1), (e2))
   nn=character(length(e1))
   iim=match(1:length(tree1$tip.label), tree1$edge[,2])
-
+  
   nn[iim]=tree1$tip.label
-
+  
   if(plot){
-
-
+    
+    
     plotWtext(e1, e2, nn)
     title(paste("R=", round(cc,2)))
   }
-
+  
   return(list(l1=tree1$edge.length, l2=tree2$edge.length,e1=e1, e2=e2, cor=cc, names=nn, tree1=tree1, tree2=tree2))
-
+  
 }
 
 
@@ -2931,8 +3144,8 @@ correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F
   if(!is.null(species.list)){
     both=intersect(both, species.list)
   }
-
-
+  
+  
   torm=setdiff(treesObj$masterTree$tip.label, both)
   tree1=pruneTree(tree1, both)
   tree1=unroot(tree1)
@@ -2950,7 +3163,7 @@ correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F
       tmptree=rescaleTree(drop.tip(treesObj$trees[[iiboth[i]]], torm))
       allbranch[i, ]=tmptree$edge.length
     }
-
+    
   }
   else{
     if(! useIndex){
@@ -2959,12 +3172,12 @@ correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F
       allbranch=treesObj$paths[iiboth,ii]
       show(sum(is.na(allbranch)))
       allbranch=scaleMat(allbranch)
-
+      
       nv=projection(t(allbranch), method="AVE", returnNV = T)
       mastertree=treesObj$master
       mastertree$edge.length=nv
       res=correlateTrees(tree1, tree2, mastertree, residfun=residfun, plot=plot, cutoff=cutoff, Tree1Bin=tree1Bin)
-
+      
       res$nv=nv
       res$allbranch=allbranch
     }
@@ -2981,7 +3194,7 @@ correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F
       res=list()
     }
   }
-
+  
   return(res)
 }
 
@@ -2996,7 +3209,7 @@ correlateTreesAll1=function(name1, name2, treesObj, residfun=residLN, plot=F, cu
   tree2=pruneTree(tree2, both)
   allreport=treesObj$report[,both]
   ss=rowSums(allreport)
-
+  
   iiboth=which(ss==length(both))
   if (! usePaths){
     allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
@@ -3037,43 +3250,43 @@ mapEdge=function(tree1, tree2){
   edge1remap=tree1$edge
   #show(nrow(edge1remap))
   #show(nrow(tree2$edge))
-
+  
   edge1remap[,1]=map[edge1remap[,1],2]
   edge1remap[,2]=map[edge1remap[,2],2]
   edge1remap
-
+  
 }
 
 
 plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=NULL, residfun=residLO, useDiff=T, xlab){
   #get the tree projection
   tip.vals=tip.vals[!is.na(tip.vals)]
-
+  
   stopifnot(gene %in% names(treesObj$trees))
   tree=treesObj$trees[[gene]]
   stopifnot(!is.null(names(tip.vals)))
   both=intersect(tree$tip.label, names(tip.vals))
-
+  
   stopifnot(length(both)>10)
-
-
+  
+  
   torm=setdiff(treesObj$masterTree$tip.label, both)
   tree=pruneTree(tree, both)
   tip.vals=tip.vals[both]
   allreport=treesObj$report[,both]
   ss=rowSums(allreport)
   iiboth=which(ss==length(both))
-
-
+  
+  
   ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
   ii= match(namePaths(ee,T), colnames(treesObj$paths))
-
+  
   allbranch=treesObj$paths[iiboth,ii]
-
+  
   allbranch=scaleMat(allbranch)
   show(sum(is.na(allbranch)))
   nv=projection(t(allbranch), method="AVE", returnNV = T)
-
+  
   proj=residfun(tree$edge.length, nv)
   show(length(tree$edge.length))
   treeChar=edgeVarsDiff(tree, tip.vals)
@@ -3083,20 +3296,20 @@ plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=
   nn[nn!=""]=speciesNames[nn[nn!=""], ]
   #par(mfrow=c(2,2), mai=rep(0.7,4))
   #plotWtext(sqrt(nv), sqrt(tree$edge.length), xlab="char", ylab="Gene branch length", labels = nn)
-
+  
   plotWtext(treeChar$edge.length, proj, xlab=xlab, ylab="relative gene branch length", labels = nn)
   stat=cor.test(treeChar$edge.length, proj, method="s")
   mtext(gene,side = 3, line=2, font=2)
   mtext(paste0("r=", round(stat$estimate,2), ";  p-value=", format.pval(stat$p.value)), side = 3, line=0.5, cex=.7)
-
+  
   if(!is.null(tip.vals.ref)){
     treeCharRef=edgeVars(tree, tip.vals.ref, useDiff=useDiff)
     proj=resid(rbind(proj), model.matrix(~1+treeCharRef$edge.length))[1,]
   }
-
-
-
-
+  
+  
+  
+  
 }
 
 plotWtext=function(x,y, labels, text.cex=0.7, ...){plot(x,y, pch=19, col="#00008844", xlim=range(x)+c(0,0.7),...); textplot(x,y, words=labels, cex=text.cex)}
@@ -3108,7 +3321,7 @@ plotResidsVsChar=function(x,y, labels, text.cex=0.7, names=T,...){
   nn=names(x)[ii]
   nn=speciesNames[nn,1]
   nn[is.na(nn)]=""
-
+  
   plot(x[ii], y[ii], col="#0000AAAA",xlab="RER", ...);
   if(names)
     textplot(x[ii],y[ii], words=nn, cex=text.cex,new = F)
@@ -3134,13 +3347,13 @@ getStat=function(res){
   }
   sum(is.na(stat))
   stat=stat[!is.na(stat)]
-
+  
   stat
 }
 
 varExplainedWithNA=function (dat, val, adjust=T)
 {
-
+  
   adje=vare=double(nrow(dat))
   names(vare)=rownames(dat)
   for(i in 1:nrow(dat)){
@@ -3149,15 +3362,15 @@ varExplainedWithNA=function (dat, val, adjust=T)
       mod0 = cbind(rep(1, length(ii)))
       mod=model.matrix(~1+val[ii])
       n=length(ii)
-
+      
       adj=(n-1)/(n-ncol(mod))
-
+      
       evince
       resid = resid(dat[i,ii, drop=F], mod)
       resid0 = resid(dat[i,ii,drop=F], mod0)
       rss1 = resid^2 %*% rep(1, n)
       rss0 = resid0^2 %*% rep(1, n)
-
+      
       vare[i]=1-rss1/rss0*adj
       adje[i]=adj        }
   }
@@ -3198,7 +3411,7 @@ findAllPaths=function(matIndex, speciesIndex, key.species=1, tri.node=NULL){
     toRm=integer()
     for ( i in 1:nrow(res)){
       ti=speciesIndex[tmpti<-which(matIndex[speciesIndex, i]==1)]
-
+      
       paths=rbind(paths, c(res[i,1], res[i,2]))
       paths=rbind(paths, c(res[i,1], res[i,3]))
     }
@@ -3214,7 +3427,7 @@ getBranch=function(treesObj, speciesIndex,key.species=1, tri.node=NULL){
   res=findAllPaths(treesObj$matAnc, speciesIndex)
   ii=which(rowSums(treesObj$report[,speciesIndex])>=length(speciesIndex))
   allBranch=treesObj$paths[ii,treesObj$matIndex[res[,c(2:1)]]]
-
+  
 }
 
 
@@ -3240,10 +3453,10 @@ getAncestor=function(tree, nodeN){
 
 matchNodesInjectUpdate=function (tr1, tr2){
   ancMatFrom=getAncestorMatrix(tr1)
-
-
+  
+  
   ancMatTo=getAncestorMatrix(tr2) # this is the
-
+  
   outMat=matrix(0,nrow=nrow(ancMatFrom), ncol=ncol(ancMatTo))
   colnames(outMat)=colnames(ancMatTo)
   #rownames(outMat)=rownames(ancMatFrom)
@@ -3251,14 +3464,14 @@ matchNodesInjectUpdate=function (tr1, tr2){
   tt=tcrossprod(outMat,ancMatTo)
   tt2=sqrt(outer(rowSums(outMat), rowSums(ancMatTo[, colnames(ancMatFrom)])))
   ii=which(tt/tt2==1, arr.ind = T)
-
+  
   rr2<-rowSums(ancMatTo)
   #ii is mappint tr1 to tr2
   iidouble=which(table(ii[,1])>1)
   if(length(iidouble)>0){
     for (i in iidouble){
       iiresolve=which(ii[,1]==i)
-
+      
       #     show(rr2[ii[iiresolve,2]])
       #  show(ii[iiresolve,])
       j=which.min(rr2[ii[iiresolve,2]])
@@ -3267,16 +3480,16 @@ matchNodesInjectUpdate=function (tr1, tr2){
       #show(j)
       iirm=which(ii[,1]==i&ii[,2]!=j)
       #show(ii[iirm,])
-
+      
       ii[iirm,]=NA
       #show(ii[iiresolve,])
     }
   }
   ii[,1]=ii[,1]+length(tr1$tip.label)
   ii[,2]=ii[,2]+length(tr2$tip.label)
-
+  
   ii=ii[!is.na(ii[,1]),]
-
+  
   ii=rbind(cbind(1:length(tr1$tip.label), match(tr1$tip.label, tr2$tip.label)),ii)
   if(nrow(ii)!=length(tr1$tip.label)+tr1$Nnode){
     stop("Discordant tree topology detected")
@@ -3315,6 +3528,14 @@ matchAllnodesTT =function (tree, masterTree){
   map
 }
 
+edgeIndexRelativeMasterTT =function (tree, masterTree){
+  map=matchAllnodesTT(tree,masterTree)
+  newedge=tree$edge
+  newedge[,1]=map[newedge[,1],2]
+  newedge[,2]=map[newedge[,2],2]
+  newedge
+}
+
 namePathsWSpeciesTT =function (treesObj){
   cnames=vector("character", ncol(treesObj$paths))
   
@@ -3328,13 +3549,198 @@ namePathsWSpeciesTT =function (treesObj){
   cnames
 }
 
-edgeIndexRelativeMasterTT =function (tree, masterTree){
+#' @keywords  internal
+allPathsMasterRelativeTT =function (tree, masterTree, masterTreePaths=NULL,i=NULL){
+  
+  if(! is.list(masterTreePaths)){
+    masterTreePaths=allPathsTT(masterTree)
+  }
+  
+  treePaths=allPathsTT(tree, needIndex = F)
   map=matchAllnodesTT(tree,masterTree)
-  newedge=tree$edge
-  newedge[,1]=map[newedge[,1],2]
-  newedge[,2]=map[newedge[,2],2]
-  newedge
+  
+  #remap the nodes
+  treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
+  treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
+  
+  
+  #ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
+  ii=masterTreePaths$matIndex[cbind(treePaths$nodeId[,1],treePaths$nodeId[,2])]
+  vals=double(length(masterTreePaths$dist))
+  
+  if(sum(is.na(ii))>0 & !is.null(i)) {
+    message("warning: discordant tree topology in tree ", i,", returning NA row",sep="")
+    return(vals)
+  }
+  
+  vals[]=NA
+  vals[ii]=treePaths$dist
+  vals
+}
+
+
+winsorizeRank=function(data, axis, rank=2){
+  upper=apply(data,axis,function(x){ sort(x,T)[rank]})
+  lower=apply(data,axis,function(x){ sort(x,F)[rank]})
+  if (axis==1){
+    for(i in 1:nrow(data)){
+      data[i,][data[i,]>upper[i]]=upper[i]
+      data[i,][data[i,]<lower[i]]=lower[i]
+    }
+  }
+  else{
+    for(i in 1:ncol(data)){
+      data[,i][data[,i]>upper[i]]=upper[i]
+      data[,i][data[,i]<lower[i]]=lower[i]
+    }
+  }
+  data
+}
+
+copyMat=function(mat, names=T){
+  newmat=matrix(nrow=nrow(mat), ncol=ncol(mat))
+  if(names){
+    rownames(newmat)=rownames(mat)
+    colnames(newmat)=colnames(mat)
+  }
+  newmat
+}
+
+getColMeansNV=function(mat){
+  nv = apply(mat, 2, mean, na.rm = T, trim = 0.05)
+}
+
+myscale=function(x, center=F){
+  s = apply(x, 2, sd, na.rm=T)
+  if(center){
+    m = apply(x, 2, mean, na.rm=T)
+    x = sweep(x, 2, m)
+  }
+  x = sweep(x, 2, s, "/")
+  
+  x
 }
 
 
 
+
+
+normalizeQuantiles=function (A, ties = TRUE)
+{
+  n <- dim(A)
+  if (is.null(n))
+    return(A)
+  if (n[2] == 1)
+    return(A)
+  O <- S <- array(, n)
+  nobs <- rep(n[1], n[2])
+  i <- (0:(n[1] - 1))/(n[1] - 1)
+  for (j in 1:n[2]) {
+    Si <- sort(A[, j], method = "quick", index.return = TRUE)
+    nobsj <- length(Si$x)
+    if (nobsj < n[1]) {
+      nobs[j] <- nobsj
+      isna <- is.na(A[, j])
+      S[, j] <- approx((0:(nobsj - 1))/(nobsj - 1), Si$x,
+                       i, ties = list("ordered", mean))$y
+      O[!isna, j] <- ((1:n[1])[!isna])[Si$ix]
+    }
+    else {
+      S[, j] <- Si$x
+      O[, j] <- Si$ix
+    }
+  }
+  m <- rowMeans(S)
+  for (j in 1:n[2]) {
+    if (ties)
+      r <- rank(A[, j])
+    if (nobs[j] < n[1]) {
+      isna <- is.na(A[, j])
+      if (ties)
+        A[!isna, j] <- approx(i, m, (r[!isna] - 1)/(nobs[j] -
+                                                      1), ties = list("ordered", mean))$y
+      else A[O[!isna, j], j] <- approx(i, m, (0:(nobs[j] -
+                                                   1))/(nobs[j] - 1), ties = list("ordered", mean))$y
+    }
+    else {
+      if (ties)
+        A[, j] <- approx(i, m, (r - 1)/(n[1] - 1), ties = list("ordered",
+                                                               mean))$y
+      else A[O[, j], j] <- m
+    }
+  }
+  A
+}
+
+
+#' Flat_to_ij
+#'
+#' Takes a flat matrix index and returns it as two colums or row (i) and column (j) indeces
+#'
+#' @param index A flast index
+#' @param ncol The number of columns in the matrix
+#'
+#' @return A two column matrix of indeces corresponding to i and j
+#'
+#' @export
+flat_to_ij=function(index, ncol) {
+  j <- (index - 1) %/% ncol + 1
+  i <- (index - 1) %% ncol + 1
+  return(cbind(i, j))
+}
+
+
+#' Map index
+#'
+#' Creates a map from the paths in one tree object to the paths in the other object
+#' Can be used to put old style and new style trees objects into the same order
+#' @param treesObj1 The first trees object
+#' @param treesObj2 The second trees object
+#'
+#' @return The index of the paths matrix columns in treesObj1 inside treesObj2
+#'
+#' @export
+mapIndex=function(treesObj1, treesObj2){
+  if(nrow(treesObj1$matIndex)!=nrow(treesObj2$matIndex)){
+    message("Tree objects are not compatible. This operation makes no sense")
+    return()
+  }
+  mi1=match(1:ncol(treesObj1$paths),treesObj1$matIndex)
+  mi1ij=flat_to_ij(mi1, ncol(treesObj1$matIndex))
+  map=treesObj2$matIndex[mi1ij]
+}
+
+#' Scatter plot with correlation
+#' @export
+plotWithCor=function(x,y){
+  plot(x,y)
+  cc=cor(as.vector(x), as.vector(y), use="p")
+  abline(a=0,b=1, lwd=4,col=2)
+  title(paste("Correlation=",round(cc,4)))
+}
+
+plotAsBox=function(x,y,n=20,intercept=0, ...){
+  
+  x=as.vector(x)
+  y=as.vector(y)
+  #ii=which(!is.na(x)&!is.na(y))
+  #x=x[ii]
+  #y=y[ii]
+  
+  if(length(x)>1e5){
+    set.seed(123);
+    iis=sample(length(x), 1e5)
+    qq = quantile(x[iis], seq(0, n, 1)/n, na.rm = T)
+  }
+  else{
+    qq = quantile(x, seq(0, n, 1)/n, na.rm = T)
+  }
+  qqdiff = diff(qq)
+  breaks = qq[1:n] + qqdiff/2
+  
+  breaks = unique(round(breaks, 3))
+  
+  x=cut(x, breaks=breaks)
+  boxplot(y~x, outline=F, las=2, ...)
+  abline(h = intercept, col = "blue3", lwd = 2)
+}

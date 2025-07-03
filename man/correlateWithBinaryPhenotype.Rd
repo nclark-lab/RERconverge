@@ -13,7 +13,8 @@ correlateWithBinaryPhenotype(
   winsorizeRER = NULL,
   winsorizetrait = NULL,
   bootstrap = F,
-  bootn = 1000
+  bootn = 1000,
+  sort = F
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ correlateWithBinaryPhenotype(
 \item{bootstrap}{toggle bootstrapping (for weighted pearson correlation)}
 
 \item{bootn}{number of runs to use when bootstrapping. Will be ignored if bootstrap is false.}
+
+\item{sort}{whether to sort by p-value and sign of rho}
 }
 \description{
 Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}
