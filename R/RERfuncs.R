@@ -568,15 +568,15 @@ getChildren=function(tree, nodeN){
 
 #'Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
-#' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' @param charP Phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in the foreground (non-zero phenotype values)
-#' @param weighted perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.
+#' @param weighted Perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.
 #' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.
 #' @param winsorizetrait Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.
-#' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
-#' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
-#' @param sort whether to sort by p-value and sign of rho
+#' @param bootstrap Toggle bootstrapping (for weighted pearson correlation)
+#' @param bootn Number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
+#' @param sort If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)
 #' @export
 correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weighted="auto",winsorizeRER=NULL, winsorizetrait=NULL, bootstrap=F, bootn=1000,sort=F){
   if(weighted=="auto"){
@@ -606,7 +606,7 @@ correlateWithBinaryPhenotype=function(RERmat,charP, min.sp=10, min.pos=2, weight
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
 #' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
-#' @param sort whether to sort by p-value and sign of rho
+#' @param sort If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)
 #' @export
 
 correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER=3, winsorizetrait=3,sort=F){
@@ -616,13 +616,13 @@ correlateWithContinuousPhenotype=function(RERmat,charP, min.sp=10,  winsorizeRER
 
 #' Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a categorical phenotype made with \code{\link{char2PathsCategorical}}
 #' @param RERmat RER matrix returned by \code{\link{getAllResiduals}}
-#' @param charP phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
+#' @param charP Phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}
 #' @param method Method used to compute correlations. Use "kw" to use Kruskil Wallis. Use "aov" to use ANOVA. It must be one of the strings "kw" or "aov".
 #' @param min.sp Minimum number of species that must be present for a gene
 #' @param min.pos Minimum number of species that must be present in a category
 #' @param winsorizeRER Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme values at each end of each RER row to the the value closest to 0.
 #' @param winsorizetrait Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.
-#' @param sort whether to sort by p-value and sign of rho
+#' @param sort If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)
 #' @return A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.
 #' @export
 correlateWithCategoricalPhenotype = function(RERmat,charP, min.sp = 10, min.pos = 2, method = "kw", winsorizeRER=NULL, winsorizetrait=NULL,sort=F){
@@ -734,7 +734,7 @@ kwdunn.test <- function(x,g, ncategories){
 #' @param weighted perform weighted correlation. This option needs to be set if the clade weights computed in \code{\link{foreground2Tree}(wholeClade=T)} are to be used. This setting will treat the clade a single observation for the purpose of p-value estimation.
 #' @param bootstrap toggle bootstrapping (for weighted pearson correlation)
 #' @param bootn number of runs to use when bootstrapping. Will be ignored if bootstrap is false.
-#' @param sort whether to sort by p-value and sign of rho
+#' @param sort If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)
 #' @note  winsorize is in terms of number of observations at each end, NOT quantiles
 #' @return A list object with correlation values, p-values, and the number of data points used for each tree
 #' @export
@@ -1314,17 +1314,24 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
     
   }
   
-  
   if(is.null(weights) | !use.weights){
     message("No weights found. Setting weights to 1. Consider adding weights")
     weights=copyMat(tPaths)
     weights[]=1
   }
   
+  cm=intersect(treesObj$masterTree$tip.label, useSpecies)
+  sp.miss = setdiff(treesObj$masterTree$tip.label, useSpecies)
+  if (length(sp.miss) > 0) {
+    message(paste0("Species from master tree not present in useSpecies: ", paste(sp.miss,
+                                                                                 collapse = ",")))
+    
+  }
+  
   
   
   #maximum number of present species
-  maxSpecies=rowSums(treesObj$report[,useSpecies])
+  maxSpecies=rowSums(treesObj$report[,cm])
   
   #this will hold the predictions
   preds=copyMat(tPaths)
@@ -1361,15 +1368,11 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
       tree1=treesObj$trees[[i]]
       
       #get the common species, prune and unroot
-      thisUseSpecies=intersect(tree1$tip.label, useSpecies)
-      
-      
-      
-      
-      if(length(thisUseSpecies)<min.sp){
-        
+      both=intersect(tree1$tip.label, cm)
+      if(length(both)<min.sp){
         next
       }
+      tree1=unroot(pruneTree(tree1,both))
       
       
       #find all the genes that that whose maximal species set is the same as tree1
