@@ -1359,7 +1359,7 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
                          width = 100)      # Width of the progress bar
   for (i in doOnly:(doOnly+maxT-1)){
     #TICK
-    # pb$tick()
+    pb$tick()
     
     if(!isDone[i]){
       
