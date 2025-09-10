@@ -276,7 +276,7 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
       #tree2Paths(tr, treesObj, categorical = TRUE, useSpecies = names(phenvals))
       tr
     })
-    permulated.binphens = permulatedTrees
+    permulated.binphens = list(permulatedTrees)
     #----
     #permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc")
     permulated.fg = mapply(getForegroundsFromBinaryTree, permulated.binphens[[1]])
