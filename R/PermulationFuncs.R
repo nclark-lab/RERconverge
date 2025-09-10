@@ -239,7 +239,7 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
 #' @param RERmat An RER matrix calculated using \code{\link{getAllResiduals}}.
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
-#' @param permmode Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match. Old versions of these modes have been moved to )
+#' @param permmode Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match. Old versions of these modes have been moved to ccLegacy and ssmLegacy)
 #' @param method statistical method to use for correlations (set to "k" (default) for Kendall Tau test)
 #' @param min.pos minimum number of foreground species (default 2)
 #' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
@@ -253,8 +253,56 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
   names(pathvec) = col_labels
 
   message("As of RERConverge [X.xx], permulation functions have been updated. Old versions have been moved to ccLegacy and ssmLegacy.")
+  if(permmode=="cc"){
+    print("Running CC permulation. sisters_list is required only for enrichments, otherwise sisters_list = NA is sufficient.")
 
-  if (permmode=="ccLegacy"){
+    print("Generating permulated trees")
+
+    # --- new code since legacy method; switching to categorical function to infer phenotype tree --
+    #covert fg_vec to a categorical phenotypeVector
+    phenotypeVector = rep(0, length(trees$masterTree$tip.label))
+    names(phenotypeVector) = trees$masterTree$tip.label
+    phenotypeVector[names(phenotypeVector) %in% fg_vec] = 1
+
+
+    permulationData = categoricalPermulations(trees, phenotypeVector, rm = "ER", rp = "auto", ntrees = numperms)
+
+
+    permulatedTrees = lapply(permulationData$trees, function(x) {
+      tr = trees$masterTree
+      tr$edge.length = c(x$tips, x$nodes)[tr$edge[,2]]
+      tr$edge.length = tr$edge.length-1
+      names(tr$edge.length) = NULL
+      #tree2Paths(tr, treesObj, categorical = TRUE, useSpecies = names(phenvals))
+      tr
+    })
+    permulated.binphens = permulatedTrees
+    #----
+    #permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc")
+    permulated.fg = mapply(getForegroundsFromBinaryTree, permulated.binphens[[1]])
+    permulated.fg.list = as.list(data.frame(permulated.fg))
+    phenvec.table = mapply(foreground2Paths,permulated.fg.list,MoreArgs=list(treesObj=trees,clade="all"))
+    phenvec.list = lapply(seq_len(ncol(phenvec.table)), function(i) phenvec.table[,i])
+
+    print("Calculating correlations")
+    corMatList = lapply(phenvec.list, correlateWithBinaryPhenotype, RERmat=RERmat)
+
+    #make enrich list/matrices to fill
+    permPvals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+    rownames(permPvals)=rownames(RERmat)
+    permRhovals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+    rownames(permRhovals)=rownames(RERmat)
+    permStatvals=data.frame(matrix(ncol=numperms, nrow=nrow(RERmat)))
+    rownames(permStatvals)=rownames(RERmat)
+
+    for (i in 1:length(corMatList)){
+      permPvals[,i] = corMatList[[i]]$P
+      permRhovals[,i] = corMatList[[i]]$Rho
+      permStatvals[,i] = sign(corMatList[[i]]$Rho)*-log10(corMatList[[i]]$P)
+    }
+
+  }
+  else if (permmode=="ccLegacy"){
     print("Running CC Legacy permulation")
 
     print("Generating permulated trees")
