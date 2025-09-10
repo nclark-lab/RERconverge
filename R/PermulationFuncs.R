@@ -239,7 +239,7 @@ getForegroundInfoClades=function(fg_vec,sisters_list=NULL,trees,plotTree=T,useSp
 #' @param RERmat An RER matrix calculated using \code{\link{getAllResiduals}}.
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @param mastertree A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec
-#' @param permmode Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match)
+#' @param permmode Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match. Old versions of these modes have been moved to )
 #' @param method statistical method to use for correlations (set to "k" (default) for Kendall Tau test)
 #' @param min.pos minimum number of foreground species (default 2)
 #' @param trees_list A list containing the trees of all genes of interest (formatted like trees in treesObj from \code{\link{readTrees}})
@@ -252,8 +252,10 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
   col_labels = colnames(trees$paths)
   names(pathvec) = col_labels
 
-  if (permmode=="cc"){
-    print("Running CC permulation")
+  message("As of RERConverge [X.xx], permulation functions have been updated. Old versions have been moved to ccLegacy and ssmLegacy.")
+
+  if (permmode=="ccLegacy"){
+    print("Running CC Legacy permulation")
 
     print("Generating permulated trees")
     permulated.binphens = generatePermulatedBinPhen(trees$masterTree, numperms, trees, root_sp, fg_vec, sisters_list, pathvec, permmode="cc")
@@ -279,8 +281,8 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
       permStatvals[,i] = sign(corMatList[[i]]$Rho)*-log10(corMatList[[i]]$P)
     }
 
-  } else if (permmode=="ssm"){
-    print("Running SSM permulation")
+  } else if (permmode=="ssmLegacy"){
+    print("Running SSM Legacy permulation")
 
     if (is.null(trees_list)){
       trees_list = trees$trees
@@ -437,32 +439,32 @@ getPermsBinaryFudged <- function(fgdspecs, RERs, trees, useSpecies, ntrees, root
   fgnum = sum(t$edge.length)
   tips = length(fgdspecs)
   internal = fgnum - tips
-  
+
   # print summary
   print(paste("fgnum:", fgnum))
   print(paste("tips:", tips))
   print(paste("internal:", internal))
-  
+
   # drop species in the tree that we don't want to use
   # this is the tree passed to the simulation function
   drop = trees$masterTree$tip.label[!(trees$masterTree$tip.label %in% useSpecies)]
   t=drop.tip(trees$masterTree, drop)
   t=root.phylo(t, root, resolve.root = T)
-  
+
   # get the ratematrix
   rm=ratematrix(t, phenvec)
-  
-  # make the data frames 
+
+  # make the data frames
   statdf=data.frame(matrix(data=NA, nrow=nrow(RERs),ncol=ntrees),row.names=rownames(RERs))
   pvaldf=data.frame(matrix(data=NA, nrow=nrow(RERs),ncol=ntrees),row.names=rownames(RERs))
-  
+
   # generate the trees
   count=1
   while(count<=ntrees){
-    
+
     #get phenotype:
     blsum=0
-    
+
     while(blsum>(fgnum+fudge) | blsum<(fgnum-fudge)){
       ###########################################
       sims=sim.char(t, rm, nsim = 1)[,,1] #sim.char returns a weird array data structure, [,,1] is the named vector we want
@@ -471,23 +473,23 @@ getPermsBinaryFudged <- function(fgdspecs, RERs, trees, useSpecies, ntrees, root
       tf=foreground2Tree(top, trees, clade="all", plotTree = F)
       blsum=sum(tf$edge.length)
     }
-    
+
     #get path:
     p=tree2Paths(tf, trees, useSpecies = useSpecies)
-    
+
     #run correlation:
     c=correlateWithBinaryPhenotype(RERs, p)
-    
+
     ###########################################
     # this assumes rownames will always match
     statdf[,count]=c$Rho
     pvaldf[,count]=c$P
     ###########################################
-    
+
     print(paste0("finished perm: ", count))
     count=count+1
   }
-  
+
   # get perm p-val:
   corswithpermp=cors
   rows=nrow(corswithpermp)
@@ -503,7 +505,7 @@ getPermsBinaryFudged <- function(fgdspecs, RERs, trees, useSpecies, ntrees, root
     corswithpermp$permP[g]=p
   }
   corswithpermp$permP.adj=p.adjust(corswithpermp$permP, method="BH")
-  
+
   # return results
   return(list(res=corswithpermp, stat=statdf, pval=pvaldf))
 }
@@ -2215,32 +2217,32 @@ plotPositivesFromPermulations=function(res, perm.out, interval, pvalthres, outpu
 # generates a set of N null tips with the number of species in each category matching the actual phenotype data
 #' @keywords internal
 getNullTips <- function(tree, Q, N, intlabels, root_prob = "stationary", percent_relax) {
-  
+
   # GET TRUE TIP COUNTS
   true_counts = table(intlabels$mapped_states)
-  
+
   # MAKE MATRIX TO STORE THE SETS OF NULL TIPS AND SETS OF INTERNAL NODES
   tips = matrix(nrow = N, ncol = length(tree$tip.label), dimnames = list(NULL, tree$tip.label))
   nodes = matrix(nrow = N, ncol = tree$Nnode)
-  
+
   cnt = 0
   while(cnt < N) {
     # SIMULATE STATES
     sim = simulate_mk_model(tree, Q, root_probabilities = root_prob)
     sim_counts = table(sim$tip_states)
-    
+
     # CHECK THAT ALL STATES GET SIMULATED IN THE TIPS
-    if(length(unique(sim$tip_states)) < length(true_counts)) { 
+    if(length(unique(sim$tip_states)) < length(true_counts)) {
       next
     }
-    
+
     # IF THE TIP COUNTS MATCH THE TIP COUNTS IN THE REAL DATA, ADD TO THE LIST
     # sum(true_counts == sim_counts) == length(true_counts)
     if(sum(abs(sim_counts - true_counts) <= true_counts*percent_relax) == length(true_counts)) {
       cnt = cnt + 1
-      
+
       print(cnt)
-      
+
       tips[cnt,] = sim$tip_states
       nodes[cnt,] = sim$node_states
     }
@@ -2303,10 +2305,10 @@ getNullTrees <- function(node_states, null_tips, tree, Q) {
 # rearranges the shuffled internal nodes to improve the likelihoods of the permulated trees
 #' @keywords internal
 improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
-  
+
   # get ancliks and max_states
   ancliks = getAncLiks(tree, tips, Q)
-  
+
   states = c(tips, nodes)
   curr_lik = 1
   for(i in 1:nrow(tree$edge)){
@@ -2314,133 +2316,133 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
     d = states[tree$edge[i,2]]
     curr_lik = curr_lik * P[[i]][a, d]
   }
-  
+
   # calculate initial ratios
   nstates = nrow(Q)
   ratios = c() # list of ratios
   ratio_info = matrix(nrow = (nstates - 1) * tree$Nnode, ncol = 3, dimnames = list(NULL, c("node", "state", "other.state"))) # info for each ratio
-  
+
   # ns aren't the node numbers in the tree - they are the index of the internal node in nodes, node number in tree is n + ntips
   for(n in 1:tree$Nnode) {
     # calculate ratios
     pie = ancliks[n,]
     rr = pie[-nodes[n]] / pie[nodes[n]] # other states / state
     ratios = c(ratios, rr)
-    # fill in ratio_info 
+    # fill in ratio_info
     # rows = c((n-1)*3 + 1, (n-1)*3 + 2, (n-1)*3 + 3)
     rows = ((n-1)*(nstates-1) + 1):((n-1)*(nstates-1) + (nstates-1))
     ratio_info[rows,"node"] = rep(n, nstates - 1)
     ratio_info[rows,"state"] = rep(nodes[n], nstates - 1)
     ratio_info[rows,"other.state"] = (1:nstates)[-nodes[n]]
   }
-  
+
   # pre-calculate and store edge numbers for each node
   ntips = length(tree$tip.label)
   edg_nums = lapply(seq_along(vector(mode = "list", length = tree$Nnode + ntips)), function(x){
     c(which(tree$edge[,1] == x),(which(tree$edge[,2] == x)))
   })
-  
+
   j = 1 # iteration counter
-  k = 1 # cycle counter 
-  Tk = T0 
-  
-  while(k <= cycles) { 
-    
+  k = 1 # cycle counter
+  Tk = T0
+
+  while(k <= cycles) {
+
     # get 2 nodes to swap
     nn = nodes
-    
+
     # 1: pick a node randomly, weighted by the ratios
     r1 = sample(1:length(ratios), 1, prob = ratios)
     n1 = ratio_info[r1, "node"] # node 1
     s1 = ratio_info[r1, "state"] # state1
     s2 = ratio_info[r1, "other.state"] # state2
-    
-    # 2: pick a node to swap it with 
+
+    # 2: pick a node to swap it with
     ii = intersect(which(ratio_info[,"state"] == s2), which(ratio_info[,"other.state"] == s1))
     if(length(ii) > 1) {
       n2 = sample(ratio_info[ii,"node"], 1, prob = ratios[ii]) # node2
     } else { # only one node with state2
       n2 = ratio_info[ii,"node"]
     }
-    
+
     # make the swap
     nn[n1] = s2
     nn[n2] = s1
-    
+
     # calculate new likelihood
     states_new = c(tips, nn)
     states_old = c(tips, nodes)
-    
+
     r = 1
     for(i in unique(c(edg_nums[[n1 + ntips]], edg_nums[[n2 + ntips]]))){ # check this over many cases including when n1 and n2 effect the same edge
       ao = states_old[tree$edge[i,1]]
       do = states_old[tree$edge[i,2]]
-      
+
       an = states_new[tree$edge[i,1]]
       dn = states_new[tree$edge[i,2]]
       r = r * (P[[i]][an,dn] / P[[i]][ao, do])
     }
-    
+
     if(r >= 1) { # if the swap increases likelihood, commit to the swap
-      
+
       nodes = nn
-      
+
       curr_lik = curr_lik * r # this should do the same thing, BUT CHECK THIS GETS THE SAME RESULT IN MULTIPLE CASES!
-      
+
       # update ratios
       # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
       rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
-      
+
       pie = ancliks[n1,]
       rr = pie[-s2] / pie[s2] # other states / state
       ratios[rows1] = rr
-      
-      # fill in ratio_info 
-      ratio_info[rows1,"state"] = rep(s2, nstates - 1) 
+
+      # fill in ratio_info
+      ratio_info[rows1,"state"] = rep(s2, nstates - 1)
       ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
-      
+
       # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
       rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
-      
+
       pie = ancliks[n2,]
       rr = pie[-s1] / pie[s1] # other states / state
       ratios[rows2] = rr
-      
-      # fill in ratio_info 
-      ratio_info[rows2,"state"] = rep(s1, nstates - 1) 
+
+      # fill in ratio_info
+      ratio_info[rows2,"state"] = rep(s1, nstates - 1)
       ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
-      
-    } 
+
+    }
     else { # make jump with probability u
-      
+
       # calculate u which includes dividing by tmp
       dh = -log(curr_lik * r) + log(curr_lik)
       u = exp(-dh/Tk)
       if(u == 0) warning("u is zero")
-      
+
       # if(u == 0) stop(paste("temp is", Tk))
-      
+
       if(runif(1) <= u) {
-        
+
         nodes = nn
-        
+
         curr_lik = curr_lik * r # CHECK THIS GETS THE SAME RESULT
-        
+
         # update ratios
         # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
         rows1 = ((n1-1)*(nstates-1) + 1):((n1-1)*(nstates-1) + (nstates-1))
-        
+
         pie = ancliks[n1,]
         rr = pie[-s2] / pie[s2] # other states / state
         ratios[rows1] = rr
         # fill in ratio_info
-        
+
         ratio_info[rows1,"state"] = rep(s2, nstates - 1)
         ratio_info[rows1,"other.state"] = (1:nstates)[-s2]
-        
+
         # rows2 = c((n2-1)*3 + 1, (n2-1)*3 + 2, (n2-1)*3 + 3) # rows to update ratios for n2
         rows2 = ((n2-1)*(nstates-1) + 1):((n2-1)*(nstates-1) + (nstates-1))
-        
+
         pie = ancliks[n2,]
         rr = pie[-s1] / pie[s1] # other states / state
         ratios[rows2] = rr
@@ -2449,12 +2451,12 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
         ratio_info[rows2,"other.state"] = (1:nstates)[-s1]
       }
     }
-    
+
     # increment j
     j = j + 1
-    
+
     # print(curr_lik)
-    
+
     # move to next cycle if necessary
     if(j >= Nk) {
       j = 1 # reset j
@@ -2463,7 +2465,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
       Tk = T0 / (1 + alpha*k)
       k = k + 1
     }
-    
+
   }
   end = Sys.time()
   return(list(nodes = nodes, lik = log10(curr_lik)))
@@ -2478,44 +2480,44 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 #' @return a set of permulated phenotype trees
 #' @export
 categoricalPermulations <- function(treesObj, phenvals, rm, rp = "auto", ntrees, percent_relax = 0){
-  
+
   # check percent_relax is one value or a vector of length = # traits
   if(!(length(percent_relax) == 1 || length(percent_relax) == length(unique(phenvals)))) {
     stop("percent_relax is the wrong length")
   }
-  
+
   # PRUNE TREE, ORDER PHENVALS, MAP TO STATE SPACE
   tree = treesObj$masterTree
   keep = intersect(names(phenvals), tree$tip.label)
   tree = pruneTree(tree, keep)
   phenvals = phenvals[tree$tip.label]
   intlabels = map_to_state_space(phenvals)
-  
+
   # FIT A TRANSITION MATRIX ON THE DATA
   message("Fitting transition matrix")
   Q = fit_mk(tree, intlabels$Nstates, intlabels$mapped_states,
              rate_model = rm, root_prior = rp)$transition_matrix
-  
+
   # GET NULL TIPS (AND STORE INTERNAL NODES FROM SIMULATIONS TOO)
   message("Simulating trees")
-  simulations = getNullTips(tree, Q, ntrees, intlabels, 
+  simulations = getNullTips(tree, Q, ntrees, intlabels,
                             percent_relax = percent_relax)
-  
+
   ancliks = getAncLiks(tree, intlabels$mapped_states, Q = Q)
   node_states = getStatesAtNodes(ancliks)
-  
+
   # GET SHUFFLED STARTING-POINT TREES
   message("Shuffling internal states")
   nullTrees = getNullTrees(node_states, simulations$tips, tree, Q)
-  
+
   P = lapply(tree$edge.length, function(x){expm(Q * x)})
-  
+
   # IMPROVE LIKELIHOOD OF EACH NULL TREE
   message("Improving tree likelihoods")
   improvedNullTrees = lapply(nullTrees, function(x){
     list(tips = x$tips, nodes = improveTree(tree, Q, P, x$nodes, x$tips, 10, 10, 100, 0.9)$nodes)
   })
-  
+
   # RETURN
   message("Done")
   return(list(sims = simulations, trees = improvedNullTrees, startingTrees = nullTrees))
