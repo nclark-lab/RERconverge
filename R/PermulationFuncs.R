@@ -329,6 +329,74 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
       permStatvals[,i] = sign(corMatList[[i]]$Rho)*-log10(corMatList[[i]]$P)
     }
 
+  } else if (permmode=="ssm"){
+    print("Running SSM permulation. sisters_list is required only for enrichments, otherwise sisters_list = NA is sufficient.")
+
+    if (is.null(trees_list)){
+      trees_list = trees$trees
+    }
+
+    RERmat = RERmat[match(names(trees_list), rownames(RERmat)),]
+
+    print("Generating permulated trees")
+    permulated.binphens = generatePermulatedBinPhenSSMBatched(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec,permmode="ssm")
+
+    # Get species membership of the trees
+    df.list = lapply(trees_list,getSpeciesMembershipStats,masterTree=mastertree,foregrounds=fg_vec)
+    df.converted = data.frame(matrix(unlist(df.list), nrow=length(df.list), byrow=T),stringsAsFactors=FALSE)
+    attr = attributes(df.list[[1]])
+    col_names = attr$names
+    attr2 = attributes(df.list)
+    row_names = attr2$names
+
+    colnames(df.converted) = col_names
+    rownames(df.converted) = row_names
+
+    df.converted$num.fg = as.integer(df.converted$num.fg)
+    df.converted$num.spec = as.integer(df.converted$num.spec)
+
+    spec.members = df.converted$spec.members
+
+    # Group gene trees based on the similarity of their species membership
+    grouped.trees = groupTrees(spec.members)
+    ind.unique.trees = grouped.trees$ind.unique.trees
+    ind.unique.trees = unlist(ind.unique.trees)
+    ind.tree.groups = grouped.trees$ind.tree.groups
+
+    # For each unique tree, produce a permuted tree. We already have this function, but we need a list of trees to feed in.
+    unique.trees = trees_list[ind.unique.trees]
+
+    # precompute clade mapping for each unique tree
+    unique.map.list = mapply(matchAllNodesClades,unique.trees,MoreArgs=list(treesObj=trees))
+
+    # calculate paths for each permulation
+    unique.permulated.binphens = permulated.binphens[ind.unique.trees]
+    unique.permulated.paths = calculatePermulatedPaths_apply(unique.permulated.binphens,unique.map.list,trees)
+
+    permulated.paths = vector("list", length = length(trees_list))
+    for (j in 1:length(permulated.paths)){
+      permulated.paths[[j]] = vector("list",length=numperms)
+    }
+    for (i in 1:length(unique.permulated.paths)){
+      ind.unique.tree = ind.unique.trees[i]
+      ind.tree.group = ind.tree.groups[[i]]
+      unique.path = unique.permulated.paths[[i]]
+      for (k in 1:length(ind.tree.group)){
+        permulated.paths[[ind.tree.group[k]]] = unique.path
+      }
+    }
+    attributes(permulated.paths)$names = row_names
+
+    print("Calculating correlations")
+    RERmat.list = lapply(seq_len(nrow(RERmat[])), function(i) RERmat[i,])
+    corMatList = mapply(calculateCorPermuted,permulated.paths,RERmat.list)
+    permPvals = extractCorResults(corMatList,numperms,mode="P")
+    rownames(permPvals) = names(trees_list)
+    permRhovals = extractCorResults(corMatList,numperms,mode="Rho")
+    rownames(permRhovals) = names(trees_list)
+    permStatvals = sign(permRhovals)*-log10(permPvals)
+    rownames(permStatvals) = names(trees_list)
+
   } else if (permmode=="ssmLegacy"){
     print("Running SSM Legacy permulation")
 
@@ -339,7 +407,7 @@ getPermsBinary=function(numperms, fg_vec, sisters_list, root_sp, RERmat, trees, 
     RERmat = RERmat[match(names(trees_list), rownames(RERmat)),]
 
     print("Generating permulated trees")
-    permulated.binphens = generatePermulatedBinPhenSSMBatched(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec)
+    permulated.binphens = generatePermulatedBinPhenSSMBatched(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec,permmode="ssmLegacy")
 
     # Get species membership of the trees
     df.list = lapply(trees_list,getSpeciesMembershipStats,masterTree=mastertree,foregrounds=fg_vec)
@@ -946,7 +1014,9 @@ getDepthOrder=function(fgTree){
 #' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
 #' @return A SSM binary permulated tree
 #' @export
-simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+simBinPhenoSSM_legacy=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+  message("Running legacy version of ssm permulations. This version is not recommended. To run updated ssm permulations, run getPermsBinary with permmode='ssm'")
+
   tip.labels = tree$tip.label # the set of species that exist in the gene tree
   ind_fg = which(tip.labels %in% fg_vec) # indices of the observed foreground animals that exist in the gene tree
 
@@ -1018,6 +1088,89 @@ simBinPhenoSSM=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec
   return(t)
 }
 
+#A modification of the original simBinPhenoSSM function (now simBinPhenoSSM_legacy) that runs faster and reduces bias in which species end up in the simulated foregrounds
+#Changes from simBinPhenoSSM_legacy:
+  #fixed variable naming bug; output of foreground2Tree is now "t_iter" to be consistent with simBinPhenoCC
+  #subset taxa from the master tree based on the gene tree, instead of giving it the real gene tree, to account for the fact that many branches have length zero in the gene trees
+  #midpoint root the master tree for running simulations over the tree; leads to a more even distribution of branches that end up in the simulated foregrounds
+  #relaxed foreground structure requirements for simulated trees (match number of fg tips ONLY, ignoring number and structure of internal fg nodes)
+  #added a counter to the while loops such that it only tries 50 times to find a permulated tree the matches the conditions (same number of foreground branches); if it cannot find one after 50 tries it returns a NULL tree
+#'Produces one SSM binary permulation for a gene
+#' @param tree Tree of the gene of interest
+#' @param trees treesObj from \code{\link{readTrees}}
+#' @param fg_vec A vector containing the foreground species
+#' @param pathvec A path vector generated from the real set of foreground animals
+#' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
+#' @return A SSM binary permulated tree
+#' @export
+simBinPhenoSSM=function(tree, trees, fg_vec, pathvec, plotTreeBool=F){
+  require(phytools)
+  tip.labels = tree$tip.label # the set of species that exist in the gene tree
+  ind_fg = which(tip.labels %in% fg_vec) # indices of the observed foreground animals that exist in the gene tree
+
+  if (length(ind_fg) == 0){ #If no foregrounds, return NULL tree
+    t_iter = tree
+    t_iter$edge = NULL
+    t_iter$edge.length = NULL
+    t_iter$Nnode = NULL
+    t_iter$tip.label = NULL
+  } else {
+    #Get the number of foreground tips present in this gene tree
+    fg_k = tip.labels[ind_fg] # the list of the observed foreground animals that exist in the gene tree
+    tips=length(fg_k) #Number of foreground tips in real data
+    #print(paste("Number of foreground tips in real data:", tips))
+
+    #Generate the tree on which simulations will be run
+    t = midpoint.root(keep.tip(trees$masterTree, tip.labels))
+    rm = ratematrix(t, pathvec)
+
+    #Simulates a tree with the same number of foreground tips as the real data; continues if it can't simulate a tree matching that condition in 50 tries
+    #Note: It should get it on the first try, since it's just taking the top n tips based on simulated phenotype values, where n is the number of fg tips in the real data
+    num_fg_tips = 0
+    try_count = 0
+    while( (num_fg_tips != tips) && (try_count < 50) ){
+        #Simulate continuous values using a Brownian motion model
+        sims = sim.char(t, rm, nsim = 1, model="BM")
+        #Get top n species based on simulated data, where n is the number of foreground tips in te real data
+        nam = rownames(sims)
+        s = as.data.frame(sims)
+        simulatedvec = s[,1]
+        names(simulatedvec) = nam
+        top.all = names(sort(simulatedvec, decreasing = TRUE))
+        top.tree_k = top.all[top.all %in% tip.labels]
+        top = top.tree_k[1:tips]
+        #Generate a simulated foreground tree; clade=terminal because we are only interested in tip foregrounds
+        t_iter = foreground2Tree(top, trees, clade = "all", plotTree = F, useSpecies=tip.labels)
+        #Get all foreground edges, regardless of whether they are internal or tips
+	fgEdges = t_iter$edge[which(t_iter$edge.length==1),2]
+        #Get all foreground tips
+	permSpecs = t_iter$tip.label[fgEdges]
+        permFgs = permSpecs[which(!(is.na(permSpecs)))]
+        #Number of foreground tips for checking match; replaces "blsum" in simBinPhenoSSM_legacy function
+        num_fg_tips = length(permFgs)
+        try_count = try_count+1
+    }
+    if(try_count==50){ #This shouldn't be necessary, but leaving it in so the function has something to return just in case
+        print("Assigning null tree")
+        t_iter = tree
+        t_iter$edge = NULL
+        t_iter$edge.length = NULL
+        t_iter$Nnode = NULL
+        t_iter$tip.label = NULL
+    }
+  }
+  if (plotTreeBool){
+    if(!(is.null(t_iter$tip.label))){
+        #print(t_iter)
+        plot(t_iter)
+        write.tree(t_iter, "temp.tre", append=T)
+    } else{
+        write("NULL", "temp.tre", append=T)
+    }
+  }
+  return(t_iter)
+}
+
 #' @keywords internal
 findPairs=function(binary.tree){
   tip.labels = binary.tree$tip.label
@@ -1060,7 +1213,10 @@ generatePermulatedBinPhen=function(tree, numperms, trees, root_sp, fg_vec, siste
     permulated.binphens = lapply(tree_rep, simBinPhenoCC,mastertree=trees$masterTree,root_sp=root_sp, fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec,plotTreeBool=F)
   } else if (permmode=="ssm"){
     tree_rep = lapply(1:numperms,rep_tree,tree=tree)
-    permulated.binphens = lapply(tree_rep,simBinPhenoSSM,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec)
+    permulated.binphens = lapply(tree_rep,simBinPhenoSSM,trees=trees,fg_vec=fg_vec,pathvec=pathvec)
+  } else if (permmode=="ssmLegacy"){
+    tree_rep = lapply(1:numperms,rep_tree,tree=tree)
+    permulated.binphens = lapply(tree_rep,simBinPhenoSSM_legacy,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec)
   } else {
     stop("Invalid binary permulation mode.")
   }
@@ -1081,9 +1237,10 @@ rep_tree = function(num_input,tree){
 #' @param fg_vec A vector containing the foreground species
 #' @param sisters_list  A list containing pairs of "sister species" in the foreground set (put NULL if empty)
 #' @param pathvec A path vector generated from the real set of foreground animals
+#' @param permmode Mode of binary permulation (Must be "ssm" or "ssmLegacy" for this function; default "ssm") 
 #' @return simPhenoList A list containing binary permulated trees for each gene
 #' @export
-generatePermulatedBinPhenSSMBatched=function(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec){
+generatePermulatedBinPhenSSMBatched=function(trees_list,numperms,trees,root_sp,fg_vec,sisters_list,pathvec,permmode="ssm"){
   masterTree = trees$masterTree
   master.tips = masterTree$tip.label
   df.list = lapply(trees_list,getSpeciesMembershipStats,masterTree=masterTree,foregrounds=fg_vec)
@@ -1111,7 +1268,7 @@ generatePermulatedBinPhenSSMBatched=function(trees_list,numperms,trees,root_sp,f
   unique.trees = trees_list[ind.unique.trees]
 
   # Generate simulated phenotypes
-  unique.pheno.list = mapply(generatePermulatedBinPhen,unique.trees,MoreArgs = list(numperms=numperms,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec,permmode="ssm"))
+  unique.pheno.list = mapply(generatePermulatedBinPhen,unique.trees,MoreArgs = list(numperms=numperms,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec,permmode=permmode))
   # Allocate the simulated phenotypes for unique trees to their respective groups
   simPhenoList = vector("list", length = length(trees_list))
   for (j in 1:length(simPhenoList)){
