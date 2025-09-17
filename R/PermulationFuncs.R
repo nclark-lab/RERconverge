@@ -1021,11 +1021,11 @@ simBinPhenoSSM_legacy=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, 
   ind_fg = which(tip.labels %in% fg_vec) # indices of the observed foreground animals that exist in the gene tree
 
   if (length(ind_fg) == 0){
-    t = tree
-    t$edge = NULL
-    t$edge.length = NULL
-    t$Nnode = NULL
-    t$tip.label = NULL
+    t_iter = tree
+    t_iter$edge = NULL
+    t_iter$edge.length = NULL
+    t_iter$Nnode = NULL
+    t_iter$tip.label = NULL
   } else {
     fg_k = tip.labels[ind_fg] # the list of the observed foreground animals that exist in the gene tree
 
@@ -1064,28 +1064,28 @@ simBinPhenoSSM_legacy=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, 
         top.all=names(sort(simulatedvec, decreasing = TRUE))
         top.tree_k = top.all[top.all %in% tip.labels]
         top = top.tree_k[1:tips]
-        t=foreground2Tree(top, trees, clade="all", plotTree = F, useSpecies=tip.labels)
-        blsum=sum(t$edge.length)
+        t_iter=foreground2Tree(top, trees, clade="all", plotTree = F, useSpecies=tip.labels)
+        blsum=sum(t_iter$edge.length)
       }
-      t_info = getBinaryPermulationInputsFromTree(t)
+      t_info = getBinaryPermulationInputsFromTree(t_iter)
       if (!is.null(sisters_list)){
         num_tip_sisters_fake = unlist(t_info$sisters_list)
         num_tip_sisters_fake = num_tip_sisters_fake[which(num_tip_sisters_fake %in% tip.labels)]
         num_tip_sisters_fake = length(num_tip_sisters_fake)
-        t_depth_order = getDepthOrder(t)
+        t_depth_order = getDepthOrder(t_iter)
         testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order)) &&
           (num_tip_sisters_fake == num_tip_sisters_true)
       } else {
-        t_depth_order = getDepthOrder(t)
+        t_depth_order = getDepthOrder(t_iter)
         testcondition = setequal(sort(t_depth_order), sort(fg_tree_depth_order))
       }
     }
   }
 
   if (plotTreeBool){
-    plot(t)
+    plot(t_iter)
   }
-  return(t)
+  return(t_iter)
 }
 
 #A modification of the original simBinPhenoSSM function (now simBinPhenoSSM_legacy) that runs faster and reduces bias in which species end up in the simulated foregrounds
