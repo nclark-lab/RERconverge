@@ -1512,9 +1512,10 @@ getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
 
 
 #' A wrapper function that runs \code{\link{transformPaths}}, \code{\link{coreGetResiduals}}, and \code{\link{getRMat}}.
+#'
+#' @param treesObj tree object to operate on, product of \code{\link{readTrees}}
 #' @param transform What transformation to apply. "sqrt" by default.
 #' @param impute Whether to impute missing data
-#' @return A treesObj with transformed paths
 #' 
 #' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
 #' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
