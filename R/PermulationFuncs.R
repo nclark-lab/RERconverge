@@ -1014,7 +1014,7 @@ getDepthOrder=function(fgTree){
 #' @param plotTreeBool Boolean indicator for plotting the output tree (default=FALSE)
 #' @return A SSM binary permulated tree
 #' @export
-simBinPhenoSSM_legacy=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
+simBinPhenoSSMLegacy=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, pathvec, plotTreeBool=F){
   message("Running legacy version of ssm permulations. This version is not recommended. To run updated ssm permulations, run getPermsBinary with permmode='ssm'")
 
   tip.labels = tree$tip.label # the set of species that exist in the gene tree
@@ -1088,8 +1088,8 @@ simBinPhenoSSM_legacy=function(tree, trees, root_sp, fg_vec, sisters_list=NULL, 
   return(t_iter)
 }
 
-#A modification of the original simBinPhenoSSM function (now simBinPhenoSSM_legacy) that runs faster and reduces bias in which species end up in the simulated foregrounds
-#Changes from simBinPhenoSSM_legacy:
+#A modification of the original simBinPhenoSSM function (now simBinPhenoSSMLegacy) that runs faster and reduces bias in which species end up in the simulated foregrounds
+#Changes from simBinPhenoSSMLegacy:
   #fixed variable naming bug; output of foreground2Tree is now "t_iter" to be consistent with simBinPhenoCC
   #subset taxa from the master tree based on the gene tree, instead of giving it the real gene tree, to account for the fact that many branches have length zero in the gene trees
   #midpoint root the master tree for running simulations over the tree; leads to a more even distribution of branches that end up in the simulated foregrounds
@@ -1146,7 +1146,7 @@ simBinPhenoSSM=function(tree, trees, fg_vec, pathvec, plotTreeBool=F){
         #Get all foreground tips
 	permSpecs = t_iter$tip.label[fgEdges]
         permFgs = permSpecs[which(!(is.na(permSpecs)))]
-        #Number of foreground tips for checking match; replaces "blsum" in simBinPhenoSSM_legacy function
+        #Number of foreground tips for checking match; replaces "blsum" in simBinPhenoSSMLegacy function
         num_fg_tips = length(permFgs)
         try_count = try_count+1
     }
@@ -1216,7 +1216,7 @@ generatePermulatedBinPhen=function(tree, numperms, trees, root_sp, fg_vec, siste
     permulated.binphens = lapply(tree_rep,simBinPhenoSSM,trees=trees,fg_vec=fg_vec,pathvec=pathvec)
   } else if (permmode=="ssmLegacy"){
     tree_rep = lapply(1:numperms,rep_tree,tree=tree)
-    permulated.binphens = lapply(tree_rep,simBinPhenoSSM_legacy,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec)
+    permulated.binphens = lapply(tree_rep,simBinPhenoSSMLegacy,trees=trees,root_sp=root_sp,fg_vec=fg_vec,sisters_list=sisters_list,pathvec=pathvec)
   } else {
     stop("Invalid binary permulation mode.")
   }
