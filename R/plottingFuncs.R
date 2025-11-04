@@ -587,13 +587,20 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 #' @param tip.cex. Numeric expansion for tip labels
 #' @param nalab. Label given to any NA RERs
 #' @param plot. Whether to produce a plot displaying the RERs on the gene tree
+#' @param subsetTree. Whether to subset the tree to the non-NA species from the
+#' phenotype vector provided in phenv
 #' @return An object of class "phylo" with edge lengths representing RERs for the given gene
 #' @return If plot = TRUE, also displays a plot of the gene tree with edges labeled with RERs
 #' @export
 
 returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7,
-                             tip.cex = 0.7, nalab = 'NA', plot = T){
+                             tip.cex = 0.7, nalab = 'NA', plot = T, subsetTree = F){
   trgene <- treesObj$trees[[index]]
+  if (subset == TRUE) {
+    #Use phenv to identify non-NA paths and then subset gene tree by species
+    subsp <- unique(colnames(rermat)[which(!is.na(phenv))])
+    trgene <- pruneTree(trgene, subsp) #drops only species not in subsp
+  }
   trgene$edge.length <- rep(2,nrow(trgene$edge))
   ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
   ii= treesObj$matIndex[ee[, c(2,1)]]
@@ -672,15 +679,15 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
   } else {
     categorical = FALSE
   }
-  
+
   if(xor(!is.null(species_from),!is.null(species_to))){
     stop("For name translation, you must provide both a \"from\" and a \"to\" list.")
   }
   if(!is.null(species_to)){
     colnames(rermat) <- translateNames(species_from,species_to,colnames(rermat))
   }
-  
-  
+
+
   if(is.null(rers)){
     colids = !is.na(rermat[index,])
     e1 = rermat[index,][colids]
@@ -697,16 +704,16 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
   names(e1plot)[is.na(names(e1plot))]=""
   if(!is.null(phenv)){
     phenvid = phenv[colids]
-    
+
     if(categorical) {
       fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method)[[1]]
     } else {
       fgdcor = getAllCor(rermat[index,,drop=F],phenv, method = method) # get cors (to get rho and p)
     }
-    
+
     plottitle = paste0(gen, ': rho = ',round(fgdcor$Rho,4),', p = ',round(fgdcor$P,4))
     #fgd = setdiff(names(e1plot)[phenvid == 1],"")
-    
+
     # make color palette
     if(categorical){
       n = length(unique(phenvid))
@@ -716,7 +723,7 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
         pal = palette()[1:n]
       }
     }
-    
+
     if(categorical) {
       df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
         mutate(mole = as.factor(phenvid))
@@ -724,22 +731,22 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
       df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE)  %>%
         mutate(mole = as.factor(ifelse(phenvid > 0,2,1))) # returns vector same length as phenv, if > 0 it is 2, otherwise it is 1, then converts these to factors
     }
-    
+
   }else{
     plottitle = gen
     #fgd = NULL
     df <- data.frame(species = names(e1plot), rer = e1plot, stringsAsFactors=FALSE) %>%
       mutate(mole = as.factor(ifelse(0,2,1)))
   }
-  
+
   #print(plottitle)
-  
-  
+
+
   if(sortrers){
     df = filter(df, species!="") %>%
       arrange(desc(rer))
   }
-  
+
   if(is.null(xlims)) { ll=c(min(df$rer)*1.1, max(df$rer)+xextend)
   }  else            { ll=xlims
   }
@@ -860,9 +867,9 @@ plotTreeHighlightBranches <- function(tree, outgroup=NULL, hlspecies, hlcols=NUL
   if(!is.null(species_to)){
     tree$tip.label = translateNames(species_from,species_to,tree$tip.label)
   }
-    
-    
-    
+
+
+
   if (is.null(hlcols)) {
     hlcols <- c(2:(length(hlspecies)+1))
   }
@@ -1062,14 +1069,14 @@ plotTreeHighlightBranches = function(tree, outgroup=NULL, hlspecies, hlcols=NULL
   } else {
     rooted <- tree
   }
-  
+
   #if hlcols is null make branches blue
   if (is.null(hlcols)) {
     hlcols <- rep_len("#0000ff", length(hlspecies)) #if there are fewer colors than species to highlight, repeat colors
   }else if (length(hlcols) < length(hlspecies)) {
-    hlcols <- rep_len(hlcols, length(hlspecies)) 
+    hlcols <- rep_len(hlcols, length(hlspecies))
   }
-  
+
   #create hlspecies_named
   hlspecies_named <- vector(mode="character")
   if(is.numeric(hlspecies)){
@@ -1079,13 +1086,13 @@ plotTreeHighlightBranches = function(tree, outgroup=NULL, hlspecies, hlcols=NULL
     }
   }else
     hlspecies_named <- hlspecies
-  
+
   #Make branches of length 0 just *slightly* larger values to visualize tree
   rooted2 <- rooted
   mm <- min(rooted2$edge.length[rooted2$edge.length>0])
   rooted2$edge.length[rooted2$edge.length==0] <- max(0.02,mm/20)
-  
-  
+
+
   #vector of tip label colors
   tipCols <- vector(mode = "character")
   x <- 1
@@ -1098,10 +1105,10 @@ plotTreeHighlightBranches = function(tree, outgroup=NULL, hlspecies, hlcols=NULL
     }
     else tipCols[i] <- "black"
   }
-  
+
   #number of labels
   nlabel <- rooted2$Nnode + length(rooted2$tip.label)
-  
+
   edgeCols <- vector(mode="character", length=nlabel)
   x <- 1
   for(i in 1: nlabel)
@@ -1117,9 +1124,9 @@ plotTreeHighlightBranches = function(tree, outgroup=NULL, hlspecies, hlcols=NULL
     }else
       edgeCols[i] <- "Black"
   }
-  
+
   plotobj = ggtree(rooted2, color = edgeCols)
   plotobj = plotobj + geom_tiplab(color= tipCols, geom="text", cex = 3) + labs(title = main)
-  
+
   return(plotobj)
 }
