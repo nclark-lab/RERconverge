@@ -596,7 +596,7 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7,
                              tip.cex = 0.7, nalab = 'NA', plot = T, subsetTree = F){
   trgene <- treesObj$trees[[index]]
-  if (subset == TRUE) {
+  if (subsetTree == TRUE) {
     #Use phenv to identify non-NA paths and then subset gene tree by species
     subsp <- unique(colnames(rermat)[which(!is.na(phenv))])
     trgene <- pruneTree(trgene, subsp) #drops only species not in subsp
