@@ -672,7 +672,7 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
   } else {
     categorical = FALSE
   }
-  
+  categorical = FALSE ## This line is temporary until the "palette()" bug can be fixed below.  -Nathan 260105
   if(xor(!is.null(species_from),!is.null(species_to))){
     stop("For name translation, you must provide both a \"from\" and a \"to\" list.")
   }
