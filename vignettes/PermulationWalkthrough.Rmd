@@ -90,7 +90,7 @@ Back to the marine phenotype example, once we have the binary trait tree, we can
 pathvec = tree2PathsClades(marineFgTree, toyTrees)
 
 # Calculate RERs
-mamRERw = getAllResiduals(toyTrees, transform="sqrt", weighted=T, scale=T)
+mamRERw = getAllResiduals(toyTrees, transform="sqrt", use.weights=T)
 
 # Calculate correlation 
 res = correlateWithBinaryPhenotype(mamRERw, pathvec, min.sp=10, min.pos=2,
@@ -164,7 +164,7 @@ permpvalSSM = permpvalcor(res,combpermSSM)
 
 RERconverge also allows user to produce permulated binary phenotype trees to use with other softwares (e.g., ForwardGenomics, HyPhy RELAX, PhyloAcc, etc.), without calculating permulated correlation statistics. The functions `simBinPhenoCC` and `simBinPhenoSSM` produce one permulated phenotype using the CC and SSM methods, respectively. The code below produces one CC permulation:
 
-```{r}
+```{r, message=F, warning=F}
 #producing one permulated tree using CC permulation
 treeCC = simBinPhenoCC(toyTrees, masterTree, root_sp, marineFg, sisters_marine, pathvec,
                        plotTreeBool=F)
@@ -187,7 +187,7 @@ TTNtreePlot = plotTreeHighlightBranches(TTNtree,
 
 ```{r, message=F, warning=F, error=F, results=F}
 #generate and plot a SSM permulation of TTN
-TTNtreeSSM = simBinPhenoSSM(TTNtree, toyTrees, root_sp, marineFg, sisters_marine, pathvec,
+TTNtreeSSM = simBinPhenoSSM(TTNtree, toyTrees, marineFg, pathvec,
                             plotTreeBool=F)
 TTNplotSSM = plotTreeHighlightBranches(TTNtreeSSM, 
                                        hlspecies=which(TTNtreeSSM$edge.length==1),
@@ -215,8 +215,7 @@ ACBD5treePlot = plotTreeHighlightBranches(ACBD5tree,
 
 ```{r, message=F, warning=F, error=F, results=F}
 #generate and plot one SSM permulation of ACBD5
-ACBD5treeSSM = simBinPhenoSSM(ACBD5tree, toyTrees, root_sp, marineFg, sisters_marine,
-                              pathvec, plotTreeBool=F)
+ACBD5treeSSM = simBinPhenoSSM(ACBD5tree, toyTrees, marineFg,pathvec, plotTreeBool=F)
 ACBD5plotSSM = plotTreeHighlightBranches(ACBD5treeSSM,
                                          hlspecies=which(ACBD5treeSSM$edge.length==1), 
                                          hlcols="blue")
@@ -281,21 +280,20 @@ First, conduct standard RERconverge analysis.  Please see full walkthroughs for 
 
 #read trees
 toytreefile = "subsetMammalGeneTrees.txt" 
-toyTrees=RERconverge::readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), 
+toyTrees=readTrees(paste(rerpath,"/extdata/",toytreefile,sep=""), 
                                 max.read = 200)
 
 #load phenotype data
 data("logAdultWeightcm") 
 
 #calculate RERs
-mamRERw = RERconverge::getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), 
-                                       transform = "sqrt", weighted = T, scale = T)
+mamRERw = getAllResiduals(toyTrees,useSpecies=names(logAdultWeightcm), transform = "sqrt")
 
 #generate trait tree
-charpaths=RERconverge::char2Paths(logAdultWeightcm, toyTrees)
+charpaths=char2Paths(logAdultWeightcm, toyTrees)
 
 #calculate correlation statistics
-res=RERconverge::correlateWithContinuousPhenotype(mamRERw, charpaths, min.sp = 10, 
+res=correlateWithContinuousPhenotype(mamRERw, charpaths, min.sp = 10, 
                                                   winsorizeRER = 3, winsorizetrait = 3)
 
 #calculate pathway enrichment statistics
@@ -332,8 +330,8 @@ enrichpermpvals=RERconverge::permpvalenrich(enrichment, perms)
 
 # add permulations to real results
 
-res$permpval=corpermpvals[match(rownames(res), names(corpermpvals))]
-res$permpvaladj=p.adjust(res$permpval, method="BH")
+res$permpval=corpermpvals[match(rownames(res), rownames(corpermpvals)),]
+res$permpvaladj=p.adjust(res$permpval$permpval, method="BH")
 count=1
 while(count<=length(enrichment)){
   enrichment[[count]]$permpval=enrichpermpvals[[count]][match(rownames(enrichment[[count]]),
@@ -392,16 +390,15 @@ permutedphenotype=permutevec(logAdultWeightcm)
 
 ```
 
-Permulation of binary phenotypes requires observed phenotype values, a rooted phylogenetic tree, and information about the internal organization of foreground branches. We include both functions to generate a simple permulated tree and a permulated phenotype vector. This strategy is based on the CC permulation method.
+Permulation of categorical (including binary) phenotypes requires a rooted phylogenetic tree, observed phenotype values, a rate model (in this case "ER" stands for "Equal Rates", where we assume equal transition states among categorical trait states) and a target number of trees to permulate (in this case we use 1 as demonstration).
 
-```{r}
+```{r, message=F, warning=F}
 marinespecs=c("Manatee", "Dolphin", "Killer_whale", "Seal", "Walrus")
 allspecs=toyTrees$masterTree$tip.label
 marinephen=ifelse(allspecs %in% marinespecs, 1, 0)
 names(marinephen)=allspecs
 
-permbintree=simBinPheno(toyTrees, "Platypus", marinephen, fgnum=6, internal=1)
-permbinpheno=simBinPhenoVec(toyTrees, "Platypus", marinephen, fgnum=6, internal=1)
+catperm =categoricalPermulations(toyTrees, marinephen, rm="ER", ntrees=1)
 
 ```
 

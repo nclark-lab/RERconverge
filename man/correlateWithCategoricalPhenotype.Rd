@@ -18,7 +18,7 @@ correlateWithCategoricalPhenotype(
 \arguments{
 \item{RERmat}{RER matrix returned by \code{\link{getAllResiduals}}}
 
-\item{charP}{phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
+\item{charP}{Phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
 
 \item{min.sp}{Minimum number of species that must be present for a gene}
 
@@ -30,7 +30,7 @@ correlateWithCategoricalPhenotype(
 
 \item{winsorizetrait}{Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.}
 
-\item{sort}{whether to sort by p-value and sign of rho}
+\item{sort}{If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)}
 }
 \value{
 A list containing a list object with correlation values, p-values, and the number of data points used for each tree and a list of list objects for each pairwise test with correlation values and p-values.

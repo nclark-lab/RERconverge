@@ -39,7 +39,7 @@ getAllCor(
 
 \item{bootn}{number of runs to use when bootstrapping. Will be ignored if bootstrap is false.}
 
-\item{sort}{whether to sort by p-value and sign of rho}
+\item{sort}{If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)}
 }
 \value{
 A list object with correlation values, p-values, and the number of data points used for each tree

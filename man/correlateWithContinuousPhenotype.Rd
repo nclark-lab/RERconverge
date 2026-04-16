@@ -24,7 +24,7 @@ correlateWithContinuousPhenotype(
 
 \item{winsorizetrait}{Winsorize trait values before computing Pearson correlation. winsorizetrait=3 will set the 3 most extreme values of the trait values to the value closest to 0.}
 
-\item{sort}{whether to sort by p-value and sign of rho}
+\item{sort}{If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)}
 
 \item{method}{Method used to compute correlations. Accepts the same arguments as \code{\link{cor}}. Set to "auto" to select automatically based on the number of unique values in charP. This will also auto set the winsorization for Pearson correlation. Set winsorizetrait=some number and winsorizeRER=some number to override}
 }

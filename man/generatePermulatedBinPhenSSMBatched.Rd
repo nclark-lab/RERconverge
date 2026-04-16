@@ -11,7 +11,8 @@ generatePermulatedBinPhenSSMBatched(
   root_sp,
   fg_vec,
   sisters_list,
-  pathvec
+  pathvec,
+  permmode = "ssm"
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ generatePermulatedBinPhenSSMBatched(
 \item{sisters_list}{A list containing pairs of "sister species" in the foreground set (put NULL if empty)}
 
 \item{pathvec}{A path vector generated from the real set of foreground animals}
+
+\item{permmode}{Mode of binary permulation (Must be "ssm" or "ssmLegacy" for this function; default "ssm")}
 }
 \value{
 simPhenoList A list containing binary permulated trees for each gene
