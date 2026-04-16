@@ -35,7 +35,7 @@ getPermsBinary(
 
 \item{mastertree}{A rooted, fully dichotomous tree derived from the treesObj master tree from \code{\link{readTrees}}.  Must not contain species not in traitvec}
 
-\item{permmode}{Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match)}
+\item{permmode}{Mode of binary permulation ("cc" for Complete Cases (default), "ssm" for Species Subset Match. Old versions of these modes have been moved to ccLegacy and ssmLegacy)}
 
 \item{method}{statistical method to use for correlations (set to "k" (default) for Kendall Tau test)}
 

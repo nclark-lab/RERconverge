@@ -2321,15 +2321,15 @@ simpermvec=function(namedvec, treewithbranchlengths){
 #PGLS functions
 ####################
 
-#'Generates a permulated phylogenetic tree with specified number of foreground branches.  User may specify the number of foreground branches that are internal branches.
-#' @param trees treesObj output from \code{\link{readTrees}}
-#' @param root Species on which to root the master tree
-#' @param phenvec Named vector of 1's and 0's representing phenotype values for each species
-#' @param fgnum Total number of foreground species - only required if internal foreground branches are required
-#' @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
-#' @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
-#' @return A tree with permulated phenotype values
-#' @export
+#Generates a permulated phylogenetic tree with specified number of foreground branches.  User may specify the number of foreground branches that are internal branches.
+# @param trees treesObj output from \code{\link{readTrees}}
+# @param root Species on which to root the master tree
+# @param phenvec Named vector of 1's and 0's representing phenotype values for each species
+# @param fgnum Total number of foreground species - only required if internal foreground branches are required
+# @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
+# @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
+# @return A tree with permulated phenotype values
+# @export
 simBinPheno=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
   blsum=0
   if(is.null(fgnum)){
@@ -2353,15 +2353,15 @@ simBinPheno=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
   return(t)
 }
 
-#'Generates a permulated phenotype vector whose phylogeny matches a desired structure.  User may specify the number of foreground branches that are internal branches.
-#' @param trees treesObj output from \code{\link{readTrees}}
-#' @param root Species on which to root the master tree
-#' @param phenvec Named vector of 1's and 0's representing phenotype values for each species
-#' @param fgnum Total number of foreground species - only required if internal foreground branches are required
-#' @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
-#' @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
-#' @return A vector of permulated foreground species
-#' @export
+#Generates a permulated phenotype vector whose phylogeny matches a desired structure.  User may specify the number of foreground branches that are internal branches.
+# @param trees treesObj output from \code{\link{readTrees}}
+# @param root Species on which to root the master tree
+# @param phenvec Named vector of 1's and 0's representing phenotype values for each species
+# @param fgnum Total number of foreground species - only required if internal foreground branches are required
+# @param internal Number of foreground species that should be internal branches - only required if internal foreground branches are required
+# @param drop Character vector (or single character variable) of species names to be removed from the master tree (such as species in trees but not in phenotype vector)
+# @return A vector of permulated foreground species
+# @export
 simBinPhenoVec=function(trees, root, phenvec, fgnum=NULL, internal=0, drop=NULL){
   blsum=0
   if(is.null(fgnum)){
@@ -2676,6 +2676,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
   return(list(nodes = nodes, lik = log10(curr_lik)))
 }
 
+#'Runs permulations for categorical data
 #' @param treesObj trees object returned by readTrees
 #' @param phenvals the named phenotype vector
 #' @param rm the rate model, it should be the same as the one used to reconstruct the ancestral history of the trait
