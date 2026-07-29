@@ -20,23 +20,23 @@ correlateWithBinaryPhenotype(
 \arguments{
 \item{RERmat}{RER matrix returned by \code{\link{getAllResiduals}}}
 
-\item{charP}{phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
+\item{charP}{Phenotype vector returned by \code{\link{tree2Paths}} or \code{\link{char2Paths}}}
 
 \item{min.sp}{Minimum number of species that must be present for a gene}
 
 \item{min.pos}{Minimum number of species that must be present in the foreground (non-zero phenotype values)}
 
-\item{weighted}{perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.}
+\item{weighted}{Perform weighted correlation. This option turns on weighted correlation that uses the weights computed by \code{\link{foreground2Tree}(wholeClade=T)}. This setting will treat each clade a single observation for the purpose of p-value estimation. The function will guess automatically if the charP vector is of "weighted" type and there should be not need to set this parameter.}
 
 \item{winsorizeRER}{Winsorize RER values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.}
 
 \item{winsorizetrait}{Winsorize phenotype vector values before computing Pearson correlation. winsorizeRER=3 will set the 3 most extreme RER values at each end of each row to the 4th most extreme value.}
 
-\item{bootstrap}{toggle bootstrapping (for weighted pearson correlation)}
+\item{bootstrap}{Toggle bootstrapping (for weighted pearson correlation)}
 
-\item{bootn}{number of runs to use when bootstrapping. Will be ignored if bootstrap is false.}
+\item{bootn}{Number of runs to use when bootstrapping. Will be ignored if bootstrap is false.}
 
-\item{sort}{whether to sort by p-value and sign of rho}
+\item{sort}{If set to TRUE, sorts rows by log10(P-value) * -1 \* sign(Rho)}
 }
 \description{
 Computes the association statistics between RER from \code{\link{getAllResiduals}} and a phenotype paths vector for a binary phenotype made with \code{\link{tree2Paths}}

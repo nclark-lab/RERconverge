@@ -672,7 +672,6 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
   } else {
     categorical = FALSE
   }
-  
   if(xor(!is.null(species_from),!is.null(species_to))){
     stop("For name translation, you must provide both a \"from\" and a \"to\" list.")
   }
@@ -745,7 +744,7 @@ plotRers <- function(rermat=NULL, index= NULL, phenv = NULL, rers= NULL, species
   }
   # create the plot #
   {
-    g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + scale_size_manual(values=c(1,1,1,1))+ geom_point(aes(size=mole))
+    g  <- ggplot(df, aes(x = rer, y=factor(species, levels = unique(ifelse(rep(sortrers, nrow(df)), species[order(rer)], sort(unique(species)))) ), col=mole, label=species)) + geom_point()
     if(categorical) { g = g + scale_color_manual(values = pal)
     } else          { g = g + scale_color_manual(values = c("deepskyblue3", "brown1"))
     }

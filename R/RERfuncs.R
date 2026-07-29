@@ -1763,7 +1763,10 @@ getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths
                     use.weights=use.weights, interaction=interaction)
 
   r = getRMat(resids, all=all,use.rows=use.rows,norm=norm)
-
+  #close the device opened by the weight-fitting diagnostics, if any
+  if (dev.cur() > 1) {
+    dev.off()
+  }
   return(r)
 }
 

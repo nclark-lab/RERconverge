@@ -26,6 +26,8 @@ getAllResiduals(
 )
 }
 \arguments{
+\item{treesObj}{tree object to operate on, product of \code{\link{readTrees}}}
+
 \item{transform}{What transformation to apply. "sqrt" by default.}
 
 \item{impute}{Whether to impute missing data}
@@ -61,8 +63,6 @@ getAllResiduals(
 \item{norm}{A character string specifying the normalization method. Options include "scale," "zscore," or "quantile" (default is "scale").}
 }
 \value{
-A treesObj with transformed paths
-
 An residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
 assuming all=FALSE
 }
