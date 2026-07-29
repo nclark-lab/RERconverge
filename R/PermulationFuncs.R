@@ -1429,14 +1429,13 @@ calculatePermulatedPaths=function(permulated.trees,map,treesObj){
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @export
 tree2PathsClades=function(tree,trees){
-  map = matchAllNodesClades(tree,trees)
-  path = tree2Paths_map(tree,map[[1]],trees)
+  path = tree2Paths(tree, trees)
   names(path) = colnames(trees$paths)
   path
 }
 
 #' @keywords internal
-tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL){
+tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL, categorical = F){
   if (class(tree)[1]=="phylo"){
     stopifnot(class(tree)[1]=="phylo")
     stopifnot(class(treesObj)[2]=="treesObj")
@@ -1444,57 +1443,8 @@ tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL){
     if (is.null(tree$tip.label)){
       vals=as.double(rep(NA,length(treesObj$ap$dist)))
     } else {
-      foregrounds = getForegroundsFromBinaryTree(tree)
-      tree = foreground2Tree(foregrounds,treesObj,clade="all",plotTree = F)
-
-
-      isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
-      if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
-        if (isbinarypheno) {
-          binarize = T #default for binary phenotype trees: set all positive paths = 1
-        } else {
-          binarize = F #default for continuous phenotype trees: do not convert to binary
-        }
-      }
-
-      #unroot if rooted
-      if (is.rooted(tree)) {
-        tree = unroot(tree)
-      }
-
-      #reduce tree to species in master tree and useSpecies
-      sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
-      if (length(sp.miss) > 0) {
-        message(paste0("Species from tree not present in master tree or useSpecies: ", paste(sp.miss,
-                                                                                             collapse = ",")))
-      }
-
-      if (!is.null(useSpecies)) {
-        tree = pruneTree(tree, intersect(intersect(tree$tip.label, treesObj$masterTree$tip.label), useSpecies))
-      } else {
-        tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
-      }
-      treePaths=allPaths(tree)
-
-      #remap the nodes
-      treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
-      treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
-
-      #indices for which paths to return
-      ii=treesObj$ap$matIndex[(treePaths$nodeId[,2]-1)*nrow(treesObj$ap$matIndex)+treePaths$nodeId[,1]]
-
-      vals=double(length(treesObj$ap$dist))
-      vals[]=NA
-      vals[ii]=treePaths$dist
-      if(binarize){
-        if(isbinarypheno) {
-          vals[vals>0]=1
-        } else {
-          mm=mean(vals)
-          vals[vals>mm]=1
-          vals[vals<=mm]=0
-        }
-      }
+      force(map)
+      vals = tree2Paths(tree, treesObj, binarize = binarize, useSpecies = useSpecies, categorical = categorical)
     }
   } else {
     vals=as.double(rep(NA,length(treesObj$ap$dist)))
@@ -3170,5 +3120,3 @@ getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
     return(pval_groups)
   }
 }
-
-

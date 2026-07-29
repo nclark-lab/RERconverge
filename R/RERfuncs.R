@@ -69,6 +69,33 @@ rootLikeMaster <- function(tree, master) {
   TreeTools::RootTree(tree, A_in)
 }
 
+prepareTreeForTT <- function(tree, master) {
+  # Aligns a tree's rooting and tip numbering with the master tree
+  tree <- rootLikeMaster(tree, master)
+  tree <- RenumberTips(tree, master$tip.label)
+  Preorder(tree)
+}
+
+hasConcordantTopology <- function(tree, master) {
+  if (identical(tree$edge, master$edge) &&
+      identical(tree$tip.label, master$tip.label)) {
+    return(TRUE)
+  }
+  common <- intersect(tree$tip.label, master$tip.label)
+  if (length(common) < 3) {
+    warning("Insufficient shared taxa between tree and master; skipping tree")
+    return(FALSE)
+  }
+  tree_cmp <- TreeTools::Preorder(TreeTools::SortTree(pruneTree(tree, common)))
+  master_cmp <- TreeTools::Preorder(TreeTools::SortTree(pruneTree(master, common)))
+  tree_form <- ape::write.tree(tree_cmp)
+  master_form <- ape::write.tree(master_cmp)
+  if (!identical(tree_form, master_form)) {
+    warning("Discordant tree topology detected; skipping tree")
+    return(FALSE)
+  }
+  TRUE
+}
 
 
 #' Reads trees from a 2 column , tab seperated, file
@@ -178,7 +205,7 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   for (i in 1:treesObj$numTrees) {
     pb$tick()
     paths[i, ] = allPathsMasterRelativeTT(treesObj$trees[[i]],
-                                                        master, ap, i)
+                                                        master, ap, i, check_concordance = FALSE)
   }
   treesObj$paths = paths
   treesObj$matAnc = matAnc
@@ -630,25 +657,8 @@ scaleDist=function(x){
 
 #' @keywords  internal
 allPathMasterRelative=function(tree, masterTree, masterTreePaths=NULL){
-  if(! is.list(masterTreePaths)){
-    masterTreePaths=allPaths(masterTree)
-  }
-
-  treePaths=allPaths(tree)
-  map=matchAllNodes(tree,masterTree)
-
-  #remap the nodes
-  treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
-  treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
-
-
-  ii=masterTreePaths$matIndex[(treePaths$nodeId[,2]-1)*nrow(masterTreePaths$matIndex)+treePaths$nodeId[,1]]
-  print(sum(is.na(ii)))
-
-  vals=double(length(masterTreePaths$dist))
-  vals[]=NA
-  vals[ii]=treePaths$dist
-  vals
+  .Deprecated("allPathsMasterRelativeTT", package = "RERconverge")
+  allPathsMasterRelativeTT(tree, masterTree, masterTreePaths)
 }
 
 
@@ -706,34 +716,14 @@ matchNodesInject=function (tr1, tr2){
 
 #' @keywords  internal
 allPaths=function(tree, categorical = F){
-  if (!categorical){
-    dd=dist.nodes(tree)
+  res <- allPathsTT(tree, needIndex = TRUE)
+  if (categorical) {
+    nodeVals <- numeric(length(tree$tip.label) + tree$Nnode)
+    nodeVals[] <- NA_real_
+    nodeVals[tree$edge[,2]] <- tree$edge.length
+    res$dist <- nodeVals[res$nodeId[,1]]
   }
-  allD=double()
-  nn=matrix(nrow=0, ncol=2)
-  nA=length(tree$tip.label)+tree$Nnode
-  matIndex=matrix(nrow=nA, ncol=nA)
-  index=1
-  for ( i in 1:nA){
-    ia=getAncestors(tree,i)
-    if(length(ia)>0){
-      if(categorical) {
-        # add the state of node i to allD length(ia) times
-        x = which(tree$edge[,2] == i)
-        state = tree$edge.length[x]
-        allD = c(allD, rep(state, length(ia)))
-      }
-      else {
-        allD=c(allD, dd[i, ia])
-      }
-      nn=rbind(nn,cbind(rep(i, length(ia)), ia))
-      for (j in ia){
-        matIndex[i,j]=index
-        index=index+1
-      }
-    }
-  }
-  return(list(dist=allD, nodeId=nn, matIndex=matIndex))
+  res
 }
 
 #' @keywords  internal
@@ -1813,8 +1803,9 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
 
   }
 
-  ap = allPaths(treesObj$masterTree)
-  allPathMasterRelative(charTree, treesObj$masterTree, ap)
+  charTree <- prepareTreeForTT(charTree, treesObj$masterTree)
+  ap = if (!is.null(treesObj$ap)) treesObj$ap else allPathsTT(treesObj$masterTree)
+  allPathsMasterRelativeTT(charTree, treesObj$masterTree, ap)
 }
 
 
@@ -2630,6 +2621,16 @@ fixPseudoroot=function(tree, treesObj){
 tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical = F){
   stopifnot(class(tree)[1]=="phylo")
   stopifnot(class(treesObj)[2]=="treesObj")
+  master_tree <- treesObj$masterTree
+  ap <- if (!is.null(treesObj$ap)) treesObj$ap else allPathsTT(master_tree)
+  n_paths <- length(ap$dist)
+
+  if (!hasConcordantTopology(tree, master_tree)) {
+    warning("Discordant tree topology detected - returning NA path vector")
+    vals=rep(NA_real_, n_paths)
+    names(vals) = colnames(treesObj$paths)
+    return(vals)
+  }
 
   isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
   if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
@@ -2639,11 +2640,6 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
       binarize = F #default for continuous phenotype trees: do not convert to binary
     }
   }
-  #unroot if rooted
-  if (is.rooted(tree)) {
-    tree = unroot(tree)
-  }
-
   #reduce tree to species in master tree and useSpecies
   sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
   if (length(sp.miss) > 0) {
@@ -2656,19 +2652,27 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
     tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
   }
 
-  treePaths=allPaths(tree, categorical = categorical)
-  map=matchAllNodes(tree,treesObj$masterTree)
+  tree = prepareTreeForTT(tree, master_tree)
+  treePaths = allPathsTT(tree, needIndex = F)
+  if (categorical) {
+    nodeVals <- numeric(length(tree$tip.label) + tree$Nnode)
+    nodeVals[] <- NA_real_
+    nodeVals[tree$edge[, 2]] <- tree$edge.length
+    treePaths$dist <- nodeVals[treePaths$nodeId[, 1]]
+  }
+
+  map=matchAllnodesTT(tree,master_tree)
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
   treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
 
   #indices for which paths to return
-  ii=treesObj$ap$matIndex[(treePaths$nodeId[,2]-1)*nrow(treesObj$ap$matIndex)+treePaths$nodeId[,1]]
+  ii=ap$matIndex[cbind(treePaths$nodeId[,1], treePaths$nodeId[,2])]
 
-  vals=double(length(treesObj$ap$dist))
-  vals[]=NA
-  vals[ii]=treePaths$dist
+  vals=rep(NA_real_, n_paths)
+  valid <- !is.na(ii)
+  vals[ii[valid]]=treePaths$dist[valid]
   if(binarize){
     if(isbinarypheno) {
       vals[vals>0]=1
@@ -2678,6 +2682,7 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
       vals[vals<=mm]=0
     }
   }
+  names(vals) = colnames(treesObj$paths)
   vals
 }
 
@@ -2804,11 +2809,8 @@ transformMat=function(tree){
 
 
 edgeIndexRelativeMaster=function(tree, masterTree){
-  map=matchAllNodes(tree,masterTree)
-  newedge=tree$edge
-  newedge[,1]=map[newedge[,1],2]
-  newedge[,2]=map[newedge[,2],2]
-  newedge
+  .Deprecated("edgeIndexRelativeMasterTT", package = "RERconverge")
+  edgeIndexRelativeMasterTT(tree, masterTree)
 }
 
 edgeReOrder=function(tree, masterTree){
@@ -3047,7 +3049,7 @@ getProjectionPaths=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
   ss=rowSums(allreport)
   iiboth=which(ss==length(both))
   allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
-  ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+  ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
   ii= match(namePaths(ee,T), colnames(treesObj$paths))
   allbranch=treesObj$paths[iiboth,ii]
   allbranch=scaleMat(allbranch)
@@ -3110,7 +3112,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
         else{
           if(!useIndex){
             message("Here")
-            ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+            ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
             ii= match(namePaths(ee,T), colnames(treesObj$paths))
             allbranch=treesObj$paths[iiboth,ii]
           }
@@ -3215,8 +3217,8 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
       }
       else{
 
-        ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
-        ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
+        ii= match(namePaths(edgeIndexRelativeMasterTT(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
+        ii2=match(namePaths(edgeIndexRelativeMasterTT(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
         #show(ii)
         #show(ii2)
         stopifnot(all(ii=ii2))
@@ -3285,8 +3287,8 @@ plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
   binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
   allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
 
-  ii= match(namePaths(edgeIndexRelativeMaster(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
-  ii2=match(namePaths(edgeIndexRelativeMaster(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
+        ii= match(namePaths(edgeIndexRelativeMasterTT(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
+        ii2=match(namePaths(edgeIndexRelativeMasterTT(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
   plot(tree1,use.edge.length = F)
   plot(binTreeUse,use.edge.length = F)
   show(cbind(ii,ii2))
@@ -3387,7 +3389,7 @@ correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F
   }
   else{
     if(! useIndex){
-      ee=edgeIndexRelativeMaster(tree1, treesObj$masterTree)
+      ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
       ii= match(namePaths(ee,T), colnames(treesObj$paths))
       allbranch=treesObj$paths[iiboth,ii]
       show(sum(is.na(allbranch)))
@@ -3498,7 +3500,7 @@ plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=
   iiboth=which(ss==length(both))
 
 
-  ee=edgeIndexRelativeMaster(tree, treesObj$masterTree)
+  ee=edgeIndexRelativeMasterTT(tree, treesObj$masterTree)
   ii= match(namePaths(ee,T), colnames(treesObj$paths))
 
   allbranch=treesObj$paths[iiboth,ii]
@@ -3757,23 +3759,25 @@ edgeIndexRelativeMasterTT =function (tree, masterTree){
 }
 
 namePathsWSpeciesTT =function (treesObj){
-  cnames=vector("character", ncol(treesObj$paths))
-
-  for(i in 1:ncol(treesObj$paths)){
-    tip=which(treesObj$matIndex==i, arr.ind = T)[,1]
-    #  show(tip)
-    if(tip<=treesObj$maxSp){
-      cnames[i]=treesObj$masterTree$tip.label[tip]
-    }
+  cnames=rep("", ncol(treesObj$paths))
+  idx <- which(treesObj$matIndex > 0, arr.ind = TRUE)
+  tip_rows <- idx[idx[,1] <= treesObj$maxSp, , drop = FALSE]
+  if (nrow(tip_rows) > 0) {
+    cnames[treesObj$matIndex[cbind(tip_rows[,1], tip_rows[,2])]] <- treesObj$masterTree$tip.label[tip_rows[,1]]
   }
   cnames
 }
 
 #' @keywords  internal
-allPathsMasterRelativeTT =function (tree, masterTree, masterTreePaths=NULL,i=NULL){
+allPathsMasterRelativeTT =function (tree, masterTree, masterTreePaths=NULL,i=NULL, check_concordance = TRUE){
 
   if(! is.list(masterTreePaths)){
     masterTreePaths=allPathsTT(masterTree)
+  }
+
+  if (check_concordance && !hasConcordantTopology(tree, masterTree)) {
+    warning("Discordant tree topology detected - returning NA path vector")
+    return(rep(NA_real_, length(masterTreePaths$dist)))
   }
 
   treePaths=allPathsTT(tree, needIndex = F)

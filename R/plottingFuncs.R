@@ -189,7 +189,7 @@ plotContinuousChar=function(gene, treeObj, tip.vals, tip.vals.ref=NULL, rank=F, 
   iiboth=which(ss==length(both))
 
 
-  ee=edgeIndexRelativeMaster(tree, treeObj$masterTree)
+  ee=edgeIndexRelativeMasterTT(tree, treeObj$masterTree)
   ii= match(namePaths(ee,T), colnames(treeObj$paths))
 
   allbranch=treeObj$paths[iiboth,ii]
@@ -595,7 +595,7 @@ returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.
                              tip.cex = 0.7, nalab = 'NA', plot = T){
   trgene <- treesObj$trees[[index]]
   trgene$edge.length <- rep(2,nrow(trgene$edge))
-  ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
+  ee=edgeIndexRelativeMasterTT(trgene, treesObj$masterTree)
   ii= treesObj$matIndex[ee[, c(2,1)]]
   rertree=rermat[index,ii]
   rertree[is.nan(rertree)]=NA #replace NaNs from C functions
@@ -629,7 +629,7 @@ returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.
 returnRersAsNewickStrings <- function(treesObj, rermat){
   rerNwkstrings <- sapply(names(treesObj$trees), function(index){
     trgene <- treesObj$trees[[index]]
-    ee=edgeIndexRelativeMaster(trgene, treesObj$masterTree)
+    ee=edgeIndexRelativeMasterTT(trgene, treesObj$masterTree)
     ii= treesObj$matIndex[ee[, c(2,1)]]
     rertree=rermat[index,ii]
     rertree[is.nan(rertree)]=NA
@@ -809,7 +809,7 @@ nvmaster <- function(treesObj, useSpecies = NULL, fgd = NULL, plot = 0){
      allreport=treesObj$report[,both]
      ss=rowSums(allreport)
      iiboth=which(ss==length(both))
-     ee=edgeIndexRelativeMaster(treesObj$masterTree, treesObj$masterTree)
+     ee=edgeIndexRelativeMasterTT(treesObj$masterTree, treesObj$masterTree)
      ii= treesObj$matIndex[ee[, c(2,1)]]
      allbranch=treesObj$paths[iiboth,ii]
      nv=t(projection(t(allbranch), method="AVE", returnNV = T))
