@@ -210,27 +210,45 @@ topology comparison (prune both to shared taxa, canonicalise, compare newick),
 so genuinely discordant trees are still caught — and now correctly return `NA`,
 not zeros.
 
-## 6. Remaining limitation: the root-edge split
+## 6. The root-edge split
 
-Rooting fixes the mapping completely but introduces one arbitrary quantity. The
-root is a point inserted *on* an edge, and how that edge's length is divided
+The root is a point inserted *on* an edge, so how that edge's length is divided
 between the root's two child branches is not determined by the unrooted tree.
-In the minimal example the master splits it `1 / 1` and the re-rooted gene tree
-splits the same total `2 / 0`.
+`TreeTools::RootTree` and `phangorn::midpoint` both resolve this by putting the
+whole length on one side and **zero** on the other:
 
-Consequently paths that terminate at the root node are not strictly comparable
-across gene trees. Re-running the mammal data through the new pipeline with
-re-rooted input:
+```
+input (unrooted):  ((A:1,B:1):1,(C:1,D:1):1,(E:1,F:1):2);
+after RootTree  :  (((A:1,B:1):1,(C:1,D:1):1):2,(E:1,F:1):0);
+```
 
-- 150 of 800 columns show any difference; **122 of those end at the root node**
-- 5.36% of filled values differ; median difference 0, 99th percentile 0.015
-- the 28 non-root columns trace to a **single** 15-species gene tree where
-  `rootLikeMaster` lands on a different edge
+Total length is conserved, so every pairwise distance is correct and nothing
+looks malformed. But two things are wrong with it here:
 
-So the effect is small and concentrated in the two root-adjacent branches, but
-it is a real residual non-invariance. Options if it matters: exclude
-root-incident paths from RER estimation, or force a deterministic split (e.g.
-midpoint) in `rootLikeMaster`.
+1. A zero-length branch is a branch on which no change can occur — `expm(Q * 0)`
+   is the identity — which misspecifies any model fitted on the rooted tree.
+   `categoricalPermulations` failed outright on this: transition probability
+   exactly 0 across that branch drove the annealing ratio to `0/0`.
+2. **Which** side receives the zero depends on where the input newick happened
+   to be rooted — reintroducing precisely the representation-dependence this
+   package roots trees to eliminate (section 2).
+
+It was not an edge case. Every gene tree came out of `rootLikeMaster` with a
+zero-length root child, at the same edge index, so the master — whose branch
+lengths are the mean of the complete gene trees' — inherited it deterministically.
+
+`balanceRootEdges()` splits the edge evenly instead, placing the root at its
+midpoint. The total is unchanged, so distances between all other nodes are
+preserved, and the split is canonical rather than input-dependent. It is applied
+to gene trees and the master (distance-like edge lengths), and deliberately
+**not** to phenotype or trait trees, whose edge lengths carry trait values that
+must not be averaged across the two halves of the split branch.
+
+With this, path construction is exactly invariant to newick root placement:
+
+| | `0 / full` split | even split |
+|---|---|---|
+| columns differing under re-rooting | 150 (122 root-incident) | **0** |
 
 ## 7. Reproducing
 

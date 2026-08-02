@@ -53,6 +53,11 @@ require(impute)
 #' @importFrom TreeTools KeepTip Children RootNode TipLabels Subtree RootTree
 #' @keywords internal
 rootLikeMaster <- function(tree, master) {
+  # Called with two kinds of tree, and the difference matters. readTrees() passes
+  # gene trees, whose edge lengths are distances; prepareTreeForTT() passes
+  # phenotype and trait trees, whose edge lengths carry trait values. Anything
+  # that rescales edges -- balanceRootEdges() in particular -- is valid only for
+  # the former, so apply it at the readTrees call site, never here.
   common <- intersect(tree$tip.label, master$tip.label)
   ms <- TreeTools::KeepTip(master, common)
 
@@ -67,6 +72,46 @@ rootLikeMaster <- function(tree, master) {
     A_in <- intersect(setdiff(common, A), tree$tip.label)
 
   TreeTools::RootTree(tree, A_in)
+}
+
+balanceRootEdges <- function(tree) {
+  # RootTree()/midpoint() place the root at one end of the edge they root on,
+  # giving the other root child length 0. Two problems with that: a zero-length
+  # branch is a branch on which no change can occur -- expm(Q * 0) is the
+  # identity -- which misspecifies any model fitted on the tree; and which side
+  # receives the zero depends on where the input newick happened to be rooted,
+  # reintroducing exactly the representation-dependence this package roots trees
+  # to eliminate.
+  #
+  # Split the edge evenly instead, i.e. put the root at its midpoint. The total
+  # is unchanged, so distances between all other nodes are preserved, and the
+  # split is now canonical rather than input-dependent.
+  #
+  # Only for trees whose edge lengths are distances (gene trees, master tree).
+  # NOT for phenotype or trait trees, whose edge lengths carry trait values that
+  # must not be averaged across the two halves of the split branch.
+  if (is.null(tree$edge.length)) {
+    return(tree)
+  }
+  root <- setdiff(tree$edge[, 1], tree$edge[, 2])
+  if (length(root) != 1L) {
+    return(tree)
+  }
+  ii <- which(tree$edge[, 1] == root)
+  if (length(ii) == 2L) {
+    tree$edge.length[ii] <- sum(tree$edge.length[ii]) / 2
+  }
+  tree
+}
+
+apeOrder <- function(tree) {
+  # TreeTools marks preordered trees with attr(order) = "preorder", which ape
+  # and phangorn do not recognise; their reorder() then misreads the tree.
+  # Normalise before handing a tree to either of them.
+  if (identical(attr(tree, "order"), "preorder")) {
+    tree <- ape::reorder.phylo(tree, "cladewise")
+  }
+  tree
 }
 
 prepareTreeForTT <- function(tree, master) {
@@ -86,8 +131,17 @@ hasConcordantTopology <- function(tree, master) {
     warning("Insufficient shared taxa between tree and master; skipping tree")
     return(FALSE)
   }
-  tree_cmp <- TreeTools::Preorder(TreeTools::SortTree(pruneTree(tree, common)))
-  master_cmp <- TreeTools::Preorder(TreeTools::SortTree(pruneTree(master, common)))
+  #Compare unrooted topologies. Trait trees arrive unrooted (char2TreeCategorical)
+  #while the master is rooted, and rooting is imposed later by prepareTreeForTT,
+  #so root position must not enter the comparison.
+  tree_cmp <- TreeTools::Preorder(TreeTools::SortTree(ape::unroot(pruneTree(tree, common))))
+  master_cmp <- TreeTools::Preorder(TreeTools::SortTree(ape::unroot(pruneTree(master, common))))
+  #compare topology only: a trait tree's edge lengths carry the phenotype, not
+  #rates, so they never match the master's and must not enter the comparison
+  tree_cmp$edge.length <- NULL
+  master_cmp$edge.length <- NULL
+  tree_cmp$node.label <- NULL
+  master_cmp$node.label <- NULL
   tree_form <- ape::write.tree(tree_cmp)
   master_form <- ape::write.tree(master_cmp)
   if (!identical(tree_form, master_form)) {
@@ -177,7 +231,7 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
     }
     master = trees[[ii[1]]]
     master$edge.length[] = 1
-    master=phangorn::midpoint(master)
+    master=balanceRootEdges(phangorn::midpoint(master))
   }
   else {
     master = masterTree
@@ -186,8 +240,8 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   treesObj$masterTree = master
   for (i in 1:treesObj$numTrees) {
 
-    treesObj$trees[[i]] = rootLikeMaster(treesObj$trees[[i]],
-                                         master)
+    treesObj$trees[[i]] = balanceRootEdges(rootLikeMaster(treesObj$trees[[i]],
+                                                          master))
 
     treesObj$trees[[i]] = RenumberTips(treesObj$trees[[i]],
                                        master$tip.label)
@@ -2363,15 +2417,17 @@ char2TreeCategorical <- function (tipvals, treesObj, useSpecies = NULL,
     }
     useSpecies = intersect(mastertree$tip.label, useSpecies)
     mastertree = pruneTree(mastertree, useSpecies)
-    # unroot the tree after pruning
-    mastertree = unroot(mastertree)
   }
   else {
     mastertree = pruneTree(mastertree, intersect(mastertree$tip.label,
                                                  names(tipvals)))
-    # unroot the tree after pruning
-    mastertree = unroot(mastertree)
   }
+  # Keep the master's rooting. Edge values here are a property of the child node
+  # (tree$edge.length = states[tree$edge[, 2]] below), so they must be derived on
+  # the topology the tree will actually be used with. Reconstructing on an
+  # unrooted tree and re-rooting afterwards leaves RootTree() to invent a value
+  # for an edge the reconstruction never saw, which it does by splitting a state
+  # code into itself and 0 -- and 0 is not a state.
   # use ASR to infer phenotype tree
   if (is.null(anctrait)) {
 
@@ -2574,7 +2630,7 @@ nameEdges=function(tree){
 #' @return A trait tree with the correct topology
 #' @export
 fixPseudoroot=function(tree, treesObj){
-  if(RF.dist(tree, treesObj$masterTree)>0){
+  if(RF.dist(apeOrder(tree), apeOrder(treesObj$masterTree))>0){
     stop("The trait tree and treesObj$masterTree are not reconcilable - they have different topologies")
   }
   #fix pseudorooting
@@ -2774,7 +2830,8 @@ pruneTree=function(tree, tip.names){
   keep=intersect(tree$tip.label, tip.names)
   torm=setdiff(tree$tip.label, keep)
   tree=drop.tip(tree, torm)
-  tree
+  #drop.tip only clears TreeTools' "preorder" mark when it actually drops a tip
+  apeOrder(tree)
 }
 
 

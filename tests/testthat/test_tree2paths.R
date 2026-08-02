@@ -38,6 +38,33 @@ test_that("tree2Paths reproduces TT path ordering and honors binarize/categorica
   expect_equal(tree2Paths(pheno, trees_no_ap), res)
 })
 
+test_that("concordance check ignores branch lengths", {
+  # A trait tree's edge lengths carry the phenotype, not rates, so they never
+  # match the master's. Comparing them made every trait tree look discordant
+  # and char2Paths/tree2Paths silently returned an all-NA vector.
+  trees <- build_simple_trees()
+  master <- TreeTools::Preorder(TreeTools::SortTree(trees$masterTree))
+
+  # same topology, written so the identical-edge/tip-label fast path is missed
+  # and the newick comparison actually runs
+  reordered <- ape::read.tree(text = "((A:9,B:8):7,(C:6,D:5):4);")
+  expect_false(identical(reordered$edge, master$edge) &&
+                 identical(reordered$tip.label, master$tip.label))
+  expect_true(RERconverge:::hasConcordantTopology(reordered, master))
+
+  # phenotype-scale edge lengths, including negatives as ancestral states give
+  prepped <- RERconverge:::prepareTreeForTT(reordered, master)
+  prepped$edge.length <- seq(-5, 5, length.out = nrow(prepped$edge))
+  expect_true(RERconverge:::hasConcordantTopology(prepped, master))
+
+  paths <- tree2Paths(prepped, trees, binarize = FALSE)
+  expect_true(any(!is.na(paths)))
+
+  # a genuinely different topology must still be rejected
+  discordant <- ape::read.tree(text = "((A:1,C:1):1,(B:1,D:1):1);")
+  expect_false(suppressWarnings(RERconverge:::hasConcordantTopology(discordant, master)))
+})
+
 test_that("tree2PathsClades and tree2Paths_map match tree2Paths", {
   trees <- build_simple_trees()
   fg_vec <- c("A", "C")
