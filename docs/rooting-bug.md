@@ -250,6 +250,47 @@ With this, path construction is exactly invariant to newick root placement:
 |---|---|---|
 | columns differing under re-rooting | 150 (122 root-incident) | **0** |
 
+The old convention is not offered as an option. It is not a defensible
+alternative: it misspecifies every model fitted on the master, produces an
+invalid state code on categorical trait trees (section 6.1), and makes results
+depend on how the input newick was written.
+
+### 6.1 What changes for existing users
+
+Results computed with earlier versions will not reproduce exactly. Running the
+same analysis on `ext/subsetMammalGeneTrees.txt` (200 genes) under both
+conventions:
+
+| | differs |
+|---|---|
+| paths matrix | 150 of 800 columns (122 root-incident, 28 not) |
+| RER matrix | 270 of 800 columns — **12,766 of 12,891 non-NA values (99%)** |
+| trait paths (`char2Paths`) | 782 columns |
+| correlation results | 195 of 200 genes have a different p-value (max Δ 0.167) |
+
+**Almost every number moves, and that is expected.** Two reasons the change is
+not confined to the two root-adjacent branches:
+
+* `getAllResiduals` fits a regression across branches and normalises
+  column-wise, so perturbing 150 path columns shifts the model fit and
+  propagates to nearly every RER value. Only 19 of the 270 changed RER columns
+  are root-incident; 251 are not.
+* `char2Paths` reconstructs ancestral states with `edgeVars` on the pruned
+  **master**, whose branch lengths changed — so continuous trait analysis moves
+  too, not only categorical.
+
+**Rankings are essentially unchanged**, which is the number to judge by:
+
+```
+Spearman correlation of -log10(P):  0.9923
+top-20 genes in common:             19 of 20
+```
+
+So when comparing against a previous run, compare rankings and top hits, not
+raw values. A large fraction of differing values is the expected signature of
+this fix, not evidence of a regression. A materially different gene ranking
+would be.
+
 ## 7. Reproducing
 
 ```sh
