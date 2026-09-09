@@ -8,8 +8,8 @@ Please refer to the [Install page](https://github.com/nclark-lab/RERconverge/wik
 
 ### Quick Start
 ```
-library(devtools)
-install_github("nclark-lab/RERconverge")
+if (!require("pak", quietly = TRUE)) install.packages("pak")
+pak::pak("nclark-lab/RERconverge")
 ```
 To run an analysis you will need:
 1) a trees file: a tab-delimited files with gene names and Newick format trees for each gene.
