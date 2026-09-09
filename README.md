@@ -42,6 +42,11 @@ Running RERconverge will produce the following outputs:
 * **Weiguang (Wayne) Mao** - [wgmao](https://github.com/wgmao)
 * **Wynn Meyer** - [sorrywm](https://github.com/sorrywm)
 * **Raghavendran Partha** - [raghavendranpartha](https://github.com/raghavendranpartha)
+* **Ruby Redlich** - [RubyRedlich](https://github.com/RubyRedlich)
+* **Elysia Saputra** - [ECSaputra](https://github.com/ECSaputra)
+* **Emily Kopania** - [ekopania](https://github.com/ekopania)
+* **Guillermo Hoffmann Meyer** - [glhoffmann](https://github.com/glhoffmann)
+* **Michael Tene** - [MichaelTene](https://github.com/MichaelTene7)
 
 See also the list of [contributors](https://github.com/nclark-lab/RERconverge/contributors) who participated in this project.
 
