@@ -12,3 +12,5 @@ RoxygenNote: 7.3.2
 Depends: RColorBrewer, gplots,  phytools, geiger, knitr, Rcpp, RcppArmadillo, weights, phangorn, ggplot2, dplyr, FSA, castor, Matrix, TreeTools, progress, impute, ggtree
 Imports: Rcpp (>= 0.11.0), ape
 LinkingTo: Rcpp, RcppArmadillo, ape
+Suggests: testthat (>= 3.1.0)
+Config/testthat/edition: 3

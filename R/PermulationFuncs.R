@@ -869,7 +869,7 @@ simBinPhenoCCmidpoint=function(trees, mastertree, fg_vec, sisters_list=NULL, pat
   fg.table = res$fg.sisters.table
 
 
-  t = midpoint.root(mastertree)
+  t = midpoint.root(apeOrder(mastertree))
   rm = ratematrix(t, pathvec)
 
   if (!is.null(sisters_list)){
@@ -1121,7 +1121,7 @@ simBinPhenoSSM=function(tree, trees, fg_vec, pathvec, plotTreeBool=F){
     #print(paste("Number of foreground tips in real data:", tips))
 
     #Generate the tree on which simulations will be run
-    t = midpoint.root(keep.tip(trees$masterTree, tip.labels))
+    t = midpoint.root(apeOrder(keep.tip(trees$masterTree, tip.labels)))
     rm = ratematrix(t, pathvec)
 
     #Simulates a tree with the same number of foreground tips as the real data; continues if it can't simulate a tree matching that condition in 50 tries
@@ -1429,14 +1429,13 @@ calculatePermulatedPaths=function(permulated.trees,map,treesObj){
 #' @param trees treesObj from \code{\link{readTrees}}
 #' @export
 tree2PathsClades=function(tree,trees){
-  map = matchAllNodesClades(tree,trees)
-  path = tree2Paths_map(tree,map[[1]],trees)
+  path = tree2Paths(tree, trees)
   names(path) = colnames(trees$paths)
   path
 }
 
 #' @keywords internal
-tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL){
+tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL, categorical = F){
   if (class(tree)[1]=="phylo"){
     stopifnot(class(tree)[1]=="phylo")
     stopifnot(class(treesObj)[2]=="treesObj")
@@ -1444,57 +1443,8 @@ tree2Paths_map=function(tree, map, treesObj, binarize=NULL, useSpecies=NULL){
     if (is.null(tree$tip.label)){
       vals=as.double(rep(NA,length(treesObj$ap$dist)))
     } else {
-      foregrounds = getForegroundsFromBinaryTree(tree)
-      tree = foreground2Tree(foregrounds,treesObj,clade="all",plotTree = F)
-
-
-      isbinarypheno <- sum(tree$edge.length %in% c(0,1)) == length(tree$edge.length) #Is the phenotype tree binary or continuous?
-      if (is.null(binarize)) { #unless specified, determine default for binarize based on type of phenotype tree
-        if (isbinarypheno) {
-          binarize = T #default for binary phenotype trees: set all positive paths = 1
-        } else {
-          binarize = F #default for continuous phenotype trees: do not convert to binary
-        }
-      }
-
-      #unroot if rooted
-      if (is.rooted(tree)) {
-        tree = unroot(tree)
-      }
-
-      #reduce tree to species in master tree and useSpecies
-      sp.miss = setdiff(tree$tip.label, union(treesObj$masterTree$tip.label, useSpecies))
-      if (length(sp.miss) > 0) {
-        message(paste0("Species from tree not present in master tree or useSpecies: ", paste(sp.miss,
-                                                                                             collapse = ",")))
-      }
-
-      if (!is.null(useSpecies)) {
-        tree = pruneTree(tree, intersect(intersect(tree$tip.label, treesObj$masterTree$tip.label), useSpecies))
-      } else {
-        tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
-      }
-      treePaths=allPaths(tree)
-
-      #remap the nodes
-      treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]
-      treePaths$nodeId[,2]=map[treePaths$nodeId[,2],2 ]
-
-      #indices for which paths to return
-      ii=treesObj$ap$matIndex[(treePaths$nodeId[,2]-1)*nrow(treesObj$ap$matIndex)+treePaths$nodeId[,1]]
-
-      vals=double(length(treesObj$ap$dist))
-      vals[]=NA
-      vals[ii]=treePaths$dist
-      if(binarize){
-        if(isbinarypheno) {
-          vals[vals>0]=1
-        } else {
-          mm=mean(vals)
-          vals[vals>mm]=1
-          vals[vals<=mm]=0
-        }
-      }
+      force(map)
+      vals = tree2Paths(tree, treesObj, binarize = binarize, useSpecies = useSpecies, categorical = categorical)
     }
   } else {
     vals=as.double(rep(NA,length(treesObj$ap$dist)))
@@ -2515,11 +2465,14 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
   ancliks = getAncLiks(tree, tips, Q)
 
   states = c(tips, nodes)
-  curr_lik = 1
+  #accumulate in log space: the linear product over all edges underflows to 0
+  #on large trees, and any single zero-probability transition (e.g. across a
+  #zero-length branch, where P is the identity) collapses it exactly
+  curr_loglik = 0
   for(i in 1:nrow(tree$edge)){
     a = states[tree$edge[i,1]]
     d = states[tree$edge[i,2]]
-    curr_lik = curr_lik * P[[i]][a, d]
+    curr_loglik = curr_loglik + log(P[[i]][a, d])
   }
 
   # calculate initial ratios
@@ -2592,7 +2545,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 
       nodes = nn
 
-      curr_lik = curr_lik * r # this should do the same thing, BUT CHECK THIS GETS THE SAME RESULT IN MULTIPLE CASES!
+      curr_loglik = curr_loglik + log(r)
 
       # update ratios
       # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
@@ -2620,8 +2573,9 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
     }
     else { # make jump with probability u
 
-      # calculate u which includes dividing by tmp
-      dh = -log(curr_lik * r) + log(curr_lik)
+      # change in energy H = -log(likelihood); curr_lik cancels algebraically,
+      # so dh depends only on the local ratio r and cannot be spoiled by underflow
+      dh = -log(r)
       u = exp(-dh/Tk)
       if(u == 0) warning("u is zero")
 
@@ -2631,7 +2585,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 
         nodes = nn
 
-        curr_lik = curr_lik * r # CHECK THIS GETS THE SAME RESULT
+        curr_loglik = curr_loglik + log(r)
 
         # update ratios
         # rows1 = c((n1-1)*3 + 1, (n1-1)*3 + 2, (n1-1)*3 + 3) # rows to update ratios for n1
@@ -2660,7 +2614,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
     # increment j
     j = j + 1
 
-    # print(curr_lik)
+    # print(curr_loglik)
 
     # move to next cycle if necessary
     if(j >= Nk) {
@@ -2673,7 +2627,7 @@ improveTree <- function(tree, Q, P, nodes, tips, T0, Nk, cycles, alpha) {
 
   }
   end = Sys.time()
-  return(list(nodes = nodes, lik = log10(curr_lik)))
+  return(list(nodes = nodes, lik = curr_loglik / log(10)))
 }
 
 #'Runs permulations for categorical data
@@ -2755,10 +2709,10 @@ getPermPvalsCategorical <- function(realCors, nullPhens, phenvals,
   keep = intersect(names(phenvals), tree$tip.label)
   tree = pruneTree(tree, keep)
 
-  # UNROOT THE TREE IF IT IS ROOTED
-  if (is.rooted(tree)) {
-    tree = unroot(tree)
-  }
+  # Keep the master's rooting. The real phenotype (char2TreeCategorical) and the
+  # null phenotypes (categoricalPermulations) are both built on the rooted
+  # topology, so the null paths must be too -- otherwise the node-state vectors
+  # and the pairwise comparison names do not line up between real and null.
 
   # GENERATE PATHS IF NOT EXTANT ONLY
   if(!extantOnly){
@@ -3077,8 +3031,10 @@ getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
     # loop through the groups of the enrichment
     for(c in 1:length(realenrich[[1]])){
       # make a list to store the pvals for that group
-      pvals = c()
-      for(i in 1:nrow(realenrich[[1]][[c]])){
+      #seq_len/numeric(0): an enrichment table can legitimately have zero rows,
+      #and 1:nrow() would then be c(1,0) and index a row that does not exist
+      pvals = numeric(0)
+      for(i in seq_len(nrow(realenrich[[1]][[c]]))){
         # for debugging - check that row names match, this should never happen because they were given the same row names
         if(rownames(realenrich[[1]][[c]])[i] != rownames(permenrich[[1]]$enrichStat[[c]])[i]){
           warning("row names between real enrichment and perm enrich stats do not match!")
@@ -3112,8 +3068,8 @@ getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
       # loop through the groups of the enrichment
       for(c in 1:length(realenrich[[2]][[n]])){
         # make a list to store the pvals for that group
-        pvals = c()
-        for(i in 1:nrow(realenrich[[2]][[n]][[c]])){
+        pvals = numeric(0)
+        for(i in seq_len(nrow(realenrich[[2]][[n]][[c]]))){
           # for debugging - check that row names match, this should never happen because they were given the same row names
           if(rownames(realenrich[[2]][[n]][[c]])[i] != rownames(permenrich[[2]][[names(realenrich[[2]])[n]]]$enrichStat[[c]])[i]){
             warning("row names between real enrichment and perm enrich stats do not match!")
@@ -3171,5 +3127,3 @@ getEnrichPermPvals <- function(permenrich, realenrich, binary = FALSE){
     return(pval_groups)
   }
 }
-
-

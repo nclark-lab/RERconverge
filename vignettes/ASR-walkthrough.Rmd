@@ -402,8 +402,13 @@ run it on `compareRateModels` which takes the following as input:
 custom = matrix(c(0, 0, 1, 0, 0, 2, 0, 3, 0),3)
 
 # getMatrixFromAbbr takes the abbreviation ("ER", "ARD", or "SYM") and the number of phenotype states
-rate_models = list(getMatrixFromAbbr("ER", 3), getMatrixFromAbbr("ARD",3), 
-                   getMatrixFromAbbr("SYM",3), filtered_res1[[23]], filtered_res1[[5]],
+# the number of models the search returns depends on the data, so index
+# relative to its length rather than hardcoding positions
+search1 = filtered_res1[[length(filtered_res1)]]
+search2 = filtered_res1[[1]]
+
+rate_models = list(getMatrixFromAbbr("ER", 3), getMatrixFromAbbr("ARD",3),
+                   getMatrixFromAbbr("SYM",3), search1, search2,
                    custom)
 
 names(rate_models) = c("ER", "ARD", "SYM", "search1", "search2", "custom")
