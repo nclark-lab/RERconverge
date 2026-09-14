@@ -235,6 +235,23 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   }
   else {
     master = masterTree
+    if (!is.rooted(master)) {
+      # Gene trees are rooted to match the master below, so an unrooted master
+      # has one fewer internal node than every gene tree and the node maps in
+      # allPathsMasterRelativeTT() run out of bounds. Root it the same way as a
+      # master derived from the gene trees.
+      warning("masterTree is unrooted; rooting it at the midpoint, which may not be ",
+              "the intended root. Supply a rooted masterTree to control the rooting.")
+      tmp = master
+      if (is.null(tmp$edge.length)) {
+        tmp$edge.length = rep(1, nrow(tmp$edge))
+      }
+      tmp = balanceRootEdges(phangorn::midpoint(tmp))
+      if (is.null(master$edge.length)) {
+        tmp$edge.length = NULL
+      }
+      master = tmp
+    }
   }
   master = Preorder(SortTree(master))
   treesObj$masterTree = master
