@@ -200,12 +200,12 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
         trees[[i/2]] = unroot(keep.tip(trees[[i/2]],
                                        intersect(trees[[i/2]]$tip.label, useSpecies)))
       }
-      if (length(trees[[i/2]]$tip.label) > maxsp) {
-        allnames = unique(c(allnames, trees[[i/2]]$tip.label))
-        maxsp = length(allnames)
-      }
+      # accumulate the union of species across all trees; a species can occur only
+      # in trees smaller than the running union, so every tree must contribute
+      allnames = unique(c(allnames, trees[[i/2]]$tip.label))
     }
   }
+  maxsp = length(allnames)
   trees = trees[keeptrees]
   treenames = treenames[keeptrees]
   names(trees) = treenames
