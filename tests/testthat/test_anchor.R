@@ -1,0 +1,342 @@
+# Tests for the anchored path representation, topology status and the fixes that
+# came with it. Truth comes from ape (helper-anchor.R), not from the mapping code.
+
+prune_random <- function(t, minKeep) {
+  k <- sample(minKeep:ape::Ntip(t), 1)
+  ape::unroot(ape::keep.tip(t, sample(t$tip.label, k)))
+}
+
+# Gene trees drawn from a master: random prunings, clade removals and a cascade
+# that strips the smaller side of the root repeatedly, so that some genes miss a
+# whole side of any internal node.
+make_genes <- function(M, nGenes, minKeep, regime = "normal") {
+  base <- with_lengths(M, regime)
+  # each gene has its own rates: an overall scale times per-edge noise, so that
+  # residual weighting sees real variance (zero lengths stay zero)
+  withRates <- function(t) {
+    t$edge.length <- t$edge.length * stats::runif(1, 0.5, 2) * exp(stats::rnorm(nrow(t$edge), 0, 0.3))
+    t
+  }
+  genes <- list(ape::unroot(withRates(base)))
+  for (r in seq_len(nGenes)) genes[[length(genes) + 1]] <- prune_random(withRates(base), minKeep)
+  mi <- index_master(base)
+  internal <- (mi$nT + 2):mi$ntot
+  for (v in sample(internal, min(8, length(internal)))) {
+    keep <- mi$tips[!mi$desc[v, ]]
+    if (length(keep) >= minKeep) genes[[length(genes) + 1]] <- ape::unroot(ape::keep.tip(withRates(base), keep))
+  }
+  cur <- withRates(base)
+  repeat {
+    kids <- cur$edge[cur$edge[, 1] == ape::Ntip(cur) + 1, 2]
+    sizes <- vapply(kids, function(k) if (k <= ape::Ntip(cur)) 1L else length(ape::extract.clade(cur, k)$tip.label), 0L)
+    small <- kids[which.min(sizes)]
+    drop <- if (small <= ape::Ntip(cur)) cur$tip.label[small] else ape::extract.clade(cur, small)$tip.label
+    if (ape::Ntip(cur) - length(drop) < minKeep) break
+    cur <- ape::drop.tip(cur, drop)
+    genes[[length(genes) + 1]] <- ape::unroot(cur)
+  }
+  genes
+}
+
+expect_rows_match_truth <- function(tr, newicks, tol = 1e-9) {
+  for (i in seq_along(newicks)) {
+    tru <- truth_row(tr, newicks[i])
+    P <- unname(tr$paths[i, ])  # paths columns carry species names; the truth does not
+    expect_identical(!is.na(P), !is.na(tru$v), info = sprintf("row %d filled pattern", i))
+    ok <- !is.na(P)
+    expect_true(all(abs(P[ok] - tru$v[ok]) <= tol * (1 + abs(tru$v[ok]))),
+                info = sprintf("row %d values", i))
+  }
+}
+
+test_that("anchor master: rooted at a real node with a zero-length stem, schema from ape", {
+  set.seed(11)
+  M <- with_lengths(ape::rtree(30))
+  genes <- make_genes(M, 60, 12)
+  nw <- vapply(genes, to_newick, "")
+  tr <- read_quiet(write_genes(nw), masterTree = M)
+
+  # ape functions misread TreeTools' "preorder" order attribute
+  m <- RERconverge:::apeOrder(tr$masterTree)
+  expect_true(ape::is.rooted(m))
+  expect_true(ape::is.binary(m))
+  expect_equal(as.numeric(ape::dist.topo(ape::unroot(m), ape::unroot(M))), 0)
+  sides <- tr$anchor$sides
+  expect_setequal(unlist(sides), M$tip.label)
+  expect_equal(sum(lengths(sides)), ape::Ntip(M))
+  # root children: side A with the whole edge, and the anchor node with length 0
+  mc <- ape::reorder.phylo(m, "cladewise")
+  rootEdges <- which(mc$edge[, 1] == ape::Ntip(mc) + 1)
+  childTips <- lapply(mc$edge[rootEdges, 2], function(v) if (v <= ape::Ntip(mc)) mc$tip.label[v] else ape::extract.clade(mc, v)$tip.label)
+  onA <- vapply(childTips, function(x) setequal(x, sides$A), NA)
+  expect_equal(sum(onA), 1)
+  expect_equal(mc$edge.length[rootEdges][!onA], 0)
+  expect_equal(mc$edge.length[rootEdges][onA],
+               sum(ape::unroot(M)$edge.length) - sum(mc$edge.length[-rootEdges]), tolerance = 1e-9)
+
+  # column schema: exactly the ancestor-descendant pairs of the master, one column each
+  ep <- expected_pairs(m)
+  expect_equal(ncol(tr$paths), nrow(ep))
+  cols <- tr$matIndex[ep]
+  expect_false(anyNA(cols))
+  expect_setequal(cols, seq_len(ncol(tr$paths)))
+
+  # the anchor maximises genes covering every side (brute force with ape)
+  u <- ape::unroot(M)
+  r <- ape::reorder.phylo(ape::root(u, outgroup = u$tip.label[1], resolve.root = TRUE), "cladewise")
+  rmi <- index_master(r)
+  pres <- t(vapply(genes, function(g) r$tip.label %in% g$tip.label, logical(ape::Ntip(r))))
+  best <- max(vapply((rmi$nT + 2):rmi$ntot, function(v) {
+    s <- c(lapply(rmi$kids[[v]], function(k) rmi$desc[k, ]), list(!rmi$desc[v, ]))
+    sum(Reduce(`&`, lapply(s, function(side) (pres %*% side) > 0)))
+  }, 0))
+  expect_equal(tr$anchor$genesAllSides, best)
+})
+
+test_that("anchor choice and paths do not depend on how the master is given", {
+  set.seed(12)
+  M <- with_lengths(ape::rtree(25))
+  genes <- make_genes(M, 40, 12)
+  f <- write_genes(vapply(genes, to_newick, ""))
+  ref <- read_quiet(f, masterTree = M)
+  variants <- list(
+    unrooted = ape::unroot(M),
+    rewritten = ape::read.tree(text = rewrite_newick(M, "tip")),
+    edge = ape::read.tree(text = rewrite_newick(M, "edge")))
+  for (nm in names(variants)) {
+    tr <- read_quiet(f, masterTree = variants[[nm]])
+    expect_identical(ape::write.tree(tr$masterTree), ape::write.tree(ref$masterTree), info = nm)
+    expect_equal(tr$paths, ref$paths, tolerance = 1e-12, info = nm)
+  }
+})
+
+test_that("every filled value equals ape truth: pathological masters and edge lengths", {
+  set.seed(13)
+  masters <- list(
+    rtree40 = ape::rtree(40),
+    caterpillar60 = ape::stree(60, "left"),
+    balanced32 = ape::stree(32, "balanced"),
+    rtree15 = ape::rtree(15))
+  nFull <- 0; nDegraded <- 0
+  for (mn in names(masters)) {
+    for (regime in c("normal", "special", "wide", "equal")) {
+      M <- with_lengths(masters[[mn]], regime)
+      genes <- make_genes(masters[[mn]], 25, 10, regime)
+      nw <- vapply(genes, to_newick, "")
+      tr <- read_quiet(write_genes(nw), masterTree = M)
+      expect_true(all(tr$treeStatus == "ok"), info = paste(mn, regime))
+      full <- vapply(nw, function(x) truth_row(tr, x)$full, NA)
+      nFull <- nFull + sum(full); nDegraded <- nDegraded + sum(!full)
+      expect_rows_match_truth(tr, nw)
+    }
+  }
+  # the battery must exercise both genes rooted at the anchor node and genes
+  # missing a side of it
+  expect_gt(nFull, 50)
+  expect_gt(nDegraded, 50)
+})
+
+test_that("rows do not depend on how each newick is written", {
+  set.seed(14)
+  M <- with_lengths(ape::rtree(35))
+  genes <- make_genes(M, 20, 10)
+  pick <- sample(seq_along(genes), 10)
+  nw <- vapply(genes, to_newick, "")
+  extra <- unlist(lapply(pick, function(j) vapply(c("tip", "edge", "unrooted", "ladder"),
+                                                  function(h) rewrite_newick(genes[[j]], h), "")))
+  tr <- read_quiet(write_genes(c(nw, extra)), masterTree = M)
+  expect_true(all(tr$treeStatus == "ok"))
+  k <- length(nw)
+  for (a in seq_along(pick)) {
+    for (h in 1:4) {
+      k <- k + 1
+      expect_identical(is.na(tr$paths[k, ]), is.na(tr$paths[pick[a], ]))
+      expect_equal(tr$paths[k, ], tr$paths[pick[a], ], tolerance = 1e-12)
+    }
+  }
+})
+
+test_that("pruned-pair branch vectors read from paths equal direct pruning", {
+  set.seed(15)
+  M <- with_lengths(ape::rtree(45), "special")
+  genes <- make_genes(M, 50, 12, "special")
+  nw <- vapply(genes, to_newick, "")
+  tr <- read_quiet(write_genes(nw), masterTree = M)
+  for (p in 1:60) {
+    ij <- sample(seq_along(nw), 2)
+    C <- intersect(genes[[ij[1]]]$tip.label, genes[[ij[2]]]$tip.label)
+    if (length(C) < 4) next
+    for (k in ij) {
+      want <- pruned_edges(nw[k], C)
+      got <- row_edges(tr, k, C)
+      expect_setequal(names(got), names(want))
+      expect_equal(unname(got[names(want)]), unname(want), tolerance = 1e-9)
+    }
+  }
+})
+
+test_that("real-node values do not move when species are dropped", {
+  set.seed(16)
+  M <- with_lengths(ape::rtree(40))
+  base <- ape::unroot(with_lengths(M))
+  subsets <- replicate(30, sample(base$tip.label, sample(12:39, 1)), simplify = FALSE)
+  nw <- c(to_newick(base), vapply(subsets, function(s) to_newick(ape::unroot(ape::keep.tip(base, s))), ""))
+  tr <- read_quiet(write_genes(nw), masterTree = M)
+  b <- truth_row(tr, nw[1])
+  expect_true(b$full)
+  for (i in 2:length(nw)) {
+    t_i <- truth_row(tr, nw[i])
+    both <- !is.na(tr$paths[1, ]) & !is.na(tr$paths[i, ])
+    # a column may move only if it ends at this gene's root and that root is a
+    # point on an edge (the gene misses a side of the anchor)
+    movable <- if (t_i$full) rep(FALSE, length(both)) else t_i$atRoot
+    stable <- both & !movable
+    expect_equal(tr$paths[i, stable], tr$paths[1, stable], tolerance = 1e-9, info = sprintf("subset %d", i))
+  }
+})
+
+test_that("discordance is decided by topology and decoupled from path lookup", {
+  set.seed(17)
+  M <- with_lengths(ape::rtree(30))
+  base <- ape::unroot(with_lengths(M))
+  good <- make_genes(M, 15, 12)
+  # discordant: swap two tips from opposite sides of the root
+  mc <- ape::reorder.phylo(M, "cladewise")
+  rk <- mc$edge[mc$edge[, 1] == ape::Ntip(mc) + 1, 2]
+  sideOf <- function(v) if (v <= ape::Ntip(mc)) mc$tip.label[v] else ape::extract.clade(mc, v)$tip.label
+  swap <- base
+  x <- sideOf(rk[1])[1]; y <- sideOf(rk[2])[1]
+  swap$tip.label[match(c(x, y), swap$tip.label)] <- c(y, x)
+  # discordant: nearest-neighbour interchange on an internal edge
+  nni <- ape::unroot(phangorn::nni(base)[[1]])
+  # unresolved: collapse one internal edge
+  poly <- base
+  inner <- which(poly$edge[, 2] > ape::Ntip(poly))
+  poly$edge.length[inner[1]] <- 0
+  poly <- ape::di2multi(poly)
+  # concordant genes written with every layout, including degraded anchors
+  layouts <- unlist(lapply(good[1:5], function(g) vapply(c("tip", "edge", "unrooted", "ladder"), function(h) rewrite_newick(g, h), "")))
+
+  nw <- c(vapply(good, to_newick, ""), to_newick(swap), to_newick(nni), to_newick(poly), layouts)
+  status_expected <- c(rep("ok", length(good)), "discordant", "discordant", "unresolved", rep("ok", length(layouts)))
+  expect_no_error(tr <- read_quiet(write_genes(nw), masterTree = M))
+  expect_identical(unname(tr$treeStatus), status_expected)
+  flagged <- status_expected != "ok"
+  expect_true(all(is.na(tr$paths[flagged, ])))
+  expect_true(all(rowSums(!is.na(tr$paths[!flagged, , drop = FALSE])) > 0))
+  expect_rows_match_truth(tr, nw[!flagged][seq_len(length(good))])
+})
+
+test_that("a failed path lookup on a concordant tree is an error, not a discordance flag", {
+  set.seed(18)
+  M <- with_lengths(ape::rtree(20))
+  genes <- make_genes(M, 10, 12)
+  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+  g <- genes[[1]]
+  # concordant, but rooted far from the master's root and never prepared
+  bad <- TreeTools::Preorder(TreeTools::RenumberTips(
+    ape::root(g, outgroup = g$tip.label[3], resolve.root = TRUE), tr$masterTree$tip.label))
+  expect_identical(RERconverge:::treeTopologyStatus(bad, tr$masterTree), "ok")
+  expect_error(RERconverge:::allPathsMasterRelativeTT(bad, tr$masterTree, tr$ap, 1, check_concordance = FALSE),
+               "internal error")
+})
+
+test_that("small trees are dropped at input", {
+  set.seed(19)
+  M <- with_lengths(ape::rtree(30))
+  genes <- make_genes(M, 20, 12)
+  tiny <- ape::unroot(ape::keep.tip(with_lengths(M), M$tip.label[1:6]))
+  nw <- c(vapply(genes, to_newick, ""), to_newick(tiny))
+  expect_message(tr <- readTrees(write_genes(nw), masterTree = M), "Dropped 1 tree")
+  expect_equal(tr$numTrees, length(genes))
+  expect_false("g" %in% names(tr$trees)[0])
+  expect_equal(nrow(tr$paths), length(genes))
+  tr5 <- read_quiet(write_genes(nw), masterTree = M, minTreeSpecies = 5)
+  expect_equal(tr5$numTrees, length(genes) + 1)
+})
+
+test_that("master species absent from every gene do not break naming or residuals", {
+  set.seed(20)
+  M <- with_lengths(ape::rtree(40))
+  sub <- ape::keep.tip(M, M$tip.label[1:34])
+  genes <- make_genes(sub, 150, 22)
+  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+  named <- unique(colnames(tr$paths)[colnames(tr$paths) != ""])
+  expect_setequal(named, M$tip.label)
+  expect_no_error(rer <- suppressMessages(suppressWarnings(getAllResiduals(tr))))
+  expect_equal(dim(rer), dim(tr$paths))
+})
+
+test_that("residual regression uses each gene's own branches, with and without useSpecies", {
+  set.seed(21)
+  M <- with_lengths(ape::rtree(40))
+  genes <- make_genes(M, 180, 24)
+  nw <- vapply(genes, to_newick, "")
+  tr <- read_quiet(write_genes(nw), masterTree = M)
+
+  # imputation warns about sparse rows; that is expected for pruned genes
+  tr2 <- suppressMessages(suppressWarnings(transformPaths(tr)))
+  res <- suppressMessages(suppressWarnings(coreGetResiduals(tr2)))
+  checked <- 0
+  for (i in seq_along(nw)) {
+    idx <- res$index[[i]]
+    if (!length(idx)) next
+    own <- truth_row(tr, nw[i])$edgeCols
+    expect_true(all(idx %in% own), info = sprintf("gene %d", i))
+    checked <- checked + 1
+  }
+  expect_gt(checked, 100)
+
+  useSp <- sample(M$tip.label, 30)
+  resU <- suppressMessages(suppressWarnings(coreGetResiduals(tr2, useSpecies = useSp)))
+  checked <- 0
+  for (i in seq_along(nw)) {
+    idx <- resU$index[[i]]
+    if (!length(idx)) next
+    keep <- intersect(genes[[i]]$tip.label, useSp)
+    own <- truth_row(tr, to_newick(ape::unroot(ape::keep.tip(genes[[i]], keep))))$edgeCols
+    expect_true(all(idx %in% own), info = sprintf("gene %d with useSpecies", i))
+    checked <- checked + 1
+  }
+  expect_gt(checked, 20)
+})
+
+test_that("master edge lengths can be re-estimated with minSpecs", {
+  set.seed(22)
+  M <- with_lengths(ape::rtree(30))
+  genes <- make_genes(M, 60, 15)
+  f <- write_genes(vapply(genes, to_newick, ""))
+  expect_no_error(tr <- read_quiet(f, masterTree = M, minSpecs = 20, reestimateBranches = TRUE, minTreesAll = 5))
+  expect_true(all(is.finite(tr$masterTree$edge.length)))
+  expect_true(all(tr$masterTree$edge.length >= 0))
+})
+
+test_that("anchor = 'root' keeps the supplied root and requires one", {
+  set.seed(23)
+  M <- with_lengths(ape::rtree(25))
+  genes <- make_genes(M, 30, 12)
+  nw <- vapply(genes, to_newick, "")
+  f <- write_genes(nw)
+  tr <- read_quiet(f, masterTree = M, anchor = "root")
+  expect_null(tr$anchor)
+  mc <- ape::reorder.phylo(tr$masterTree, "cladewise")
+  rk <- mc$edge[mc$edge[, 1] == ape::Ntip(mc) + 1, 2]
+  side <- if (rk[1] <= ape::Ntip(mc)) mc$tip.label[rk[1]] else ape::extract.clade(mc, rk[1])$tip.label
+  expect_true(RERconverge:::isRootedOn(M, side))
+  expect_rows_match_truth(tr, nw)
+  expect_error(read_quiet(f, masterTree = ape::unroot(M), anchor = "root"), "rooted")
+})
+
+test_that("rootLikeMaster roots four-species layouts that TreeTools::RootTree leaves unrooted", {
+  master <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,(c:1,d:1):1);"))
+  for (nw in c("(a:1,b:2,(c:3,d:4):5);", "(c:3,d:4,(a:1,b:2):5);", "((a:1,b:2):5,c:3,d:4);")) {
+    g <- RERconverge:::rootLikeMaster(ape::read.tree(text = nw), master)
+    expect_true(RERconverge:::isRootedOn(g, c("a", "b")), info = nw)
+  }
+})
+
+test_that("concordant_trees accepts TreeTools-preordered trees", {
+  m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,((c:1,d:1):1,(e:1,f:1):1):1);"))
+  g <- TreeTools::Preorder(ape::read.tree(text = "((f:1,e:1):1,(d:1,c:1):1,(b:1,a:1):1);"))
+  expect_true(concordant_trees(g, m))
+})
