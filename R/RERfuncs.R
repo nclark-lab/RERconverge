@@ -1649,6 +1649,10 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 transformPaths=function(treesObj, transform="sqrt", impute=T){
   transform=match.arg(transform, c("sqrt", "log", "asinh", "none"))
   nv=getColMeansNV(treesObj$paths)
+  #columns with no observations (e.g. master species absent from every gene) have
+  #NaN means; model.matrix() would silently drop their rows and misalign the fit.
+  #They are never fitted or predicted, so any finite value keeps the rows aligned.
+  nv[!is.finite(nv)]=0
 
   if(transform=="log"){
 
@@ -1756,6 +1760,8 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
       message("using average normalization vector")
       tPathsRaw<-treesObj$transformInv(tPaths)
       nvAve= treesObj$transformFunc(apply(tPathsRaw, 2, mean, na.rm = T, trim = 0.05))
+      #columns with no observations have NaN means; see transformPaths()
+      nvAve[!is.finite(nvAve)]=0
 
       #message("HERE")
       #nvAve= apply(tPaths, 2, mean, na.rm = T, trim = 0.05)
@@ -1811,7 +1817,8 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
 
 
   #maximum number of present species
-  maxSpecies=rowSums(treesObj$report[,cm])
+  #the report only has species seen in some gene; the master may have more
+  maxSpecies=rowSums(treesObj$report[,intersect(cm, colnames(treesObj$report)), drop=FALSE])
 
   #this will hold the predictions
   preds=copyMat(tPaths)
@@ -1844,15 +1851,24 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
     if(!isDone[i]){
 
 
+      #trees whose topology differs from the master have no paths
+      if(!is.null(treesObj$treeStatus) && treesObj$treeStatus[i] != "ok"){
+        next
+      }
+
       #get the ith tree
       tree1=treesObj$trees[[i]]
 
-      #get the common species, prune and unroot
+      #get the common species and prune. The path lookup below is positional and
+      #assumes the tree is rooted and numbered like the master, so a pruned tree is
+      #prepared again rather than unrooted.
       both=intersect(tree1$tip.label, cm)
       if(length(both)<min.sp){
         next
       }
-      tree1=unroot(pruneTree(tree1,both))
+      if(length(both) < Ntip(tree1)){
+        tree1=prepareGeneForTT(pruneTree(apeOrder(tree1), both), treesObj$masterTree)
+      }
 
 
       #find all the genes that that whose maximal species set is the same as tree1
