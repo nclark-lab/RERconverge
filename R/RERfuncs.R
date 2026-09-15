@@ -71,7 +71,191 @@ rootLikeMaster <- function(tree, master) {
   if (length(A_in) == 0L || length(A_in) == length(tree$tip.label))
     A_in <- intersect(setdiff(common, A), tree$tip.label)
 
-  TreeTools::RootTree(tree, A_in)
+  rooted <- TreeTools::RootTree(tree, A_in)
+  if (!isRootedOn(rooted, A_in)) {
+    # TreeTools::RootTree() silently returns (a,b,(c,d)) unchanged when asked to
+    # root on {a,b}, although {c,d} names the same edge. Root on the other side.
+    rooted <- TreeTools::RootTree(tree, setdiff(tree$tip.label, A_in))
+    if (!isRootedOn(rooted, A_in)) {
+      stop("internal error: could not root tree on the split {",
+           paste(A_in, collapse = ","), "}")
+    }
+  }
+  rooted
+}
+
+isRootedOn <- function(tree, tips) {
+  # TRUE if the root of `tree` separates `tips` from the remaining tips
+  tree <- apeOrder(tree)
+  root <- Ntip(tree) + 1L
+  kids <- tree$edge[tree$edge[, 1] == root, 2]
+  if (length(kids) != 2L) {
+    return(FALSE)
+  }
+  side <- if (kids[1] <= Ntip(tree)) tree$tip.label[kids[1]] else
+    ape::extract.clade(tree, kids[1])$tip.label
+  setequal(side, tips) || setequal(side, setdiff(tree$tip.label, tips))
+}
+
+#' Root a master tree at a well-sampled internal node
+#'
+#' The path columns are ancestor-descendant pairs of the master, so every gene
+#' tree has to be rooted consistently with it. A gene's unrooted tree has a node
+#' at the master root only if the gene has species on every side of that node.
+#' Otherwise the root is a point on an edge, and the paths ending there depend on
+#' an arbitrary split of that edge.
+#'
+#' This picks the internal node with the most genes present on all of its sides
+#' (the anchor) and roots the master on the edge from the anchor to one of its
+#' sides, with the root placed exactly at the anchor: a zero-length stem. Genes
+#' with species on all sides are then rooted at a real node and carry no
+#' arbitrary values; see anchorRootSplit().
+#'
+#' A multifurcating master root is not used: TreeTools::KeepTip() mis-sums edge
+#' lengths when pruning a side of a multifurcating root.
+#'
+#' @param master A master tree, rooted or not; only its unrooted topology and
+#'   edge lengths are used.
+#' @param presence Logical genes x species matrix with species as column names.
+#' @return A list: `tree`, the master rooted at the anchor; `sides`, the tip
+#'   labels on each side of the anchor (`A` is the side across the root);
+#'   `genesAllSides`, how many genes cover every side.
+#' @keywords internal
+anchorMaster <- function(master, presence) {
+  u <- ape::unroot(apeOrder(master))
+  tips <- u$tip.label
+  n <- length(tips)
+  if (u$Nnode < 2L) {
+    stop("masterTree needs at least two internal nodes to choose an anchor")
+  }
+  # a computational rooting on a tip, only to enumerate the sides of each node
+  r <- ape::reorder.phylo(ape::root(u, outgroup = tips[1], resolve.root = TRUE), "cladewise")
+  N <- n + r$Nnode
+  kids <- split(r$edge[, 2], factor(r$edge[, 1], levels = 1:N))
+  desc <- matrix(0, N, n)
+  desc[cbind(1:n, 1:n)] <- 1
+  for (k in rev(seq_len(nrow(r$edge)))) {
+    desc[r$edge[k, 1], ] <- desc[r$edge[k, 1], ] + desc[r$edge[k, 2], ]
+  }
+  P <- matrix(0, nrow(presence), n)
+  hit <- match(tips, colnames(presence))
+  P[, !is.na(hit)] <- presence[, hit[!is.na(hit)], drop = FALSE] * 1
+  cnt <- P %*% t(desc)
+  nS <- rowSums(P)
+
+  candidates <- (n + 2L):N  # every internal node of the unrooted master
+  score <- vapply(candidates, function(v) {
+    sidesPresent <- rowSums(cnt[, kids[[v]], drop = FALSE] > 0) + (nS - cnt[, v] > 0)
+    sum(sidesPresent >= 3)
+  }, 0)
+  sidesOf <- function(v) {
+    s <- lapply(kids[[v]], function(k) tips[desc[k, ] > 0])
+    c(s, list(tips[desc[v, ] == 0]))
+  }
+  # deterministic tie-break, independent of how the master newick was written
+  maxSide <- vapply(candidates, function(v) max(lengths(sidesOf(v))), 0)
+  firstTip <- vapply(candidates, function(v) {
+    s <- sidesOf(v)
+    min(s[[which.min(lengths(s))]])
+  }, "")
+  t <- candidates[order(-score, maxSide, firstTip)[1]]
+
+  sides <- sidesOf(t)
+  sides <- sides[order(-lengths(sides), vapply(sides, min, ""))]
+  A <- sides[[1]]
+  names(sides) <- LETTERS[seq_along(sides)]
+
+  # ape::root() misplaces the root when the current root lies inside the
+  # outgroup; rooting on a tip outside it first makes the outgroup a clade
+  g <- ape::root(u, outgroup = setdiff(tips, A)[1], resolve.root = TRUE)
+  g <- ape::root(g, outgroup = A, resolve.root = TRUE)
+  if (!isRootedOn(g, A)) {
+    stop("internal error: could not root the master tree at the anchor")
+  }
+  if (!is.null(g$edge.length)) {
+    g <- anchorRootSplit(g, list(anchorSides = sides))
+  }
+  list(tree = g, sides = sides, genesAllSides = max(score))
+}
+
+anchorRootSplit <- function(tree, master) {
+  # For a tree rooted like the master (rootLikeMaster()): if the master carries an
+  # anchor and the tree has species on every side of it, the root edge joins side
+  # A to the anchor node. Put its whole length on A's side, so the root coincides
+  # with the anchor node and every path to the root is a real distance. Returns
+  # NULL when that does not apply; the caller then decides how to split.
+  sides <- master$anchorSides
+  if (is.null(sides) || is.null(tree$edge.length)) {
+    return(NULL)
+  }
+  tips <- tree$tip.label
+  if (!all(vapply(sides, function(s) any(tips %in% s), NA))) {
+    return(NULL)
+  }
+  tree <- apeOrder(tree)
+  root <- Ntip(tree) + 1L
+  ii <- which(tree$edge[, 1] == root)
+  if (length(ii) != 2L) {
+    return(NULL)
+  }
+  onA <- vapply(tree$edge[ii, 2], function(v) {
+    lab <- if (v <= length(tips)) tips[v] else ape::extract.clade(tree, v)$tip.label
+    all(lab %in% sides$A)
+  }, NA)
+  if (sum(onA) != 1L) {
+    stop("internal error: tree is not rooted at the master anchor")
+  }
+  total <- sum(tree$edge.length[ii])
+  tree$edge.length[ii] <- ifelse(onA, total, 0)
+  tree
+}
+
+prepareGeneForTT <- function(tree, master) {
+  # Gene trees: edge lengths are distances. Root like the master; place the root
+  # on the anchor node when the gene covers every side of it, otherwise split the
+  # root edge evenly (the root is then a point on an edge whatever we do).
+  tree <- rootLikeMaster(tree, master)
+  anchored <- anchorRootSplit(tree, master)
+  tree <- if (is.null(anchored)) balanceRootEdges(tree) else anchored
+  tree <- RenumberTips(tree, master$tip.label)
+  Preorder(tree)
+}
+
+treeTopologyStatus <- function(tree, master) {
+  # Topology check that does not depend on path lookup. Compares the tree's
+  # bipartitions with those of the master pruned to the tree's species.
+  #   "ok"          same unrooted topology
+  #   "unresolved"  every split is in the master, but some master splits are
+  #                 missing (a polytomy in the tree)
+  #   "discordant"  the tree has a split the master does not
+  tips <- tree$tip.label
+  if (anyDuplicated(tips)) {
+    return("duplicate_tips")
+  }
+  if (!all(tips %in% master$tip.label)) {
+    return("species_not_in_master")
+  }
+  labs <- sort(tips)
+  splitKeys <- function(x) {
+    s <- TreeTools::PolarizeSplits(TreeTools::as.Splits(x, tipLabels = labs), 1)
+    raw <- unclass(s)
+    if (length(raw) == 0L) {
+      return(character())
+    }
+    # one key per split: its bytes as hex, pasted column-wise (vectorised over
+    # splits; a row-wise apply() dominated readTrees on large trees)
+    hex <- matrix(as.character(raw), nrow = nrow(raw))
+    unique(do.call(paste0, lapply(seq_len(ncol(hex)), function(j) hex[, j])))
+  }
+  geneSplits <- splitKeys(apeOrder(tree))
+  masterSplits <- splitKeys(TreeTools::KeepTip(master, tips))
+  if (!all(geneSplits %in% masterSplits)) {
+    return("discordant")
+  }
+  if (length(geneSplits) < length(masterSplits)) {
+    return("unresolved")
+  }
+  "ok"
 }
 
 balanceRootEdges <- function(tree) {
@@ -115,8 +299,14 @@ apeOrder <- function(tree) {
 }
 
 prepareTreeForTT <- function(tree, master) {
-  # Aligns a tree's rooting and tip numbering with the master tree
+  # Aligns a tree's rooting and tip numbering with the master tree. For trait
+  # trees: the root edge is not rebalanced, but when the tree covers every side of
+  # the master's anchor its value goes to the anchor side, as for gene trees.
   tree <- rootLikeMaster(tree, master)
+  anchored <- anchorRootSplit(tree, master)
+  if (!is.null(anchored)) {
+    tree <- anchored
+  }
   tree <- RenumberTips(tree, master$tip.label)
   Preorder(tree)
 }
@@ -163,11 +353,21 @@ hasConcordantTopology <- function(tree, master) {
 #' @param reestimateBranches Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)
 #' @param minSpecs the minimum number of species that needs to be present in a gene tree to be included in calculating master tree
 #' @param useSpecies Species subset to use (optional).
-#' @return A trees object of class "treeObj"
+#' @param anchor How the master tree is rooted for the path columns. "auto"
+#'   (default) roots it at the internal node with the most genes present on all
+#'   of its sides, so that those genes are rooted at a real node; see
+#'   \code{anchorMaster}. "root" keeps the root of a rooted \code{masterTree}.
+#' @param minTreeSpecies Gene trees with fewer species (after \code{useSpecies})
+#'   are dropped (default 10). Small trees have no power for RER analysis.
+#' @return A trees object of class "treeObj". \code{treeStatus} gives each tree's
+#'   topology status against the master ("ok", "discordant", "unresolved", ...);
+#'   only "ok" trees have paths. \code{anchor} describes the anchor node.
 #' @export
 readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
-                     reestimateBranches = F, minSpecs = NULL, useSpecies = NULL)
+                     reestimateBranches = F, minSpecs = NULL, useSpecies = NULL,
+                     anchor = c("auto", "root"), minTreeSpecies = 10)
 {
+  anchor = match.arg(anchor)
   message("Using readTrees 2")
   tmp = scan(file, sep = "\t", what = "character", quiet = T)
   message(paste("Read ", length(tmp)/2, " items", collapse = ""))
@@ -175,22 +375,14 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
                                              max.read, na.rm = T))
   keeptrees = rep(TRUE, length(trees))
   treenames = character()
-  maxsp = 0
+  allnames = character()
+  nSmall = 0
   for (i in 1:min(length(tmp), max.read * 2, na.rm = T)) {
     if (i%%2 == 1) {
       treenames = c(treenames, tmp[i])
     }
     else {
       trees[[i/2]] = unroot(read.tree(text = tmp[i]))
-      if (i == 2) {
-        if (!is.null(useSpecies)) {
-          allnames = intersect(trees[[i/2]]$tip.label,
-                               useSpecies)
-        }
-        else {
-          allnames = trees[[i/2]]$tip.label
-        }
-      }
       if (!is.null(useSpecies)) {
         if (length(intersect(trees[[i/2]]$tip.label,
                              useSpecies)) < 3) {
@@ -200,10 +392,24 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
         trees[[i/2]] = unroot(keep.tip(trees[[i/2]],
                                        intersect(trees[[i/2]]$tip.label, useSpecies)))
       }
+      # small trees have no power for RER analysis; drop them instead of
+      # special-casing them downstream
+      if (length(trees[[i/2]]$tip.label) < minTreeSpecies) {
+        keeptrees[[i/2]] = FALSE
+        nSmall = nSmall + 1
+        next
+      }
       # accumulate the union of species across all trees; a species can occur only
       # in trees smaller than the running union, so every tree must contribute
       allnames = unique(c(allnames, trees[[i/2]]$tip.label))
     }
+  }
+  if (nSmall > 0) {
+    message(paste0("Dropped ", nSmall, " tree", if (nSmall > 1) "s", " with fewer than ",
+                   minTreeSpecies, " species"))
+  }
+  if (!any(keeptrees)) {
+    stop("No gene trees left after dropping trees with fewer than ", minTreeSpecies, " species")
   }
   maxsp = length(allnames)
   trees = trees[keeptrees]
@@ -231,38 +437,42 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
     }
     master = trees[[ii[1]]]
     master$edge.length[] = 1
-    master=balanceRootEdges(phangorn::midpoint(master))
+    if (anchor == "root") {
+      master = balanceRootEdges(phangorn::midpoint(master))
+    }
   }
   else {
     master = masterTree
-    if (!is.rooted(master)) {
-      # Gene trees are rooted to match the master below, so an unrooted master
-      # has one fewer internal node than every gene tree and the node maps in
-      # allPathsMasterRelativeTT() run out of bounds. Root it the same way as a
-      # master derived from the gene trees.
-      warning("masterTree is unrooted; rooting it at the midpoint, which may not be ",
-              "the intended root. Supply a rooted masterTree to control the rooting.")
-      tmp = master
-      if (is.null(tmp$edge.length)) {
-        tmp$edge.length = rep(1, nrow(tmp$edge))
-      }
-      tmp = balanceRootEdges(phangorn::midpoint(tmp))
-      if (is.null(master$edge.length)) {
-        tmp$edge.length = NULL
-      }
-      master = tmp
+    if (anchor == "root" && !is.rooted(master)) {
+      stop("masterTree is unrooted: supply a rooted masterTree or use anchor = \"auto\"")
     }
   }
+  if (anchor == "auto") {
+    anch = anchorMaster(master, report == 1)
+    master = anch$tree
+    message(paste0("Anchor node: ", anch$genesAllSides, " of ", nrow(report),
+                   " genes have species on all of its sides (sides of ",
+                   paste(lengths(anch$sides), collapse = "/"), " species)"))
+  }
   master = Preorder(SortTree(master))
+  if (anchor == "auto") {
+    master$anchorSides = anch$sides
+    treesObj$anchor = anch[c("sides", "genesAllSides")]
+  }
   treesObj$masterTree = master
-  for (i in 1:treesObj$numTrees) {
 
-    treesObj$trees[[i]] = balanceRootEdges(rootLikeMaster(treesObj$trees[[i]],
-                                                          master))
-
-    treesObj$trees[[i]] = RenumberTips(treesObj$trees[[i]],
-                                       master$tip.label)
-    treesObj$trees[[i]] = Preorder(treesObj$trees[[i]])
+  # Topology is decided here, independently of path lookup. Only concordant trees
+  # are mapped; for them a failed lookup is an internal error, never "discordance".
+  status = vapply(treesObj$trees, treeTopologyStatus, "", master = master)
+  names(status) = names(treesObj$trees)
+  treesObj$treeStatus = status
+  if (any(status != "ok")) {
+    tab = table(status[status != "ok"])
+    message(paste0("Trees without paths (topology differs from the master): ",
+                   paste(names(tab), tab, sep = " ", collapse = ", ")))
+  }
+  for (i in which(status == "ok")) {
+    treesObj$trees[[i]] = prepareGeneForTT(treesObj$trees[[i]], master)
   }
   ap = allPathsTT(master)
   treesObj$ap = ap
@@ -275,8 +485,10 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   message("Extracting paths")
   for (i in 1:treesObj$numTrees) {
     pb$tick()
-    paths[i, ] = allPathsMasterRelativeTT(treesObj$trees[[i]],
-                                                        master, ap, i, check_concordance = FALSE)
+    if (status[i] == "ok") {
+      paths[i, ] = allPathsMasterRelativeTT(treesObj$trees[[i]], master, ap,
+                                            names(treesObj$trees)[i], check_concordance = FALSE)
+    }
   }
   treesObj$paths = paths
   treesObj$matAnc = matAnc
@@ -284,8 +496,8 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   treesObj$lengths = unlist(lapply(treesObj$trees, function(x) {
     sqrt(sum(x$edge.length^2))
   }))
-  ii = intersect(which(rowSums(report) == maxsp), which(is.na(paths[,
-                                                                    1]) == FALSE))
+  ii = which(rowSums(report) == maxsp & status == "ok")
+  ii = ii[vapply(treesObj$trees[ii], Ntip, 0L) == Ntip(master)]
   if (is.null(minSpecs)) {
     minSpecs = maxsp
   }
@@ -300,8 +512,7 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
         tmp = lapply(treesObj$trees[ii], function(x) {
           x$edge.length
         })
-        allEdge = matrix(unlist(tmp), ncol = 2 * maxsp -
-                           2, byrow = T)
+        allEdge = matrix(unlist(tmp), ncol = nrow(master$edge), byrow = T)
         allEdge = RERconverge:::scaleMat(allEdge)
         allEdgeM = apply(allEdge, 2, mean)
         treesObj$masterTree$edge.length = allEdgeM
@@ -315,31 +526,23 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
     }
   }
   else {
-    treeinds = which(rowSums(report) >= minSpecs)
+    treeinds = which(rowSums(report) >= minSpecs & status == "ok")
     message(paste0("estimating master tree branch lengths from ",
                    length(treeinds), " genes"))
     if (length(treeinds) >= minTreesAll) {
-      pathstouse = treesObj$paths[treeinds, ]
-      colnames(pathstouse) = ap$destinNode
-      colBranch = vector("integer", 0)
-      unq.colnames = unique(colnames(pathstouse))
-      for (i in 1:length(unq.colnames)) {
-        ind.cols = which(colnames(pathstouse) == unq.colnames[i])
-        colBranch = c(colBranch, ind.cols[1])
-      }
-      allEdge = pathstouse[, colBranch]
-      allEdgeScaled = allEdge
-      for (i in 1:nrow(allEdgeScaled)) {
-        allEdgeScaled[i, ] = scaleDistNa(allEdgeScaled[i,
-        ])
-      }
-      colnames(allEdgeScaled) = unq.colnames
-      edgelengths = vector("double", ncol(allEdgeScaled))
+      # each master edge is the column (child, parent)
       edge.master = treesObj$masterTree$edge
-      for (i in 1:nrow(edge.master)) {
-        destinNode.i = edge.master[i, 2]
-        col.Node.i = allEdgeScaled[, as.character(destinNode.i)]
-        edgelengths[i] = mean(na.omit(col.Node.i))
+      edgeCols = ap$matIndex[cbind(edge.master[, 2], edge.master[, 1])]
+      allEdgeScaled = treesObj$paths[treeinds, edgeCols, drop = FALSE]
+      for (i in 1:nrow(allEdgeScaled)) {
+        allEdgeScaled[i, ] = scaleDistNa(allEdgeScaled[i, ])
+      }
+      edgelengths = apply(allEdgeScaled, 2, function(x) mean(x, na.rm = TRUE))
+      unobserved = !is.finite(edgelengths)
+      if (any(unobserved)) {
+        message(paste0(sum(unobserved), " master edges are never a gene edge; keeping their input lengths"))
+        old = treesObj$masterTree$edge.length
+        edgelengths[unobserved] = if (is.null(old)) 0 else old[unobserved]
       }
       treesObj$masterTree$edge.length = edgelengths
     }
@@ -3838,7 +4041,8 @@ edgeIndexRelativeMasterTT =function (tree, masterTree){
 namePathsWSpeciesTT =function (treesObj){
   cnames=rep("", ncol(treesObj$paths))
   idx <- which(treesObj$matIndex > 0, arr.ind = TRUE)
-  tip_rows <- idx[idx[,1] <= treesObj$maxSp, , drop = FALSE]
+  # tips are nodes 1..Ntip of the master; maxSp counts only species seen in genes
+  tip_rows <- idx[idx[,1] <= Ntip(treesObj$masterTree), , drop = FALSE]
   if (nrow(tip_rows) > 0) {
     cnames[treesObj$matIndex[cbind(tip_rows[,1], tip_rows[,2])]] <- treesObj$masterTree$tip.label[tip_rows[,1]]
   }
@@ -3869,20 +4073,13 @@ allPathsMasterRelativeTT =function (tree, masterTree, masterTreePaths=NULL,i=NUL
   ii=masterTreePaths$matIndex[cbind(treePaths$nodeId[,1],treePaths$nodeId[,2])]
   vals=double(length(masterTreePaths$dist))
   vals[]=NA
-  if (sum(is.na(ii)) > 0) {
-    if (!concordant_trees(tree, masterTree)) {
-      if (!is.null(i))
-        message("warning: discordant tree topology in tree ", i, ", returning NA row")
-      else
-        message("warning: discordant tree topology")
-      return(vals)
-    } else {
-      debug_path <- file.path(tempdir(), "debug_trees.RData")
-      save(tree, masterTree, file = debug_path)
-      message("Error detected despite concordant topology. Debug saved to: ", debug_path,
-              "\nPlease report this issue with the saved file.")
-      return(vals)
-    }
+  if (anyNA(ii)) {
+    # Topology is checked before this point (treeTopologyStatus() in readTrees,
+    # hasConcordantTopology() above). A path with no master column therefore means
+    # the tree was not prepared like the master: a bug, not discordance.
+    stop("internal error: ", sum(is.na(ii)), " paths of tree ",
+         if (is.null(i)) "" else i, " have no master column although its topology ",
+         "was accepted; the tree was not rooted and numbered like the master")
   }
 
 
