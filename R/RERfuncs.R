@@ -58,30 +58,77 @@ rootLikeMaster <- function(tree, master) {
   # phenotype and trait trees, whose edge lengths carry trait values. Anything
   # that rescales edges -- balanceRootEdges() in particular -- is valid only for
   # the former, so apply it at the readTrees call site, never here.
+  #
+  # The master may have a multifurcating root: readTrees(anchor = "auto") roots
+  # it at a node. The tree is rooted where the master's root falls once the
+  # master is pruned to the tree's species: at a node when that pruned root still
+  # has three or more sides, otherwise on the edge it has become.
+  #
+  # Pruning uses ape::keep.tip, not TreeTools::KeepTip: when a side of a
+  # multifurcating root is dropped, KeepTip suppresses the wrong node and mis-sums
+  # edge lengths (it is also about ten times slower here).
+  tree <- apeOrder(tree)
   common <- intersect(tree$tip.label, master$tip.label)
-  ms <- TreeTools::KeepTip(master, common)
-
-  kids <- phangorn::Children(ms, RootNode(ms))
-
-
-  A <- TreeTools::TipLabels(Subtree(ms, kids[1]))
-
-  A_in <- intersect(A, tree$tip.label)
-
-  if (length(A_in) == 0L || length(A_in) == length(tree$tip.label))
-    A_in <- intersect(setdiff(common, A), tree$tip.label)
-
-  rooted <- TreeTools::RootTree(tree, A_in)
-  if (!isRootedOn(rooted, A_in)) {
-    # TreeTools::RootTree() silently returns (a,b,(c,d)) unchanged when asked to
-    # root on {a,b}, although {c,d} names the same edge. Root on the other side.
-    rooted <- TreeTools::RootTree(tree, setdiff(tree$tip.label, A_in))
-    if (!isRootedOn(rooted, A_in)) {
-      stop("internal error: could not root tree on the split {",
-           paste(A_in, collapse = ","), "}")
-    }
+  sides <- rootSides(ape::keep.tip(apeOrder(master), common))
+  if (sameSides(rootSides(tree), lapply(sides, intersect, tree$tip.label))) {
+    # already rooted there; re-rooting would merge the two root edges, which for
+    # trait trees would redistribute their values
+    return(tree)
   }
-  rooted
+  if (length(sides) >= 3L) {
+    rootAtNodeJoining(tree, sides)
+  } else {
+    rootOnSplit(tree, sides[[1]])
+  }
+}
+
+rootSides <- function(tree) {
+  # the tip labels below each child of the root
+  tree <- apeOrder(tree)
+  root <- Ntip(tree) + 1L
+  lapply(tree$edge[tree$edge[, 1] == root, 2], function(v)
+    if (v <= Ntip(tree)) tree$tip.label[v] else ape::extract.clade(tree, v)$tip.label)
+}
+
+sameSides <- function(a, b) {
+  key <- function(s) vapply(s, function(x) paste(sort(x), collapse = "\001"), "")
+  length(a) == length(b) && setequal(key(a), key(b))
+}
+
+rootOnSplit <- function(tree, side) {
+  # Root on the edge separating `side` from the other tips. ape::root() misplaces
+  # the root when the current root lies inside the outgroup, and rejects an
+  # outgroup of all tips but one, so root on a tip outside the smaller side first.
+  # (TreeTools::RootTree silently leaves (a,b,(c,d)) unrooted when asked to root
+  # on {a,b}.)
+  tips <- tree$tip.label
+  side <- intersect(side, tips)
+  other <- setdiff(tips, side)
+  og <- if (length(side) <= length(other)) side else other
+  g <- ape::root(tree, outgroup = setdiff(tips, og)[1], resolve.root = TRUE)
+  g <- ape::root(g, outgroup = og, resolve.root = TRUE)
+  if (!isRootedOn(g, side)) {
+    stop("internal error: could not root tree on the split {", paste(side, collapse = ","), "}")
+  }
+  g
+}
+
+rootAtNodeJoining <- function(tree, sides) {
+  # Root at the node joining `sides` (the tips on each side of that node), leaving
+  # the root multifurcating. ape::root(outgroup =, resolve.root = FALSE) roots at
+  # the outgroup's own MRCA when it has several tips, so find the node explicitly:
+  # with the tree rooted on a tip outside the smallest side, it is the parent of
+  # that side's MRCA.
+  sides <- lapply(sides, intersect, tree$tip.label)
+  side <- sides[[which.min(lengths(sides))]]
+  g <- ape::reorder.phylo(ape::root(tree, outgroup = setdiff(tree$tip.label, side)[1],
+                                    resolve.root = TRUE), "cladewise")
+  m <- if (length(side) == 1L) match(side, g$tip.label) else ape::getMRCA(g, side)
+  g <- ape::root(g, node = g$edge[g$edge[, 2] == m, 1], resolve.root = FALSE)
+  if (!sameSides(rootSides(g), sides)) {
+    stop("internal error: could not root tree at the node joining its sides")
+  }
+  g
 }
 
 isRootedOn <- function(tree, tips) {
@@ -106,20 +153,18 @@ isRootedOn <- function(tree, tips) {
 #' an arbitrary split of that edge.
 #'
 #' This picks the internal node with the most genes present on all of its sides
-#' (the anchor) and roots the master on the edge from the anchor to one of its
-#' sides, with the root placed exactly at the anchor: a zero-length stem. Genes
-#' with species on all sides are then rooted at a real node and carry no
-#' arbitrary values; see anchorRootSplit().
-#'
-#' A multifurcating master root is not used: TreeTools::KeepTip() mis-sums edge
-#' lengths when pruning a side of a multifurcating root.
+#' (the anchor) and roots the master at that node, as a multifurcating root. Genes
+#' with species on every side are rooted at the same node (rootLikeMaster()), so
+#' every path value is a real distance. A gene missing a side is rooted on the
+#' edge the anchor becomes, and only the paths ending at that point depend on how
+#' the edge is split.
 #'
 #' @param master A master tree, rooted or not; only its unrooted topology and
 #'   edge lengths are used.
 #' @param presence Logical genes x species matrix with species as column names.
 #' @return A list: `tree`, the master rooted at the anchor; `sides`, the tip
-#'   labels on each side of the anchor (`A` is the side across the root);
-#'   `genesAllSides`, how many genes cover every side.
+#'   labels on each side of the anchor, largest first; `genesAllSides`, how many
+#'   genes cover every side.
 #' @keywords internal
 anchorMaster <- function(master, presence) {
   u <- ape::unroot(apeOrder(master))
@@ -144,79 +189,38 @@ anchorMaster <- function(master, presence) {
   nS <- rowSums(P)
 
   candidates <- (n + 2L):N  # every internal node of the unrooted master
-  score <- vapply(candidates, function(v) {
-    sidesPresent <- rowSums(cnt[, kids[[v]], drop = FALSE] > 0) + (nS - cnt[, v] > 0)
-    sum(sidesPresent >= 3)
-  }, 0)
   sidesOf <- function(v) {
     s <- lapply(kids[[v]], function(k) tips[desc[k, ] > 0])
     c(s, list(tips[desc[v, ] == 0]))
   }
-  # deterministic tie-break, independent of how the master newick was written
+  # genes with species on every side of the node (all of them, also for a
+  # multifurcating master)
+  score <- vapply(candidates, function(v) {
+    sidesPresent <- rowSums(cnt[, kids[[v]], drop = FALSE] > 0) + (nS - cnt[, v] > 0)
+    sum(sidesPresent == length(kids[[v]]) + 1L)
+  }, 0)
+  # Deterministic tie-break that depends only on the unordered collection of
+  # sides, never on the child order or rooting of the master newick.
   maxSide <- vapply(candidates, function(v) max(lengths(sidesOf(v))), 0)
-  firstTip <- vapply(candidates, function(v) {
-    s <- sidesOf(v)
-    min(s[[which.min(lengths(s))]])
+  canon <- vapply(candidates, function(v) {
+    paste(sort(vapply(sidesOf(v), function(s) paste(sort(s), collapse = "\001"), "")), collapse = "\002")
   }, "")
-  t <- candidates[order(-score, maxSide, firstTip)[1]]
+  anchorNode <- candidates[order(-score, maxSide, canon)[1]]
 
-  sides <- sidesOf(t)
-  sides <- sides[order(-lengths(sides), vapply(sides, min, ""))]
-  A <- sides[[1]]
+  sides <- sidesOf(anchorNode)
+  sides <- sides[order(-lengths(sides), vapply(sides, function(s) paste(sort(s), collapse = "\001"), ""))]
   names(sides) <- LETTERS[seq_along(sides)]
 
-  # ape::root() misplaces the root when the current root lies inside the
-  # outgroup; rooting on a tip outside it first makes the outgroup a clade
-  g <- ape::root(u, outgroup = setdiff(tips, A)[1], resolve.root = TRUE)
-  g <- ape::root(g, outgroup = A, resolve.root = TRUE)
-  if (!isRootedOn(g, A)) {
-    stop("internal error: could not root the master tree at the anchor")
-  }
-  if (!is.null(g$edge.length)) {
-    g <- anchorRootSplit(g, list(anchorSides = sides))
-  }
+  g <- rootAtNodeJoining(u, sides)
   list(tree = g, sides = sides, genesAllSides = max(score))
 }
 
-anchorRootSplit <- function(tree, master) {
-  # For a tree rooted like the master (rootLikeMaster()): if the master carries an
-  # anchor and the tree has species on every side of it, the root edge joins side
-  # A to the anchor node. Put its whole length on A's side, so the root coincides
-  # with the anchor node and every path to the root is a real distance. Returns
-  # NULL when that does not apply; the caller then decides how to split.
-  sides <- master$anchorSides
-  if (is.null(sides) || is.null(tree$edge.length)) {
-    return(NULL)
-  }
-  tips <- tree$tip.label
-  if (!all(vapply(sides, function(s) any(tips %in% s), NA))) {
-    return(NULL)
-  }
-  tree <- apeOrder(tree)
-  root <- Ntip(tree) + 1L
-  ii <- which(tree$edge[, 1] == root)
-  if (length(ii) != 2L) {
-    return(NULL)
-  }
-  onA <- vapply(tree$edge[ii, 2], function(v) {
-    lab <- if (v <= length(tips)) tips[v] else ape::extract.clade(tree, v)$tip.label
-    all(lab %in% sides$A)
-  }, NA)
-  if (sum(onA) != 1L) {
-    stop("internal error: tree is not rooted at the master anchor")
-  }
-  total <- sum(tree$edge.length[ii])
-  tree$edge.length[ii] <- ifelse(onA, total, 0)
-  tree
-}
-
 prepareGeneForTT <- function(tree, master) {
-  # Gene trees: edge lengths are distances. Root like the master; place the root
-  # on the anchor node when the gene covers every side of it, otherwise split the
-  # root edge evenly (the root is then a point on an edge whatever we do).
-  tree <- rootLikeMaster(tree, master)
-  anchored <- anchorRootSplit(tree, master)
-  tree <- if (is.null(anchored)) balanceRootEdges(tree) else anchored
+  # Gene trees: edge lengths are distances. Root like the master. A root that is
+  # a node (the gene covers every side of the master's root) needs nothing more;
+  # a root on an edge (the gene misses a side) is split evenly, since it is then a
+  # point on an edge whatever we do.
+  tree <- balanceRootEdges(rootLikeMaster(tree, master))
   tree <- RenumberTips(tree, master$tip.label)
   Preorder(tree)
 }
@@ -248,7 +252,8 @@ treeTopologyStatus <- function(tree, master) {
     unique(do.call(paste0, lapply(seq_len(ncol(hex)), function(j) hex[, j])))
   }
   geneSplits <- splitKeys(apeOrder(tree))
-  masterSplits <- splitKeys(TreeTools::KeepTip(master, tips))
+  # ape::keep.tip: TreeTools::KeepTip mishandles a multifurcating root
+  masterSplits <- splitKeys(ape::keep.tip(apeOrder(master), tips))
   if (!all(geneSplits %in% masterSplits)) {
     return("discordant")
   }
@@ -299,14 +304,9 @@ apeOrder <- function(tree) {
 }
 
 prepareTreeForTT <- function(tree, master) {
-  # Aligns a tree's rooting and tip numbering with the master tree. For trait
-  # trees: the root edge is not rebalanced, but when the tree covers every side of
-  # the master's anchor its value goes to the anchor side, as for gene trees.
+  # Aligns a tree's rooting and tip numbering with the master tree. Trait trees'
+  # edge values are not rescaled or split.
   tree <- rootLikeMaster(tree, master)
-  anchored <- anchorRootSplit(tree, master)
-  if (!is.null(anchored)) {
-    tree <- anchored
-  }
   tree <- RenumberTips(tree, master$tip.label)
   Preorder(tree)
 }
@@ -456,7 +456,6 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   }
   master = Preorder(SortTree(master))
   if (anchor == "auto") {
-    master$anchorSides = anch$sides
     treesObj$anchor = anch[c("sides", "genesAllSides")]
   }
   treesObj$masterTree = master
@@ -4040,10 +4039,21 @@ allPathsTT =function (tree, needIndex=T){
 }
 
 matchAllnodesTT =function (tree, masterTree){
-  index = KeptVerts(masterTree, TipLabels(masterTree) %in% tree$tip.label)
-  key = which(index)
-  map = cbind(seq_along(key), key)
-  map
+  # Master vertices that survive pruning the master to tree's tips, in master node
+  # order; the i-th of them corresponds to node i of a tree prepared like the
+  # master. Computed here rather than with TreeTools::KeptVerts, which keeps the
+  # wrong vertex when a side of a multifurcating root is dropped. A tip survives if
+  # present; an internal node if at least two of its child subtrees contain tips.
+  n = Ntip(masterTree)
+  N = n + masterTree$Nnode
+  e = ape::reorder.phylo(apeOrder(masterTree), "postorder")$edge
+  cnt = c(as.integer(masterTree$tip.label %in% tree$tip.label), integer(masterTree$Nnode))
+  for (k in seq_len(nrow(e))) {
+    cnt[e[k, 1]] = cnt[e[k, 1]] + cnt[e[k, 2]]
+  }
+  nk = tabulate(e[cnt[e[, 2]] > 0, 1], nbins = N)
+  key = which(cnt > 0 & (seq_len(N) <= n | nk >= 2))
+  cbind(seq_along(key), key)
 }
 
 edgeIndexRelativeMasterTT =function (tree, masterTree){
@@ -4079,6 +4089,12 @@ allPathsMasterRelativeTT =function (tree, masterTree, masterTreePaths=NULL,i=NUL
 
   treePaths=allPathsTT(tree, needIndex = F)
   map=matchAllnodesTT(tree,masterTree)
+  if (nrow(map) != Ntip(tree) + tree$Nnode) {
+    # a tree prepared like the master has exactly the master's surviving vertices
+    stop("internal error: tree ", if (is.null(i)) "" else i, " has ",
+         Ntip(tree) + tree$Nnode, " nodes but the master pruned to its species has ",
+         nrow(map), "; the tree was not rooted and numbered like the master")
+  }
 
   #remap the nodes
   treePaths$nodeId[,1]=map[treePaths$nodeId[,1],2 ]

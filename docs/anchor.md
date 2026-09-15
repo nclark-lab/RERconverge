@@ -27,23 +27,36 @@ leaves 15 genes (0.1%) without every side. The monotreme trifurcation that
 
 ## Representation
 
-* **Master.** Rooted on the edge from the anchor to its largest side `A`, with
-  the root placed at the anchor node: a zero-length stem. The root stays binary.
-  `TreeTools::KeepTip()` mis-sums edge lengths when pruning a side of a
-  multifurcating root, so a multifurcating root is not used.
-* **Gene with species on every side of the anchor.** It is rooted on the same
-  edge, with the whole edge on side `A` (`anchorRootSplit()`). Its root coincides
-  with the anchor node, so every filled column is a real distance.
-* **Gene missing a side.** It is rooted on the master root restricted to its
-  species, with the root edge split evenly (`balanceRootEdges()`). Only the
-  columns ending at that root depend on the split, and their sum is the gene's
-  edge length.
+* **Master.** Rooted at the anchor node itself, as a multifurcating root with
+  one child per side (`anchorMaster()`, `rootAtNodeJoining()`). No edge or
+  vertex is added, so there is no zero-length stem, no all-zero column and no
+  duplicated columns.
+* **Gene with species on every side of the anchor.** It is rooted at the same
+  node (`rootLikeMaster()`). Every filled column is a real distance.
+* **Gene missing a side.** The master's root, pruned to the gene's species, is
+  then a point on an edge. The gene is rooted on that edge and the edge is split
+  evenly (`balanceRootEdges()`). Only the columns ending at that point depend on
+  the split, and their sum is the gene's edge length.
 * **`anchor = "root"`** keeps the root of a rooted `masterTree`, as on
   `feature-rooted-trees`.
+* **Tie-break.** The anchor is the node with the most genes covering all of its
+  sides. Ties are broken by side sizes and a key built from the unordered sides,
+  so the choice does not depend on how the master newick is written.
 
-The anchor is stored in `treesObj$anchor` and on the master
-(`masterTree$anchorSides`). Trait trees prepared with `prepareTreeForTT()` use
-the same root placement.
+TreeTools' pruning helpers are not used on the master.
+`TreeTools::KeepTip()` and `TreeTools::KeptVerts()` suppress the wrong node,
+and `KeepTip()` also mis-sums edge lengths, when a side of a multifurcating
+root is dropped. Instead:
+
+* `rootLikeMaster()` and `treeTopologyStatus()` prune with `ape::keep.tip()`;
+  it is also about ten times faster on a 466-species master.
+* `matchAllnodesTT()` computes the kept master vertices itself. A tip is kept if
+  present; an internal node is kept if at least two of its child subtrees
+  contain the tree's species.
+
+The anchor is stored in `treesObj$anchor`. Trait trees prepared with
+`prepareTreeForTT()` are rooted the same way and their edge values are not
+changed.
 
 ## Discordance is decided by topology, not by lookup
 
@@ -88,7 +101,7 @@ analysis, and dropping them avoids special handling of 3- and 4-species trees.
 `tests/testthat/test_anchor.R`, with ape-only truth in
 `tests/testthat/helper-anchor.R`:
 
-* **Schema.** The master is rooted at the anchor with a zero stem; the columns
+* **Schema.** The master is rooted at the anchor node with no added edge; the columns
   are exactly the master's ancestor–descendant pairs; the anchor maximises gene
   coverage (brute force).
 * **Master input.** The anchor and paths are identical whether the master is

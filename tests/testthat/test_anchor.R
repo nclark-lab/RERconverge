@@ -58,21 +58,21 @@ test_that("anchor master: rooted at a real node with a zero-length stem, schema 
 
   # ape functions misread TreeTools' "preorder" order attribute
   m <- RERconverge:::apeOrder(tr$masterTree)
-  expect_true(ape::is.rooted(m))
-  expect_true(ape::is.binary(m))
   expect_equal(as.numeric(ape::dist.topo(ape::unroot(m), ape::unroot(M))), 0)
   sides <- tr$anchor$sides
   expect_setequal(unlist(sides), M$tip.label)
   expect_equal(sum(lengths(sides)), ape::Ntip(M))
-  # root children: side A with the whole edge, and the anchor node with length 0
+  # the root is the anchor node itself: its children are exactly the sides, and
+  # no edge was added (no zero-length stem)
   mc <- ape::reorder.phylo(m, "cladewise")
   rootEdges <- which(mc$edge[, 1] == ape::Ntip(mc) + 1)
   childTips <- lapply(mc$edge[rootEdges, 2], function(v) if (v <= ape::Ntip(mc)) mc$tip.label[v] else ape::extract.clade(mc, v)$tip.label)
-  onA <- vapply(childTips, function(x) setequal(x, sides$A), NA)
-  expect_equal(sum(onA), 1)
-  expect_equal(mc$edge.length[rootEdges][!onA], 0)
-  expect_equal(mc$edge.length[rootEdges][onA],
-               sum(ape::unroot(M)$edge.length) - sum(mc$edge.length[-rootEdges]), tolerance = 1e-9)
+  expect_equal(length(childTips), length(sides))
+  expect_setequal(vapply(childTips, function(x) paste(sort(x), collapse = ","), ""),
+                  vapply(sides, function(x) paste(sort(x), collapse = ","), ""))
+  expect_equal(nrow(mc$edge), nrow(ape::unroot(M)$edge))
+  cm <- ape::cophenetic.phylo(mc); cu <- ape::cophenetic.phylo(M)[rownames(cm), colnames(cm)]
+  expect_equal(max(abs(cm - cu)), 0, tolerance = 1e-9)
 
   # column schema: exactly the ancestor-descendant pairs of the master, one column each
   ep <- expected_pairs(m)
@@ -332,6 +332,60 @@ test_that("rootLikeMaster roots four-species layouts that TreeTools::RootTree le
   for (nw in c("(a:1,b:2,(c:3,d:4):5);", "(c:3,d:4,(a:1,b:2):5);", "((a:1,b:2):5,c:3,d:4);")) {
     g <- RERconverge:::rootLikeMaster(ape::read.tree(text = nw), master)
     expect_true(RERconverge:::isRootedOn(g, c("a", "b")), info = nw)
+  }
+})
+
+test_that("anchor choice does not depend on newick child order (ties)", {
+  # four clades of three species; every internal node covers all genes equally,
+  # so the anchor is decided by the tie-break alone
+  expand <- function(x) sprintf("(%s1:1,%s2:1,%s3:1):1", x, x, x)
+  nwA <- sprintf("((%s,%s):1,(%s,%s):1);", expand("a"), expand("z"), expand("b"), expand("y"))
+  nwB <- sprintf("((%s,%s):1,(%s,%s):1);", expand("z"), expand("a"), expand("y"), expand("b"))
+  MA <- ape::read.tree(text = nwA); MB <- ape::read.tree(text = nwB)
+  genes <- rep(list(ape::unroot(MA)), 3)
+  f <- write_genes(vapply(genes, to_newick, ""))
+  trA <- read_quiet(f, masterTree = MA)
+  trB <- read_quiet(f, masterTree = MB)
+  key <- function(s) sort(vapply(s, function(x) paste(sort(x), collapse = ","), ""))
+  expect_identical(key(trA$anchor$sides), key(trB$anchor$sides))
+  expect_identical(ape::write.tree(trA$masterTree), ape::write.tree(trB$masterTree))
+  expect_equal(trA$paths, trB$paths)
+})
+
+test_that("multifurcating master: pruning a side of the root maps correctly", {
+  set.seed(24)
+  # a four-way root and an internal polytomy; genes keep the polytomies
+  M <- ape::read.tree(text = paste0(
+    "((a1:1,a2:1,a3:1):2,((b1:1,b2:1):1,(b3:1,b4:1):1):3,(c1:1,c2:1,(c3:1,c4:1):1):4,",
+    "(d1:1,(d2:1,d3:1):1):5);"))
+  genes <- make_genes(M, 30, 10)
+  # add genes without each whole root side
+  mc <- ape::reorder.phylo(M, "cladewise")
+  for (k in mc$edge[mc$edge[, 1] == ape::Ntip(mc) + 1, 2]) {
+    drop <- if (k <= ape::Ntip(mc)) mc$tip.label[k] else ape::extract.clade(mc, k)$tip.label
+    if (ape::Ntip(M) - length(drop) >= 10) genes[[length(genes) + 1]] <- ape::unroot(ape::drop.tip(M, drop))
+  }
+  nw <- vapply(genes, to_newick, "")
+  expect_no_error(tr <- read_quiet(write_genes(nw), masterTree = M))
+  expect_true(all(tr$treeStatus == "ok"))
+  expect_rows_match_truth(tr, nw)
+})
+
+test_that("kept master vertices are correct when a side of a multifurcating root is dropped", {
+  # TreeTools::KeptVerts/KeepTip suppress the first child instead of the root here
+  m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:2):3,((c:1,d:2):3,g:4):5,(e:1,f:2):6);"))
+  mc <- RERconverge:::apeOrder(m)
+  clade <- function(t, v) if (v <= ape::Ntip(t)) t$tip.label[v] else sort(ape::extract.clade(t, v)$tip.label)
+  for (keep in list(c("a", "b", "c", "d", "g"), c("a", "b", "e", "f"), c("c", "d", "g", "e"), c("c", "d", "g"))) {
+    tree <- ape::keep.tip(mc, keep)
+    map <- RERconverge:::matchAllnodesTT(tree, m)
+    kept <- map[, 2]
+    expected <- which(vapply(seq_len(ape::Ntip(mc) + mc$Nnode), function(v) {
+      if (v <= ape::Ntip(mc)) return(mc$tip.label[v] %in% keep)
+      kids <- mc$edge[mc$edge[, 1] == v, 2]
+      sum(vapply(kids, function(k) any(clade(mc, k) %in% keep), NA)) >= 2
+    }, NA))
+    expect_setequal(kept, expected)
   }
 })
 

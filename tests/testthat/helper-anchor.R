@@ -105,27 +105,28 @@ truth_row <- function(tr, newick) {
   cnt <- rowSums(mi$desc[, S, drop = FALSE])
   proot <- which(cnt == length(S)); proot <- proot[which.max(mi$depth[proot])]
   ks <- mi$kids[[proot]]; ks <- ks[cnt[ks] > 0]
-  a <- mi$tips[mi$desc[ks[1], ] & mi$tips %in% g$tip.label]
-  b <- setdiff(g$tip.label, a)
-  og <- if (length(a) <= length(b)) a else b
-  g1 <- ape::root(g, outgroup = setdiff(g$tip.label, og)[1], resolve.root = TRUE)
-  g2 <- ape::root(g1, outgroup = og, resolve.root = TRUE)
-  stopifnot(ape::is.monophyletic(g2, og))
-  n <- ape::Ntip(g2)
-  rootEdges <- which(g2$edge[, 1] == n + 1L)
-  total <- sum(g2$edge.length[rootEdges])
-  sides <- m$anchorSides
-  full <- !is.null(sides) && all(vapply(sides, function(s) any(g$tip.label %in% s), NA))
+  sideOf <- function(k) mi$tips[mi$desc[k, ] & mi$tips %in% g$tip.label]
+  # The gene is rooted where the master root falls after pruning: at a node when
+  # it keeps three or more sides (every value is then a real distance), otherwise
+  # on the edge it has become, split evenly.
+  full <- length(ks) >= 3
   if (full) {
-    onA <- vapply(g2$edge[rootEdges, 2], function(v) {
-      lab <- if (v <= n) g2$tip.label[v] else ape::extract.clade(g2, v)$tip.label
-      all(lab %in% sides$A)
-    }, NA)
-    stopifnot(sum(onA) == 1)
-    g2$edge.length[rootEdges] <- ifelse(onA, total, 0)
+    small <- sideOf(ks[which.min(vapply(ks, function(k) length(sideOf(k)), 0L))])
+    g1 <- ape::reorder.phylo(ape::root(g, outgroup = setdiff(g$tip.label, small)[1], resolve.root = TRUE), "cladewise")
+    anc <- if (length(small) == 1) match(small, g1$tip.label) else ape::getMRCA(g1, small)
+    g2 <- ape::root(g1, node = g1$edge[g1$edge[, 2] == anc, 1], resolve.root = FALSE)
+    stopifnot(sum(g2$edge[, 1] == ape::Ntip(g2) + 1L) == length(ks))
   } else {
-    g2$edge.length[rootEdges] <- total / 2
+    a <- sideOf(ks[1])
+    b <- setdiff(g$tip.label, a)
+    og <- if (length(a) <= length(b)) a else b
+    g1 <- ape::root(g, outgroup = setdiff(g$tip.label, og)[1], resolve.root = TRUE)
+    g2 <- ape::root(g1, outgroup = og, resolve.root = TRUE)
+    stopifnot(ape::is.monophyletic(g2, og))
+    rootEdges <- which(g2$edge[, 1] == ape::Ntip(g2) + 1L)
+    g2$edge.length[rootEdges] <- sum(g2$edge.length[rootEdges]) / 2
   }
+  n <- ape::Ntip(g2)
   gN <- n + g2$Nnode
   gm <- integer(gN); gm[1:n] <- match(g2$tip.label, mi$tips)
   e <- ape::reorder.phylo(g2, "postorder")$edge
