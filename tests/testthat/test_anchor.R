@@ -389,6 +389,56 @@ test_that("kept master vertices are correct when a side of a multifurcating root
   }
 })
 
+test_that("RER tree export handles genes without paths", {
+  set.seed(25)
+  M <- with_lengths(ape::rtree(20))
+  genes <- make_genes(M, 12, 12)
+  base <- ape::unroot(with_lengths(M))
+  # discordant: swap two tips from opposite sides of the root
+  mc <- ape::reorder.phylo(M, "cladewise")
+  rk <- mc$edge[mc$edge[, 1] == ape::Ntip(mc) + 1, 2]
+  sideOf <- function(v) if (v <= ape::Ntip(mc)) mc$tip.label[v] else ape::extract.clade(mc, v)$tip.label
+  swap <- base
+  x <- sideOf(rk[1])[1]; y <- sideOf(rk[2])[1]
+  swap$tip.label[match(c(x, y), swap$tip.label)] <- c(y, x)
+  # a species the master does not have
+  other <- base
+  other$tip.label[1] <- "OTHER"
+  nw <- c(vapply(genes, to_newick, ""), to_newick(swap), to_newick(other))
+  tr <- read_quiet(write_genes(nw), masterTree = M)
+  flagged <- which(tr$treeStatus != "ok")
+  expect_setequal(unname(tr$treeStatus[flagged]), c("discordant", "species_not_in_master"))
+
+  r <- tr$paths
+  rownames(r) <- names(tr$trees)
+
+  for (i in flagged) {
+    expect_warning(t_i <- returnRersAsTree(tr, r, i, plot = FALSE), "has no RERs")
+    expect_s3_class(t_i, "phylo")
+    expect_true(all(is.na(t_i$edge.length)))
+    expect_setequal(t_i$tip.label, tr$trees[[i]]$tip.label)
+    # by name as well as by index
+    expect_warning(returnRersAsTree(tr, r, names(tr$trees)[i], plot = FALSE), "has no RERs")
+  }
+
+  # mapped genes keep their own branch values
+  for (i in setdiff(seq_along(genes), flagged)[1:5]) {
+    t_i <- expect_silent(returnRersAsTree(tr, r, i, plot = FALSE))
+    own <- r[i, truth_row(tr, nw[i])$edgeCols]
+    expect_equal(sort(unname(t_i$edge.length)), sort(unname(own)))
+  }
+
+  expect_warning(all <- returnRersAsTreesAll(tr, r), "2 genes have no RERs")
+  expect_s3_class(all, "multiPhylo")
+  expect_equal(length(all), tr$numTrees)
+  expect_true(all(vapply(all[flagged], function(t) all(is.na(t$edge.length)), NA)))
+  expect_false(any(vapply(all[-flagged], function(t) all(is.na(t$edge.length)), NA)))
+
+  expect_warning(nwk <- returnRersAsNewickStrings(tr, r), "2 genes have no RERs")
+  expect_equal(length(nwk), tr$numTrees)
+  expect_false(anyNA(nwk))
+})
+
 test_that("concordant_trees accepts TreeTools-preordered trees", {
   m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,((c:1,d:1):1,(e:1,f:1):1):1);"))
   g <- TreeTools::Preorder(ape::read.tree(text = "((f:1,e:1):1,(d:1,c:1):1,(b:1,a:1):1);"))

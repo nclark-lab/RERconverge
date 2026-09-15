@@ -593,6 +593,18 @@ treePlotGG = function(traittree, tiplabels = FALSE, title=NULL) {
 
 returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.7,
                              tip.cex = 0.7, nalab = 'NA', plot = T){
+  if (!treeIsMapped(treesObj, index)) {
+    warning("gene ", index, " has no RERs: its topology is '", treesObj$treeStatus[[index]],
+            "' relative to the master tree; returning it with NA edge lengths")
+    trgene <- treesObj$trees[[index]]
+    if (plot) {
+      par(mar = c(1,1,1,0))
+      plot.phylo(trgene, font = 2, cex = tip.cex, use.edge.length = FALSE)
+      edgelabels(rep(nalab, nrow(trgene$edge)), bg = NULL, adj = c(0.5,0.9), frame = 'none',
+                 cex = rer.cex, font = 2)
+    }
+    return(unmappedRerTree(treesObj, index))
+  }
   trgene <- treesObj$trees[[index]]
   trgene$edge.length <- rep(2,nrow(trgene$edge))
   ee=edgeIndexRelativeMasterTT(trgene, treesObj$masterTree)
@@ -627,7 +639,11 @@ returnRersAsTree <- function(treesObj, rermat, index, phenv = NULL, rer.cex = 0.
 #' @export
 #'
 returnRersAsNewickStrings <- function(treesObj, rermat){
+  warnUnmappedGenes(treesObj)
   rerNwkstrings <- sapply(names(treesObj$trees), function(index){
+    if (!treeIsMapped(treesObj, index)) {
+      return(write.tree(unmappedRerTree(treesObj, index)))
+    }
     trgene <- treesObj$trees[[index]]
     ee=edgeIndexRelativeMasterTT(trgene, treesObj$masterTree)
     ii= treesObj$matIndex[ee[, c(2,1)]]
@@ -636,6 +652,31 @@ returnRersAsNewickStrings <- function(treesObj, rermat){
     trgene$edge.length <- rertree
     write.tree(trgene)
   })
+}
+
+treeIsMapped <- function(treesObj, index) {
+  # readTrees only roots, numbers and maps trees whose topology matches the master
+  # (treeStatus "ok"). Other trees keep their input form and have no paths, so the
+  # positional edge mapping must not be applied to them. Objects from before
+  # treeStatus existed are treated as mapped.
+  status <- treesObj$treeStatus
+  is.null(status) || identical(unname(status[[index]]), "ok")
+}
+
+unmappedRerTree <- function(treesObj, index) {
+  # a gene without paths, returned with NA edge lengths (it has no RERs)
+  trgene <- treesObj$trees[[index]]
+  trgene$edge.length <- rep(NA_real_, nrow(trgene$edge))
+  trgene
+}
+
+warnUnmappedGenes <- function(treesObj) {
+  status <- treesObj$treeStatus
+  n <- if (is.null(status)) 0 else sum(status != "ok")
+  if (n > 0) {
+    warning(n, " genes have no RERs (topology differs from the master tree: see treesObj$treeStatus);",
+            " they are returned with NA edge lengths")
+  }
 }
 
 #' Produce a multiPhylo object of all gene trees with branch lengths representing RERs
@@ -647,8 +688,14 @@ returnRersAsNewickStrings <- function(treesObj, rermat){
 #' @export
 
 returnRersAsTreesAll <- function(treesObj, rermat){
-  allrers = lapply(names(treesObj$trees),returnRersAsTree,treesObj=treesObj,
-                   rermat=rermat,plot=F)
+  #one warning for all genes without paths, instead of one per gene
+  warnUnmappedGenes(treesObj)
+  allrers = lapply(names(treesObj$trees), function(index) {
+    if (!treeIsMapped(treesObj, index)) {
+      return(unmappedRerTree(treesObj, index))
+    }
+    returnRersAsTree(treesObj = treesObj, rermat = rermat, index = index, plot = F)
+  })
   names(allrers)=names(treesObj$trees)
   class(allrers)<-"multiPhylo"
   return(allrers)
