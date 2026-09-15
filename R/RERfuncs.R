@@ -455,6 +455,9 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
                    paste(lengths(anch$sides), collapse = "/"), " species)"))
   }
   master = Preorder(SortTree(master))
+  # the positional node mapping (matchAllnodesTT) relies on this; SortTree does
+  # not document it
+  assertContiguousTips(master)
   if (anchor == "auto") {
     treesObj$anchor = anch[c("sides", "genesAllSides")]
   }
@@ -4054,6 +4057,35 @@ matchAllnodesTT =function (tree, masterTree){
   nk = tabulate(e[cnt[e[, 2]] > 0, 1], nbins = N)
   key = which(cnt > 0 & (seq_len(N) <= n | nk >= 2))
   cbind(seq_along(key), key)
+}
+
+assertContiguousTips = function (master){
+  # matchAllnodesTT pairs node i of a prepared tree with the i-th surviving master
+  # vertex. Preorder() documents that children are ordered by their lowest-numbered
+  # tip; pruning keeps that order only if every clade's tips are numbered
+  # contiguously (then all tips of one sibling precede all tips of the other).
+  # SortTree() produces such numbering in practice but does not document it, so
+  # check it once for the master.
+  n = Ntip(master)
+  N = n + master$Nnode
+  e = ape::reorder.phylo(apeOrder(master), "postorder")$edge
+  lo = c(seq_len(n), rep(Inf, master$Nnode))
+  hi = c(seq_len(n), rep(-Inf, master$Nnode))
+  cnt = c(rep(1L, n), integer(master$Nnode))
+  for (k in seq_len(nrow(e))) {
+    p = e[k, 1]; c = e[k, 2]
+    lo[p] = min(lo[p], lo[c])
+    hi[p] = max(hi[p], hi[c])
+    cnt[p] = cnt[p] + cnt[c]
+  }
+  bad = which(hi - lo + 1 != cnt)
+  if (length(bad)) {
+    stop("internal error: the tips of ", length(bad), " master clades are not numbered ",
+         "contiguously, so positional node mapping would be wrong (first clade: tips ",
+         paste(sort(match(ape::extract.clade(apeOrder(master), bad[1])$tip.label, master$tip.label)),
+               collapse = ","), ")")
+  }
+  invisible(TRUE)
 }
 
 edgeIndexRelativeMasterTT =function (tree, masterTree){

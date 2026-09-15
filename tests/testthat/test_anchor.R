@@ -439,6 +439,25 @@ test_that("RER tree export handles genes without paths", {
   expect_false(anyNA(nwk))
 })
 
+test_that("the master's tip numbers are contiguous within every clade, and violations are caught", {
+  # matchAllnodesTT pairs gene nodes with surviving master nodes by position. That
+  # is valid only if pruning never reorders sibling subtrees under Preorder's
+  # lowest-numbered-leaf rule, i.e. if every clade's tips are numbered contiguously.
+  set.seed(26)
+  for (M in list(with_lengths(ape::rtree(40)), with_lengths(ape::stree(30, "left")),
+                 with_lengths(ape::stree(32, "balanced")))) {
+    genes <- make_genes(M, 12, 12)
+    tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+    expect_silent(RERconverge:::assertContiguousTips(tr$masterTree))
+    tr2 <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M, anchor = "root")
+    expect_silent(RERconverge:::assertContiguousTips(tr2$masterTree))
+  }
+  # clade {a, c} holds tips 1 and 3
+  bad <- structure(list(edge = rbind(c(5L, 6L), c(6L, 1L), c(6L, 3L), c(5L, 7L), c(7L, 2L), c(7L, 4L)),
+                        tip.label = c("a", "b", "c", "d"), Nnode = 3L), class = "phylo")
+  expect_error(RERconverge:::assertContiguousTips(bad), "not numbered contiguously")
+})
+
 test_that("concordant_trees accepts TreeTools-preordered trees", {
   m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,((c:1,d:1):1,(e:1,f:1):1):1);"))
   g <- TreeTools::Preorder(ape::read.tree(text = "((f:1,e:1):1,(d:1,c:1):1,(b:1,a:1):1);"))
