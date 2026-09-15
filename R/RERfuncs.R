@@ -4077,6 +4077,9 @@ plotAsBox=function(x,y,n=20,intercept=0, ...){
 #' @importFrom ape keep.tip unroot all.equal.phylo
 #' @export
 concordant_trees<-function(tree1, tree2) {
+  # ape misreads TreeTools' "preorder" order attribute and can segfault
+  tree1 <- apeOrder(tree1)
+  tree2 <- apeOrder(tree2)
   common <- intersect(tree1$tip.label, tree2$tip.label)
   t1 <- keep.tip(tree1, common)
   t2 <- keep.tip(tree2, common)
