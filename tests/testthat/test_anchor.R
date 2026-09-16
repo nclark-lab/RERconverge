@@ -219,13 +219,21 @@ test_that("discordance is decided by topology and decoupled from path lookup", {
   layouts <- unlist(lapply(good[1:5], function(g) vapply(c("tip", "edge", "unrooted", "ladder"), function(h) rewrite_newick(g, h), "")))
 
   nw <- c(vapply(good, to_newick, ""), to_newick(swap), to_newick(nni), to_newick(poly), layouts)
-  status_expected <- c(rep("ok", length(good)), "discordant", "discordant", "unresolved", rep("ok", length(layouts)))
+  geneNames <- sprintf("g%03d", seq_along(nw))
+  flagged <- length(good) + 1:3
   expect_no_error(tr <- read_quiet(write_genes(nw), masterTree = M))
-  expect_identical(unname(tr$treeStatus), status_expected)
-  flagged <- status_expected != "ok"
-  expect_true(all(is.na(tr$paths[flagged, ])))
-  expect_true(all(rowSums(!is.na(tr$paths[!flagged, , drop = FALSE])) > 0))
-  expect_rows_match_truth(tr, nw[!flagged][seq_len(length(good))])
+
+  # trees that do not match the master are dropped, with their reason recorded
+  expect_equal(tr$numTrees, length(nw) - length(flagged))
+  expect_setequal(tr$dropped$gene, geneNames[flagged])
+  expect_identical(tr$dropped$reason[match(geneNames[flagged], tr$dropped$gene)],
+                   c("discordant", "discordant", "unresolved"))
+  expect_false(any(geneNames[flagged] %in% names(tr$trees)))
+
+  # everything kept has paths, and they match the ape truth
+  expect_true(all(tr$treeStatus == "ok"))
+  expect_true(all(rowSums(!is.na(tr$paths)) > 0))
+  expect_rows_match_truth(tr, nw[-flagged][seq_len(length(good))])
 })
 
 test_that("a failed path lookup on a concordant tree is an error, not a discordance flag", {
@@ -252,10 +260,14 @@ test_that("small trees are dropped at input", {
   nw <- c(vapply(genes, to_newick, ""), to_newick(tiny))
   expect_message(tr <- readTrees(write_genes(nw), masterTree = M), "Dropped 1 tree")
   expect_equal(tr$numTrees, length(genes))
-  expect_false("g" %in% names(tr$trees)[0])
   expect_equal(nrow(tr$paths), length(genes))
+  # the dropped tree is recorded, with its reason, and is not among the trees
+  expect_equal(nrow(tr$dropped), 1)
+  expect_identical(tr$dropped$reason, "few_species")
+  expect_false(tr$dropped$gene %in% names(tr$trees))
   tr5 <- read_quiet(write_genes(nw), masterTree = M, minTreeSpecies = 5)
   expect_equal(tr5$numTrees, length(genes) + 1)
+  expect_equal(nrow(tr5$dropped), 0)
 })
 
 test_that("master species absent from every gene do not break naming or residuals", {
@@ -437,9 +449,20 @@ test_that("RER tree export handles genes without paths", {
   other <- base
   other$tip.label[1] <- "OTHER"
   nw <- c(vapply(genes, to_newick, ""), to_newick(swap), to_newick(other))
-  tr <- read_quiet(write_genes(nw), masterTree = M)
-  flagged <- which(tr$treeStatus != "ok")
-  expect_setequal(unname(tr$treeStatus[flagged]), c("discordant", "species_not_in_master"))
+  tr0 <- read_quiet(write_genes(nw), masterTree = M, masterBranchLengths = "supplied")
+  # readTrees drops those two trees
+  expect_equal(tr0$numTrees, length(genes))
+  expect_setequal(tr0$dropped$reason, c("discordant", "species_not_in_master"))
+
+  # Export must still cope with a treesObj that carries trees without paths:
+  # objects saved before such trees were dropped, or built by other code.
+  tr <- tr0
+  flagged <- c(2L, 5L)
+  for (i in flagged) {
+    tr$treeStatus[i] <- "discordant"
+    tr$paths[i, ] <- NA
+    tr$trees[[i]] <- ape::unroot(ape::read.tree(text = nw[i]))  # unprepared, as readTrees left it
+  }
 
   r <- tr$paths
   rownames(r) <- names(tr$trees)

@@ -425,26 +425,19 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   if (!any(keeptrees)) {
     stop("No gene trees left after dropping trees with fewer than ", minTreeSpecies, " species")
   }
-  maxsp = length(allnames)
+  dropped = data.frame(gene = treenames[!keeptrees],
+                       reason = rep("few_species", sum(!keeptrees)),
+                       stringsAsFactors = FALSE)
   trees = trees[keeptrees]
   treenames = treenames[keeptrees]
   names(trees) = treenames
-  treesObj = vector(mode = "list")
-  treesObj$trees = trees
-  treesObj$numTrees = length(trees)
-  treesObj$maxSp = maxsp
-  message("Done")
-  message(paste("Max number of species is ", maxsp))
-  report = matrix(nrow = treesObj$numTrees, ncol = maxsp)
-  colnames(report) = allnames
-  rownames(report) = treenames
-  for (i in 1:nrow(report)) {
-    ii = match(allnames, trees[[i]]$tip.label)
-    report[i, ] = 1 - is.na(ii)
-  }
-  treesObj$report = report
+
+  # The master's topology is needed to classify the trees, and the anchor is
+  # chosen from the trees that are kept, so build the master before both. Its
+  # rooting does not affect the topology check.
   if (is.null(masterTree)) {
-    ii = which(rowSums(report) == maxsp)
+    nsp = vapply(trees, function(x) length(x$tip.label), 0L)
+    ii = which(nsp == length(allnames))
     if(length(ii)==0){
       message("No tree with all species present. Please supply master tree")
       return()
@@ -461,6 +454,47 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
       stop("masterTree is unrooted: supply a rooted masterTree or use anchor = \"auto\"")
     }
   }
+
+  # Topology is decided here, independently of path lookup: trees that do not
+  # match the master are dropped, like trees that are too small, and a failed
+  # lookup later is an internal error, never "discordance".
+  status = vapply(trees, treeTopologyStatus, "", master = master)
+  if (any(status != "ok")) {
+    tab = table(status[status != "ok"])
+    message(paste0("Dropped ", sum(status != "ok"), " trees whose topology differs from the master: ",
+                   paste(names(tab), tab, sep = " ", collapse = ", ")))
+    dropped = rbind(dropped, data.frame(gene = treenames[status != "ok"],
+                                        reason = unname(status[status != "ok"]),
+                                        stringsAsFactors = FALSE))
+    trees = trees[status == "ok"]
+    treenames = treenames[status == "ok"]
+    status = status[status == "ok"]
+  }
+  if (!length(trees)) {
+    stop("No gene trees left after dropping trees that are too small or do not match the master")
+  }
+  # species seen in the trees that are kept
+  kept = unique(unlist(lapply(trees, function(x) x$tip.label)))
+  allnames = allnames[allnames %in% kept]
+  maxsp = length(allnames)
+
+  treesObj = vector(mode = "list")
+  treesObj$trees = trees
+  treesObj$numTrees = length(trees)
+  treesObj$maxSp = maxsp
+  treesObj$dropped = dropped
+  treesObj$treeStatus = stats::setNames(status, treenames)
+  message("Done")
+  message(paste("Max number of species is ", maxsp))
+  report = matrix(nrow = treesObj$numTrees, ncol = maxsp)
+  colnames(report) = allnames
+  rownames(report) = treenames
+  for (i in 1:nrow(report)) {
+    ii = match(allnames, trees[[i]]$tip.label)
+    report[i, ] = 1 - is.na(ii)
+  }
+  treesObj$report = report
+
   if (anchor == "auto") {
     anch = anchorMaster(master, report == 1)
     master = anch$tree
@@ -477,17 +511,7 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   }
   treesObj$masterTree = master
 
-  # Topology is decided here, independently of path lookup. Only concordant trees
-  # are mapped; for them a failed lookup is an internal error, never "discordance".
-  status = vapply(treesObj$trees, treeTopologyStatus, "", master = master)
-  names(status) = names(treesObj$trees)
-  treesObj$treeStatus = status
-  if (any(status != "ok")) {
-    tab = table(status[status != "ok"])
-    message(paste0("Trees without paths (topology differs from the master): ",
-                   paste(names(tab), tab, sep = " ", collapse = ", ")))
-  }
-  for (i in which(status == "ok")) {
+  for (i in seq_along(treesObj$trees)) {
     treesObj$trees[[i]] = prepareGeneForTT(treesObj$trees[[i]], master)
   }
   ap = allPathsTT(master)

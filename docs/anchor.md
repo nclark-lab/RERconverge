@@ -61,15 +61,26 @@ changed.
 ## Discordance is decided by topology, not by lookup
 
 `treeTopologyStatus()` compares each gene's bipartitions with the master pruned
-to its species, using TreeTools' split code. Each gene gets a status:
+to its species. Each gene gets a status:
 
 * `"ok"` — same unrooted topology;
 * `"unresolved"` — a polytomy in the gene;
 * `"discordant"` — a split the master does not have;
 * `"species_not_in_master"`, `"duplicate_tips"`.
 
-Only `"ok"` genes are mapped; the rest get an all-`NA` row and are counted in a
-message. Statuses are in `treesObj$treeStatus`.
+Genes that are not `"ok"` are dropped at input, like trees that are too small,
+and counted in a message. `treesObj$dropped` records each dropped gene and its
+reason (`"few_species"` or its status), and `treesObj$treeStatus` is `"ok"`
+throughout. Nothing that was dropped contributes to the species report, the
+anchor choice, the master branch length estimate, or imputation and PC
+normalisation.
+
+Classification happens before the master is anchored, since the topology check
+does not depend on rooting, so the anchor is chosen from the genes that are kept.
+
+The RER export functions (`returnRersAsTree()` and friends) still tolerate a
+`treesObj` that carries trees without paths, e.g. one saved before these trees
+were dropped: they return those trees with `NA` edge lengths and warn.
 
 For an `"ok"` gene, every path must have a master column. A missing column means
 the tree was not rooted and numbered like the master, and
