@@ -128,10 +128,24 @@ per-branch values into the anchored columns:
 * a branch's value is oriented away from the biological root, whichever way its
   anchored column runs;
 * the one branch that contains that root has no single descendant end, so its
-  value is the oriented difference across the whole branch;
+  value is the difference across the whole branch, oriented by the tip labels
+  (away from the side holding the first label). Orienting it by the anchored
+  column instead would make its sign depend on the anchor: an anchor on the other
+  side of that branch traverses it the other way. It is the only value an anchor
+  change could still alter, and on the 742-species set it did, flipping
+  -0.0578 to +0.0578;
 * nodes are matched between the two rootings by the bipartitions of their
   incident edges (`nodeIdentity()`, `mapNodesBetweenRootings()`), which does not
   depend on either rooting.
+
+A master branch of length 0 -- identical sequences, or an edge no gene resolves
+-- makes the reconstruction singular: a node whose children all sit at distance 0
+weights their contrast by 1/(0 + 0), and the resulting NaN spreads to every state
+in the tree, so the entire trait vector comes back NA with nothing said. Those
+branches are given a length far below the smallest real one, with a warning, and
+a non-finite reconstruction is an error rather than a silent all-NA result. On
+the 742-species master this is not hypothetical: a 497-gene subset estimated
+three zero-length cherries and voided all 19,645 trait values.
 
 `tree2Paths()` follows the same rules as `readTrees` for a phenotype tree:
 

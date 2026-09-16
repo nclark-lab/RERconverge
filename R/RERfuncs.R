@@ -2167,7 +2167,33 @@ traitBranchValues <- function(anchored, rooted, tip.vals, metric = "diff", se.fi
   all <- sort(A$tip.label)
   stopifnot(setequal(A$tip.label, R$tip.label))
   vals <- tip.vals[R$tip.label]
+  # A node whose children all sit at distance 0 makes fastAnc weight their
+  # contrast by 1/(0 + 0), and the resulting NaN propagates to every state in the
+  # tree, not just that node's: a single zero-length cherry silently turns the
+  # whole trait vector into NA. Estimated master branches can be 0 (identical
+  # sequences, or an edge no gene resolves), so give them a length far below the
+  # smallest real one instead of losing the reconstruction.
+  el <- R$edge.length
+  if (is.null(el) || anyNA(el)) {
+    stop("the rooted master tree needs branch lengths for ancestral reconstruction")
+  }
+  if (any(el <= 0)) {
+    pos <- el[el > 0]
+    if (!length(pos)) {
+      stop("the rooted master tree has no positive branch lengths")
+    }
+    eps <- min(pos) * 1e-6
+    warning(sum(el <= 0), " master branch", if (sum(el <= 0) > 1) "es have" else " has",
+            " length 0; using ", format(eps, digits = 3),
+            " for ancestral reconstruction (zero-length branches make the ",
+            "reconstruction singular)")
+    R$edge.length[el <= 0] <- eps
+  }
   fa <- phytools::fastAnc(R, vals, vars = TRUE)
+  if (!all(is.finite(fa$ace))) {
+    stop("internal error: ancestral state reconstruction returned ",
+         sum(!is.finite(fa$ace)), " non-finite states")
+  }
   stateR <- c(vals, fa$ace)
   varR <- c(rep(NA_real_, Ntip(R)), fa$var)
   m <- mapNodesBetweenRootings(A, R)
@@ -2194,8 +2220,13 @@ traitBranchValues <- function(anchored, rooted, tip.vals, metric = "diff", se.fi
     c <- A$edge[k, 2]
     C <- below[[c]]
     onRootEdge <- setequal(C, side) || setequal(C, other)
-    # the biological root sits below this edge unless it is the edge itself
-    flip <- !onRootEdge && (all(side %in% C) || all(other %in% C))
+    # The biological root sits below this edge unless it is the edge itself. On
+    # that one branch neither endpoint is the ancestor, so taking the anchored
+    # tree's parent/child direction makes its sign depend on the anchor: an
+    # anchor on the other side of the branch traverses it the other way and flips
+    # the value. Orient it by the tip labels instead -- away from the side holding
+    # the first label -- which is the same for every anchor and newick layout.
+    flip <- if (onRootEdge) all[1L] %in% C else (all(side %in% C) || all(other %in% C))
     ev[k] <- switch(metric,
                     diff = if (flip) state[p] - state[c] else state[c] - state[p],
                     mean = state[c] + state[p],

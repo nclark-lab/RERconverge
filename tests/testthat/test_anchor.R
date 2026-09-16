@@ -574,10 +574,83 @@ test_that("char2Paths orients trait change by the biological root, not the ancho
   }
   expect_gt(checked, 30)
 
-  # the branch containing the biological root: difference across the whole branch
+  # The branch containing the biological root: the difference across the whole
+  # branch. Neither endpoint is the ancestor, so the sign is fixed by the tips --
+  # away from the side holding the first label -- not by the anchor. Checking
+  # abs() here would pass even if the anchor flipped it.
   colRoot <- colOf[[key(cladeOf(R, rootKids[1]))]]
-  expect_equal(abs(unname(p[colRoot])),
-               abs(unname(state[rootKids[1]] - state[rootKids[2]])), tolerance = 1e-8)
+  ref <- sort(A$tip.label)[1]
+  fromFirst <- ref %in% cladeOf(R, rootKids[1])
+  expect_equal(unname(p[colRoot]),
+               unname(if (fromFirst) state[rootKids[2]] - state[rootKids[1]]
+                      else state[rootKids[1]] - state[rootKids[2]]), tolerance = 1e-8)
+})
+
+test_that("trait values are the same for every anchor, root branch sign included", {
+  # The anchor is a computational choice, so no trait value may depend on it.
+  # Anchoring at every internal node in turn is the strongest form of that claim.
+  set.seed(31)
+  M <- with_lengths(ape::rtree(16))
+  tr <- read_quiet(write_genes(vapply(make_genes(M, 40, 10), to_newick, "")), masterTree = M)
+  tips <- stats::setNames(stats::rnorm(ape::Ntip(M)), M$tip.label)
+
+  A0 <- RERconverge:::apeOrder(tr$masterTree)
+  R0 <- RERconverge:::apeOrder(tr$masterTreeRooted)
+  allt <- sort(A0$tip.label)
+  cladeOf <- function(t, v) if (v <= ape::Ntip(t)) t$tip.label[v] else ape::extract.clade(t, v)$tip.label
+  key <- function(x) { x <- sort(x); if (allt[1] %in% x) x <- sort(setdiff(allt, x)); paste(x, collapse = ",") }
+  branchVals <- function(t) {
+    t <- RERconverge:::apeOrder(t)
+    stats::setNames(t$edge.length, vapply(t$edge[, 2], function(v) key(cladeOf(t, v)), ""))
+  }
+
+  u <- ape::unroot(A0)
+  r <- ape::reorder.phylo(ape::root(u, outgroup = u$tip.label[1], resolve.root = TRUE), "cladewise")
+  sidesOf <- function(v) c(lapply(r$edge[r$edge[, 1] == v, 2], function(k) cladeOf(r, k)),
+                           list(setdiff(r$tip.label, cladeOf(r, v))))
+
+  b0 <- branchVals(RERconverge:::traitBranchValues(A0, R0, tips))
+  rootKey <- key(RERconverge:::rootSides(R0)[[1]])
+  expect_true(rootKey %in% names(b0))
+  expect_gt(abs(b0[[rootKey]]), 1e-8)      # a root branch that a flip would show
+
+  cand <- setdiff((ape::Ntip(r) + 2L):(ape::Ntip(r) + r$Nnode), ape::Ntip(r) + 1L)
+  expect_gt(length(cand), 3)
+  for (v in cand) {
+    g <- RERconverge:::rootAtNodeJoining(u, sidesOf(v))
+    b <- branchVals(RERconverge:::traitBranchValues(TreeTools::Preorder(TreeTools::SortTree(g)), R0, tips))
+    expect_setequal(names(b), names(b0))
+    expect_equal(max(abs(b[names(b0)] - b0)), 0, tolerance = 1e-9)
+  }
+})
+
+test_that("zero-length master branches warn instead of voiding every trait value", {
+  # A node whose children all sit at distance 0 divides by zero in the contrast,
+  # and the NaN spreads to every state in the tree: the whole trait vector comes
+  # back NA, silently. Estimated master branches really can be 0.
+  set.seed(32)
+  M <- with_lengths(ape::rtree(14))
+  tr <- read_quiet(write_genes(vapply(make_genes(M, 40, 10), to_newick, "")), masterTree = M)
+  tips <- stats::setNames(stats::rnorm(ape::Ntip(M)), M$tip.label)
+
+  R0 <- RERconverge:::apeOrder(tr$masterTreeRooted)
+  # a cherry, as two identical sequences give: both branches exactly 0
+  kids <- split(R0$edge[, 2], R0$edge[, 1])
+  cherry <- Filter(function(k) all(k <= ape::Ntip(R0)), kids)
+  expect_gt(length(cherry), 0)
+  R0$edge.length[R0$edge[, 2] %in% cherry[[1]]] <- 0
+
+  expect_warning(ch <- RERconverge:::traitBranchValues(RERconverge:::apeOrder(tr$masterTree), R0, tips),
+                 "length 0")
+  expect_true(all(is.finite(ch$edge.length)))
+
+  # and end to end, where the all-NA vector actually showed up
+  tr2 <- tr
+  tr2$masterTreeRooted <- R0
+  expect_warning(p <- char2Paths(tips, tr2), "length 0")
+  expect_equal(length(p), ncol(tr$paths))
+  expect_true(any(!is.na(p)))
+  expect_gt(sum(!is.na(p)), 0.5 * length(p))
 })
 
 test_that("tree2Paths accepts concordant trait trees whatever their rooting", {
@@ -645,7 +718,7 @@ test_that("getProjectionPaths returns the genes' branch values, not NA", {
   # all of those species
   t1 <- tr$trees[[1]]
   both <- t1$tip.label
-  res <- getProjectionPaths(tr, t1, t1)
+  res <- RERconverge:::getProjectionPaths(tr, t1, t1)
   expect_true(is.matrix(res))
   expect_equal(ncol(res), nrow(RERconverge:::prepareGeneForTT(RERconverge:::pruneTree(t1, both), tr$masterTree)$edge))
   expect_equal(nrow(res), sum(rowSums(tr$report[, both, drop = FALSE]) == length(both)))
@@ -668,5 +741,5 @@ test_that("readTrees reports an unreadable tree instead of failing inside unroot
 test_that("concordant_trees accepts TreeTools-preordered trees", {
   m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,((c:1,d:1):1,(e:1,f:1):1):1);"))
   g <- TreeTools::Preorder(ape::read.tree(text = "((f:1,e:1):1,(d:1,c:1):1,(b:1,a:1):1);"))
-  expect_true(concordant_trees(g, m))
+  expect_true(RERconverge:::concordant_trees(g, m))
 })
