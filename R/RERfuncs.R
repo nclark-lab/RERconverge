@@ -350,8 +350,15 @@ hasConcordantTopology <- function(tree, master) {
 #' @param  masterTree (optional) User can specify a master tree; only the topology will be used, and branch lengths will be inferred from gene trees.
 #' Recommended only when the number of available gene trees with all species is small.
 #' @param  minTreesAll The minimum number of trees with all species present in order to estimate master tree edge lengths (default 20).
-#' @param reestimateBranches Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)
-#' @param minSpecs the minimum number of species that needs to be present in a gene tree to be included in calculating master tree
+#' @param reestimateBranches Deprecated; use \code{masterBranchLengths}. FALSE
+#'   selects \code{masterBranchLengths = "supplied"}, TRUE \code{"estimate"}.
+#' @param masterBranchLengths Where the master tree's branch lengths come from.
+#'   "estimate" (default) estimates each master edge from the gene trees that
+#'   have it; trait analysis reconstructs ancestral states on these lengths, so
+#'   they should come from the data. "supplied" keeps the branch lengths of
+#'   \code{masterTree}, which must then have them.
+#' @param minSpecs Optional minimum number of species a gene tree must have to
+#'   contribute to the master tree branch length estimate.
 #' @param useSpecies Species subset to use (optional).
 #' @param anchor How the master tree is rooted for the path columns. "auto"
 #'   (default) roots it at the internal node with the most genes present on all
@@ -364,10 +371,17 @@ hasConcordantTopology <- function(tree, master) {
 #'   only "ok" trees have paths. \code{anchor} describes the anchor node.
 #' @export
 readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
-                     reestimateBranches = F, minSpecs = NULL, useSpecies = NULL,
-                     anchor = c("auto", "root"), minTreeSpecies = 10)
+                     reestimateBranches = NULL, minSpecs = NULL, useSpecies = NULL,
+                     anchor = c("auto", "root"), minTreeSpecies = 10,
+                     masterBranchLengths = c("estimate", "supplied"))
 {
   anchor = match.arg(anchor)
+  masterBranchLengths = match.arg(masterBranchLengths)
+  if (!is.null(reestimateBranches)) {
+    warning("reestimateBranches is deprecated; use masterBranchLengths = \"",
+            if (isTRUE(reestimateBranches)) "estimate" else "supplied", "\"")
+    masterBranchLengths = if (isTRUE(reestimateBranches)) "estimate" else "supplied"
+  }
   message("Using readTrees 2")
   tmp = scan(file, sep = "\t", what = "character", quiet = T)
   message(paste("Read ", length(tmp)/2, " items", collapse = ""))
@@ -498,59 +512,43 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
   treesObj$lengths = unlist(lapply(treesObj$trees, function(x) {
     sqrt(sum(x$edge.length^2))
   }))
-  ii = which(rowSums(report) == maxsp & status == "ok")
-  ii = ii[vapply(treesObj$trees[ii], Ntip, 0L) == Ntip(master)]
-  if (is.null(minSpecs)) {
-    minSpecs = maxsp
-  }
-  if (!is.null(masterTree) && !reestimateBranches) {
-    message("Using user-specified master tree")
-  }
-  if (minSpecs == maxsp) {
-    if (is.null(masterTree)) {
-      if (length(ii) >= minTreesAll) {
-        message(paste0("Estimating master tree branch lengths from ",
-                       length(ii), " genes"))
-        tmp = lapply(treesObj$trees[ii], function(x) {
-          x$edge.length
-        })
-        allEdge = matrix(unlist(tmp), ncol = nrow(master$edge), byrow = T)
-        allEdge = RERconverge:::scaleMat(allEdge)
-        allEdgeM = apply(allEdge, 2, mean)
-        treesObj$masterTree$edge.length = allEdgeM
-      }
-      else {
-        message("Not enough genes with all species present: master tree has no edge.lengths")
-      }
+  # Master branch lengths are the data's, not an external tree's: trait analysis
+  # (char2Paths/edgeVars) reconstructs ancestral states on them. A supplied tree's
+  # lengths are used only when asked for explicitly, and then it must have them.
+  if (masterBranchLengths == "supplied") {
+    if (is.null(masterTree) || is.null(master$edge.length)) {
+      stop("masterBranchLengths = \"supplied\" needs a masterTree with branch lengths")
     }
-    else {
-      message("Must specify minSpecs when supplying a master tree: master tree has no edge.lengths")
-    }
+    message("Using the supplied master tree branch lengths")
   }
   else {
-    treeinds = which(rowSums(report) >= minSpecs & status == "ok")
-    message(paste0("estimating master tree branch lengths from ",
-                   length(treeinds), " genes"))
-    if (length(treeinds) >= minTreesAll) {
-      # each master edge is the column (child, parent)
-      edge.master = treesObj$masterTree$edge
-      edgeCols = ap$matIndex[cbind(edge.master[, 2], edge.master[, 1])]
-      allEdgeScaled = treesObj$paths[treeinds, edgeCols, drop = FALSE]
-      for (i in 1:nrow(allEdgeScaled)) {
-        allEdgeScaled[i, ] = scaleDistNa(allEdgeScaled[i, ])
-      }
-      edgelengths = apply(allEdgeScaled, 2, function(x) mean(x, na.rm = TRUE))
-      unobserved = !is.finite(edgelengths)
-      if (any(unobserved)) {
-        message(paste0(sum(unobserved), " master edges are never a gene edge; keeping their input lengths"))
-        old = treesObj$masterTree$edge.length
-        edgelengths[unobserved] = if (is.null(old)) 0 else old[unobserved]
-      }
-      treesObj$masterTree$edge.length = edgelengths
+    treeinds = which(status == "ok")
+    if (!is.null(minSpecs)) {
+      treeinds = treeinds[rowSums(report)[treeinds] >= minSpecs]
     }
-    else {
-      message("Not enough genes with minSpecs species present: master tree has no edge.lengths")
+    if (length(treeinds) < minTreesAll) {
+      stop("only ", length(treeinds), " usable gene trees (minTreesAll is ", minTreesAll,
+           "): cannot estimate master tree branch lengths; supply a masterTree with ",
+           "branch lengths and masterBranchLengths = \"supplied\"")
     }
+    message(paste0("Estimating master tree branch lengths from ", length(treeinds), " genes"))
+    # each master edge is the column (child, parent); each gene contributes the
+    # edges it has, scaled to its own total
+    edge.master = treesObj$masterTree$edge
+    edgeCols = ap$matIndex[cbind(edge.master[, 2], edge.master[, 1])]
+    allEdgeScaled = treesObj$paths[treeinds, edgeCols, drop = FALSE]
+    for (i in 1:nrow(allEdgeScaled)) {
+      allEdgeScaled[i, ] = scaleDistNa(allEdgeScaled[i, ])
+    }
+    edgelengths = apply(allEdgeScaled, 2, function(x) mean(x, na.rm = TRUE))
+    unobserved = !is.finite(edgelengths)
+    if (any(unobserved)) {
+      old = treesObj$masterTree$edge.length
+      message(paste0(sum(unobserved), " master edges are never a gene edge; ",
+                     if (is.null(old)) "setting them to 0" else "keeping their input lengths"))
+      edgelengths[unobserved] = if (is.null(old)) 0 else old[unobserved]
+    }
+    treesObj$masterTree$edge.length = edgelengths
   }
   message("Naming columns of paths matrix")
   colnames(treesObj$paths) = namePathsWSpeciesTT(treesObj)

@@ -49,12 +49,13 @@ expect_rows_match_truth <- function(tr, newicks, tol = 1e-9) {
   }
 }
 
-test_that("anchor master: rooted at a real node with a zero-length stem, schema from ape", {
+test_that("anchor master: rooted at a real node, schema from ape", {
   set.seed(11)
   M <- with_lengths(ape::rtree(30))
   genes <- make_genes(M, 60, 12)
   nw <- vapply(genes, to_newick, "")
-  tr <- read_quiet(write_genes(nw), masterTree = M)
+  # the supplied lengths are kept here, so that rooting can be checked against them
+  tr <- read_quiet(write_genes(nw), masterTree = M, masterBranchLengths = "supplied")
 
   # ape functions misread TreeTools' "preorder" order attribute
   m <- RERconverge:::apeOrder(tr$masterTree)
@@ -231,7 +232,9 @@ test_that("a failed path lookup on a concordant tree is an error, not a discorda
   set.seed(18)
   M <- with_lengths(ape::rtree(20))
   genes <- make_genes(M, 10, 12)
-  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+  # few genes here: keep the supplied lengths instead of estimating
+  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M,
+                   masterBranchLengths = "supplied")
   g <- genes[[1]]
   # concordant, but rooted far from the master's root and never prepared
   bad <- TreeTools::Preorder(TreeTools::RenumberTips(
@@ -301,14 +304,42 @@ test_that("residual regression uses each gene's own branches, with and without u
   expect_gt(checked, 20)
 })
 
-test_that("master edge lengths can be re-estimated with minSpecs", {
+test_that("master branch lengths come from the data unless the supplied tree is used explicitly", {
   set.seed(22)
   M <- with_lengths(ape::rtree(30))
   genes <- make_genes(M, 60, 15)
   f <- write_genes(vapply(genes, to_newick, ""))
-  expect_no_error(tr <- read_quiet(f, masterTree = M, minSpecs = 20, reestimateBranches = TRUE, minTreesAll = 5))
+
+  # default: estimated from the genes, not taken from the supplied tree
+  tr <- read_quiet(f, masterTree = M)
   expect_true(all(is.finite(tr$masterTree$edge.length)))
   expect_true(all(tr$masterTree$edge.length >= 0))
+  supplied <- ape::cophenetic.phylo(M)
+  estimated <- ape::cophenetic.phylo(RERconverge:::apeOrder(tr$masterTree))
+  expect_false(isTRUE(all.equal(estimated, supplied[rownames(estimated), colnames(estimated)])))
+
+  # explicit override keeps the supplied lengths exactly
+  trS <- read_quiet(f, masterTree = M, masterBranchLengths = "supplied")
+  kept <- ape::cophenetic.phylo(RERconverge:::apeOrder(trS$masterTree))
+  expect_equal(kept, supplied[rownames(kept), colnames(kept)], tolerance = 1e-9)
+
+  # the override needs a tree that has branch lengths
+  noLen <- M; noLen$edge.length <- NULL
+  expect_error(read_quiet(f, masterTree = noLen, masterBranchLengths = "supplied"),
+               "branch lengths")
+
+  # minSpecs restricts which genes contribute
+  trM <- read_quiet(f, masterTree = M, minSpecs = 25, minTreesAll = 5)
+  expect_true(all(is.finite(trM$masterTree$edge.length)))
+  expect_false(isTRUE(all.equal(trM$masterTree$edge.length, tr$masterTree$edge.length)))
+
+  # too few usable genes is an error, not a silently unusable master
+  expect_error(read_quiet(f, masterTree = M, minTreesAll = 1000), "cannot estimate")
+
+  # the deprecated argument still selects the supplied lengths
+  expect_warning(trD <- readTrees(f, masterTree = M, reestimateBranches = FALSE), "deprecated")
+  kept2 <- ape::cophenetic.phylo(RERconverge:::apeOrder(trD$masterTree))
+  expect_equal(kept2, supplied[rownames(kept2), colnames(kept2)], tolerance = 1e-9)
 })
 
 test_that("anchor = 'root' keeps the supplied root and requires one", {
@@ -344,8 +375,9 @@ test_that("anchor choice does not depend on newick child order (ties)", {
   MA <- ape::read.tree(text = nwA); MB <- ape::read.tree(text = nwB)
   genes <- rep(list(ape::unroot(MA)), 3)
   f <- write_genes(vapply(genes, to_newick, ""))
-  trA <- read_quiet(f, masterTree = MA)
-  trB <- read_quiet(f, masterTree = MB)
+  # only a handful of genes here: keep the supplied lengths instead of estimating
+  trA <- read_quiet(f, masterTree = MA, masterBranchLengths = "supplied")
+  trB <- read_quiet(f, masterTree = MB, masterBranchLengths = "supplied")
   key <- function(s) sort(vapply(s, function(x) paste(sort(x), collapse = ","), ""))
   expect_identical(key(trA$anchor$sides), key(trB$anchor$sides))
   expect_identical(ape::write.tree(trA$masterTree), ape::write.tree(trB$masterTree))

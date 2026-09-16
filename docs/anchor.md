@@ -76,6 +76,23 @@ the tree was not rooted and numbered like the master, and
 `allPathsMasterRelativeTT()` stops with an internal error. It never reports
 discordance.
 
+## Master branch lengths
+
+Trait analysis reconstructs ancestral states on the master's branch lengths
+(`char2Paths()` -> `edgeVars()` -> `phytools::fastAnc`), so by default they come
+from the data: `masterBranchLengths = "estimate"` estimates each master edge
+from the gene trees that have it, each gene scaled to its own total. `minSpecs`
+optionally restricts which genes contribute, and fewer than `minTreesAll` usable
+genes is an error rather than a master left without usable lengths.
+
+Keeping an external tree's branch lengths is an explicit override,
+`masterBranchLengths = "supplied"`, and that tree must have branch lengths. The
+old `reestimateBranches` argument is deprecated: `FALSE` maps to `"supplied"`,
+`TRUE` to `"estimate"`.
+
+Master edges that are never a gene edge keep their supplied length, or 0 when
+there is none.
+
 ## Small trees
 
 Gene trees with fewer than `minTreeSpecies` species (default 10, after
