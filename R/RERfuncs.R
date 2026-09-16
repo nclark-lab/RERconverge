@@ -3069,8 +3069,12 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
   ap <- if (!is.null(treesObj$ap)) treesObj$ap else allPathsTT(master_tree)
   n_paths <- length(ap$dist)
 
-  if (!hasConcordantTopology(tree, master_tree)) {
-    warning("Discordant tree topology detected - returning NA path vector")
+  # Topology is compared by bipartitions, like readTrees: a serialized comparison
+  # rejects concordant trees that were written with a different basal node.
+  status <- treeTopologyStatus(tree, master_tree)
+  if (status != "ok") {
+    warning("Phenotype tree topology is ", status,
+            " relative to the master tree - returning NA path vector")
     vals=rep(NA_real_, n_paths)
     names(vals) = colnames(treesObj$paths)
     return(vals)
@@ -3090,19 +3094,68 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
     message(paste0("Species from tree not present in master tree or useSpecies: ", paste(sp.miss,
                                                                                          collapse = ",")))
   }
-  if (!is.null(useSpecies)) {
-    tree = pruneTree(tree, intersect(intersect(tree$tip.label, treesObj$masterTree$tip.label), useSpecies))
+  keep <- if (!is.null(useSpecies)) {
+    intersect(intersect(tree$tip.label, treesObj$masterTree$tip.label), useSpecies)
   } else {
-    tree = pruneTree(tree, intersect(tree$tip.label, treesObj$masterTree$tip.label))
+    intersect(tree$tip.label, treesObj$masterTree$tip.label)
   }
-
+  # Categorical values are the state of the branch below each node, not quantities
+  # that add up along a branch. Read them before pruning (which sums edge values)
+  # and key them by the branch's bipartition restricted to the species kept, so
+  # that the rooting cannot shift them. Where pruning merges several branches into
+  # one, the merged branch takes the most recent (tips-ward) state. Continuous and
+  # binary values keep adding along merged branches.
+  if (categorical) {
+    cladesBelow <- function(t) {
+      t <- apeOrder(t)
+      out <- vector("list", Ntip(t) + t$Nnode)
+      for (k in seq_len(Ntip(t))) out[[k]] <- t$tip.label[k]
+      po <- ape::reorder.phylo(t, "postorder")$edge
+      for (k in seq_len(nrow(po))) out[[po[k, 1]]] <- c(out[[po[k, 1]]], out[[po[k, 2]]])
+      out
+    }
+    keptSorted <- sort(keep)
+    cl <- cladesBelow(tree)
+    below <- cl[tree$edge[, 2]]
+    restricted <- lapply(below, intersect, keptSorted)
+    # A branch is named by the tips below it. That distinguishes the two branches
+    # at this tree's own root, which share a bipartition but are different
+    # branches with different states.
+    directedKey <- vapply(restricted, function(x) paste(sort(x), collapse = "\001"), "")
+    stateByDirected <- stats::setNames(tree$edge.length, directedKey)
+    stateByDirected <- stateByDirected[names(stateByDirected) != ""]
+    # Fallback for branches the master's rooting orients the other way, and for
+    # chains that pruning merges: name them by bipartition, most recent first.
+    bipKey <- vapply(restricted, function(x) {
+      if (!length(x) || length(x) == length(keptSorted)) "" else canonicalTipKey(x, keptSorted)
+    }, "")
+    ord <- order(lengths(below))          # most recent branch first
+    firstOfKey <- ord[!duplicated(bipKey[ord])]
+    stateByKey <- stats::setNames(tree$edge.length[firstOfKey], bipKey[firstOfKey])
+    stateByKey <- stateByKey[names(stateByKey) != ""]
+  }
+  tree = pruneTree(tree, keep)
   tree = prepareTreeForTT(tree, master_tree)
   treePaths = allPathsTT(tree, needIndex = F)
   if (categorical) {
-    nodeVals <- numeric(length(tree$tip.label) + tree$Nnode)
-    nodeVals[] <- NA_real_
-    nodeVals[tree$edge[, 2]] <- tree$edge.length
-    treePaths$dist <- nodeVals[treePaths$nodeId[, 1]]
+    clP <- cladesBelow(tree)
+    nodeVals <- rep(NA_real_, Ntip(tree) + tree$Nnode)
+    for (v in seq_along(clP)) {
+      r <- intersect(clP[[v]], keptSorted)
+      # the same branch, oriented the same way, keeps its own state; otherwise fall
+      # back to the branch's bipartition
+      hit <- match(paste(sort(r), collapse = "\001"), names(stateByDirected))  # `[[` errors on a missing name
+      if (!is.na(hit)) {
+        nodeVals[v] <- stateByDirected[[hit]]
+        next
+      }
+      hit <- match(canonicalTipKey(r, keptSorted), names(stateByKey))
+      if (!is.na(hit)) nodeVals[v] <- stateByKey[[hit]]
+    }
+    if (anyNA(nodeVals[treePaths$nodeId[, 1]])) {
+      warning("some categorical states could not be carried through pruning")
+    }
+    treePaths$dist <- unname(nodeVals[treePaths$nodeId[, 1]])
   }
 
   map=matchAllnodesTT(tree,master_tree)
@@ -3115,8 +3168,13 @@ tree2Paths=function(tree, treesObj, binarize=NULL, useSpecies=NULL, categorical 
   ii=ap$matIndex[cbind(treePaths$nodeId[,1], treePaths$nodeId[,2])]
 
   vals=rep(NA_real_, n_paths)
-  valid <- !is.na(ii)
-  vals[ii[valid]]=treePaths$dist[valid]
+  if (anyNA(ii)) {
+    # the topology was accepted above, so a path with no master column means the
+    # tree was not rooted and numbered like the master: a bug, not discordance
+    stop("internal error: ", sum(is.na(ii)), " paths of the phenotype tree have no ",
+         "master column although its topology was accepted")
+  }
+  vals[ii]=treePaths$dist
   if(binarize){
     if(isbinarypheno) {
       vals[vals>0]=1

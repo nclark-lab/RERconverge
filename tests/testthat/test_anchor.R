@@ -580,6 +580,61 @@ test_that("char2Paths orients trait change by the biological root, not the ancho
                abs(unname(state[rootKids[1]] - state[rootKids[2]])), tolerance = 1e-8)
 })
 
+test_that("tree2Paths accepts concordant trait trees whatever their rooting", {
+  set.seed(29)
+  M <- with_lengths(ape::rtree(24))
+  genes <- make_genes(M, 60, 12)
+  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+
+  pheno <- RERconverge:::apeOrder(tr$masterTree)
+  pheno$edge.length <- seq_len(nrow(pheno$edge)) / 10
+  ref <- tree2Paths(pheno, tr, binarize = FALSE)
+  expect_true(any(!is.na(ref)))
+
+  # the same phenotype tree written from other roots must not be rejected
+  for (how in c("tip", "edge", "unrooted", "ladder")) {
+    again <- ape::read.tree(text = rewrite_newick(pheno, how))
+    expect_silent(v <- tree2Paths(again, tr, binarize = FALSE))
+    expect_true(any(!is.na(v)), info = how)
+  }
+
+  # a genuinely different topology is still rejected: swap two tips that sit on
+  # opposite sides of the root, so the unrooted topology really changes
+  mc <- ape::reorder.phylo(RERconverge:::apeOrder(tr$masterTree), "cladewise")
+  rk <- mc$edge[mc$edge[, 1] == ape::Ntip(mc) + 1L, 2]
+  sideOf <- function(v) if (v <= ape::Ntip(mc)) mc$tip.label[v] else ape::extract.clade(mc, v)$tip.label
+  x <- sideOf(rk[1])[1]; y <- sideOf(rk[2])[1]
+  disc <- pheno
+  disc$tip.label[match(c(x, y), disc$tip.label)] <- c(y, x)
+  expect_false(RERconverge:::treeTopologyStatus(disc, tr$masterTree) == "ok")
+  expect_warning(v <- tree2Paths(disc, tr, binarize = FALSE), "discordant")
+  expect_true(all(is.na(v)))
+})
+
+test_that("tree2Paths keeps categorical states through pruning", {
+  set.seed(30)
+  M <- with_lengths(ape::rtree(20))
+  genes <- make_genes(M, 40, 12)
+  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+
+  # every branch in state 2: every filled path must read 2, not a sum of codes
+  cat2 <- RERconverge:::apeOrder(tr$masterTree)
+  cat2$edge.length <- rep(2, nrow(cat2$edge))
+  v <- tree2Paths(cat2, tr, categorical = TRUE, binarize = FALSE)
+  expect_setequal(unique(v[!is.na(v)]), 2)
+
+  # and after pruning species away, which merges branches
+  useSp <- sample(M$tip.label, 14)
+  vp <- tree2Paths(cat2, tr, categorical = TRUE, binarize = FALSE, useSpecies = useSp)
+  expect_setequal(unique(vp[!is.na(vp)]), 2)
+
+  # distinct states survive pruning too: each filled column holds a real state
+  cat3 <- cat2
+  cat3$edge.length <- rep_len(c(1, 2, 3), nrow(cat3$edge))
+  v3 <- tree2Paths(cat3, tr, categorical = TRUE, binarize = FALSE, useSpecies = useSp)
+  expect_true(all(v3[!is.na(v3)] %in% c(1, 2, 3)))
+})
+
 test_that("concordant_trees accepts TreeTools-preordered trees", {
   m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,((c:1,d:1):1,(e:1,f:1):1):1);"))
   g <- TreeTools::Preorder(ape::read.tree(text = "((f:1,e:1):1,(d:1,c:1):1,(b:1,a:1):1);"))
