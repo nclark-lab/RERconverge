@@ -215,6 +215,23 @@ anchorMaster <- function(master, presence) {
   list(tree = g, sides = sides, genesAllSides = max(score))
 }
 
+rootedMasterForTraits <- function(master, masterTree) {
+  # Gene paths are anchored at a well-sampled node, which is a computational
+  # choice: it depends on which genes were read. Trait analysis needs a
+  # biological root, because ancestral states, the direction of change, and
+  # "ancestral" clades are defined relative to it. Keep one, with the master's
+  # (data-estimated) branch lengths: the rooting of the supplied masterTree when
+  # there is one, otherwise the midpoint, with a warning.
+  if (!is.null(masterTree) && is.rooted(masterTree)) {
+    side <- rootSides(apeOrder(masterTree))[[1]]
+    return(balanceRootEdges(rootOnSplit(master, intersect(side, master$tip.label))))
+  }
+  warning("no rooted masterTree: rooting the master tree at its midpoint for trait ",
+          "analysis (ancestral states, direction of change and \"ancestral\" clades ",
+          "are relative to this root)")
+  balanceRootEdges(phangorn::midpoint(apeOrder(master)))
+}
+
 prepareGeneForTT <- function(tree, master) {
   # Gene trees: edge lengths are distances. Root like the master. A root that is
   # a node (the gene covers every side of the master's root) needs nothing more;
@@ -574,6 +591,9 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
     }
     treesObj$masterTree$edge.length = edgelengths
   }
+  # the anchored rooting is a computational choice; trait analysis needs a
+  # biological one, with the same (estimated) branch lengths
+  treesObj$masterTreeRooted = rootedMasterForTraits(treesObj$masterTree, masterTree)
   message("Naming columns of paths matrix")
   colnames(treesObj$paths) = namePathsWSpeciesTT(treesObj)
   class(treesObj) = append(class(treesObj), "treesObj")
@@ -2085,6 +2105,102 @@ getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths
 }
 
 
+canonicalTipKey <- function(tips, all) {
+  # a bipartition's key, independent of which side it is written from
+  tips <- sort(tips)
+  if (all[1] %in% tips) {
+    tips <- sort(setdiff(all, tips))
+  }
+  paste(tips, collapse = "\001")
+}
+
+nodeIdentity <- function(tree, all) {
+  # A node of an unrooted tree is determined by the bipartitions of the edges
+  # meeting at it, so this identifies the same physical node in two rootings of
+  # the same tree. Returns one key per node of `tree`.
+  tree <- apeOrder(tree)
+  n <- Ntip(tree)
+  N <- n + tree$Nnode
+  below <- vector("list", N)
+  for (k in seq_len(n)) below[[k]] <- tree$tip.label[k]
+  po <- ape::reorder.phylo(tree, "postorder")$edge
+  for (k in seq_len(nrow(po))) below[[po[k, 1]]] <- c(below[[po[k, 1]]], below[[po[k, 2]]])
+  edgeKey <- character(N)   # the edge above each node
+  for (v in seq_len(N)) edgeKey[v] <- canonicalTipKey(below[[v]], all)
+  kids <- split(tree$edge[, 2], factor(tree$edge[, 1], levels = seq_len(N)))
+  root <- n + 1L
+  vapply(seq_len(N), function(v) {
+    keys <- edgeKey[kids[[v]]]
+    if (v != root) keys <- c(keys, edgeKey[v])
+    paste(sort(keys), collapse = "\002")
+  }, "")
+}
+
+mapNodesBetweenRootings <- function(a, b) {
+  # node of `a` -> same physical node of `b` (NA for b's root, which is a point on
+  # an edge of a). Both trees must have the same tips and unrooted topology.
+  all <- sort(a$tip.label)
+  idA <- nodeIdentity(a, all)
+  idB <- nodeIdentity(b, all)
+  idB[Ntip(b) + 1L] <- NA_character_   # b's root is not a node of the unrooted tree
+  match(idA, idB)
+}
+
+traitBranchValues <- function(anchored, rooted, tip.vals, metric = "diff", se.filter = -1) {
+  # Per-branch trait values for the anchored master, with ancestral states and the
+  # direction of change taken from the biological rooting. States are reconstructed
+  # on the rooted tree; each anchored edge then gets the value of its two endpoints
+  # oriented away from the biological root. For the one branch that contains that
+  # root, the endpoints are its two root children and the value is the oriented
+  # difference across the whole branch.
+  metric <- match.arg(metric, c("diff", "mean", "last"))
+  A <- apeOrder(anchored)
+  R <- apeOrder(rooted)
+  all <- sort(A$tip.label)
+  stopifnot(setequal(A$tip.label, R$tip.label))
+  vals <- tip.vals[R$tip.label]
+  fa <- phytools::fastAnc(R, vals, vars = TRUE)
+  stateR <- c(vals, fa$ace)
+  varR <- c(rep(NA_real_, Ntip(R)), fa$var)
+  m <- mapNodesBetweenRootings(A, R)
+  if (anyNA(m)) {
+    stop("internal error: could not match the anchored and rooted master trees")
+  }
+  state <- stateR[m]
+  vars <- varR[m]
+
+  n <- Ntip(A)
+  N <- n + A$Nnode
+  below <- vector("list", N)
+  for (k in seq_len(n)) below[[k]] <- A$tip.label[k]
+  po <- ape::reorder.phylo(A, "postorder")$edge
+  for (k in seq_len(nrow(po))) below[[po[k, 1]]] <- c(below[[po[k, 1]]], below[[po[k, 2]]])
+  side <- intersect(rootSides(R)[[1]], all)
+  other <- setdiff(all, side)
+
+  out <- A
+  ev <- numeric(nrow(A$edge))
+  se <- numeric(nrow(A$edge))
+  for (k in seq_len(nrow(A$edge))) {
+    p <- A$edge[k, 1]
+    c <- A$edge[k, 2]
+    C <- below[[c]]
+    onRootEdge <- setequal(C, side) || setequal(C, other)
+    # the biological root sits below this edge unless it is the edge itself
+    flip <- !onRootEdge && (all(side %in% C) || all(other %in% C))
+    ev[k] <- switch(metric,
+                    diff = if (flip) state[p] - state[c] else state[c] - state[p],
+                    mean = state[c] + state[p],
+                    last = if (flip) state[c] else state[p])
+    se[k] <- sqrt(mean(c(vars[p], vars[c]), na.rm = TRUE)) / sqrt(length(all))
+  }
+  if (metric == "diff" && se.filter > 0) {
+    ev[abs(ev) < se.filter * se] <- NA
+  }
+  out$edge.length <- ev
+  out
+}
+
 #' turns a named vector of characters into a paths vector to be used with \code{\link{getAllCor}}
 #' @param tip.vals the trait/phenotype/character value at the tip, \code{names(tip.vals)} should match some of the \code{mastertree$tip.label}, though a perfect match is not required
 #' @param  treesObj A treesObj created by \code{\link{readTrees}}
@@ -2094,32 +2210,41 @@ getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths
 char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff",
                        se.filter = -1, ...)
 {
+  # Ancestral states and the direction of change are biological, so they are
+  # reconstructed on a rooted master: altMasterTree if given, otherwise the
+  # rooting readTrees kept (the supplied masterTree's, or the midpoint). The path
+  # columns stay anchored; only the values are oriented biologically.
   if (!is.null(altMasterTree)) {
-    masterTree = altMasterTree
+    rootedMaster = altMasterTree
+    if (!is.rooted(rootedMaster)) {
+      warning("altMasterTree is unrooted: rooting it at its midpoint")
+      rootedMaster = phangorn::midpoint(apeOrder(rootedMaster))
+    }
+  }
+  else if (!is.null(treesObj$masterTreeRooted)) {
+    rootedMaster = treesObj$masterTreeRooted
   }
   else if (!all(treesObj$masterTree$edge.length == 1)) {
-    masterTree = treesObj$masterTree
+    rootedMaster = treesObj$masterTree   # objects from before masterTreeRooted
   }
   else {
     message("The treesObj master tree has no edge lengths, please provide an alternative master tree")
     return()
   }
-  cm=intersect(treesObj$masterTree$tip,intersect(names(tip.vals), masterTree$tip))
+  cm=intersect(treesObj$masterTree$tip.label,intersect(names(tip.vals), rootedMaster$tip.label))
 
-  #reduce to the same species set
-  master.tree = pruneTree(masterTree, cm)
-  tip.vals=tip.vals[cm]
-  #make the tree with ancestral states
-  charTree = edgeVars(master.tree, tip.vals, metric=metric, se.filter=se.filter, ...)
-
-
-  sp.miss = setdiff(treesObj$masterTree$tip, names(tip.vals))
+  sp.miss = setdiff(treesObj$masterTree$tip.label, names(tip.vals))
   if (length(sp.miss) > 0) {
     message(paste0("Species not present: ", paste(sp.miss,
                                                   collapse = ",")))
 
   }
 
+  #reduce both rootings to the same species set and read the states off the
+  #rooted one
+  charTree = traitBranchValues(pruneTree(treesObj$masterTree, cm),
+                               pruneTree(rootedMaster, cm),
+                               tip.vals[cm], metric = metric, se.filter = se.filter)
   charTree <- prepareTreeForTT(charTree, treesObj$masterTree)
   ap = if (!is.null(treesObj$ap)) treesObj$ap else allPathsTT(treesObj$masterTree)
   allPathsMasterRelativeTT(charTree, treesObj$masterTree, ap)

@@ -105,7 +105,8 @@ test_that("anchor choice and paths do not depend on how the master is given", {
     rewritten = ape::read.tree(text = rewrite_newick(M, "tip")),
     edge = ape::read.tree(text = rewrite_newick(M, "edge")))
   for (nm in names(variants)) {
-    tr <- read_quiet(f, masterTree = variants[[nm]])
+    # an unrooted master warns about midpoint rooting for trait analysis
+    tr <- suppressWarnings(read_quiet(f, masterTree = variants[[nm]]))
     expect_identical(ape::write.tree(tr$masterTree), ape::write.tree(ref$masterTree), info = nm)
     expect_equal(tr$paths, ref$paths, tolerance = 1e-12, info = nm)
   }
@@ -410,7 +411,8 @@ test_that("multifurcating master: pruning a side of the root maps correctly", {
     if (ape::Ntip(M) - length(drop) >= 10) genes[[length(genes) + 1]] <- ape::unroot(ape::drop.tip(M, drop))
   }
   nw <- vapply(genes, to_newick, "")
-  expect_no_error(tr <- read_quiet(write_genes(nw), masterTree = M))
+  # this master is unrooted, so trait analysis warns about midpoint rooting
+  expect_no_error(tr <- suppressWarnings(read_quiet(write_genes(nw), masterTree = M)))
   expect_true(all(tr$treeStatus == "ok"))
   expect_rows_match_truth(tr, nw)
 })
@@ -511,6 +513,71 @@ test_that("the master's tip numbers are contiguous within every clade, and viola
   bad <- structure(list(edge = rbind(c(5L, 6L), c(6L, 1L), c(6L, 3L), c(5L, 7L), c(7L, 2L), c(7L, 4L)),
                         tip.label = c("a", "b", "c", "d"), Nnode = 3L), class = "phylo")
   expect_error(RERconverge:::assertContiguousTips(bad), "not numbered contiguously")
+})
+
+test_that("the master keeps a biological rooting for trait analysis", {
+  set.seed(27)
+  M <- with_lengths(ape::rtree(30))
+  genes <- make_genes(M, 40, 12)
+  f <- write_genes(vapply(genes, to_newick, ""))
+  tr <- read_quiet(f, masterTree = M)
+
+  R <- RERconverge:::apeOrder(tr$masterTreeRooted)
+  expect_true(ape::is.rooted(R))
+  # same tree as the anchored master, rooted where the supplied tree was rooted
+  expect_equal(as.numeric(ape::dist.topo(ape::unroot(R), ape::unroot(M))), 0)
+  side <- RERconverge:::rootSides(RERconverge:::apeOrder(M))[[1]]
+  expect_true(RERconverge:::isRootedOn(R, side))
+  # with the master's estimated branch lengths, not the supplied tree's
+  expect_equal(sum(R$edge.length), sum(tr$masterTree$edge.length), tolerance = 1e-9)
+  cm <- ape::cophenetic.phylo(R)
+  ca <- ape::cophenetic.phylo(RERconverge:::apeOrder(tr$masterTree))[rownames(cm), colnames(cm)]
+  expect_equal(max(abs(cm - ca)), 0, tolerance = 1e-9)
+
+  # no biological root available: midpoint, with a warning
+  expect_warning(trU <- suppressMessages(readTrees(f, masterTree = ape::unroot(M))), "midpoint")
+  expect_true(ape::is.rooted(RERconverge:::apeOrder(trU$masterTreeRooted)))
+  expect_equal(as.numeric(ape::dist.topo(ape::unroot(RERconverge:::apeOrder(trU$masterTreeRooted)),
+                                         ape::unroot(M))), 0)
+})
+
+test_that("char2Paths orients trait change by the biological root, not the anchor", {
+  set.seed(28)
+  M <- with_lengths(ape::rtree(24))          # its rooting is the biological one
+  genes <- make_genes(M, 60, 12)
+  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+  tips <- stats::setNames(stats::rnorm(ape::Ntip(M)), M$tip.label)
+  p <- char2Paths(tips, tr)
+  expect_equal(length(p), ncol(tr$paths))
+  expect_true(any(!is.na(p)))
+
+  # independent ape computation of the states on the biologically rooted master
+  R <- RERconverge:::apeOrder(tr$masterTreeRooted)
+  A <- RERconverge:::apeOrder(tr$masterTree)
+  fa <- phytools::fastAnc(R, tips[R$tip.label])
+  state <- c(tips[R$tip.label], fa)
+  cladeOf <- function(t, v) if (v <= ape::Ntip(t)) t$tip.label[v] else ape::extract.clade(t, v)$tip.label
+  key <- function(x) { x <- sort(x); if (sort(A$tip.label)[1] %in% x) x <- setdiff(A$tip.label, x); paste(sort(x), collapse = ",") }
+  # anchored single-edge columns, by bipartition
+  colOf <- stats::setNames(tr$matIndex[cbind(A$edge[, 2], A$edge[, 1])],
+                           vapply(A$edge[, 2], function(v) key(cladeOf(A, v)), ""))
+  rootKids <- R$edge[R$edge[, 1] == ape::Ntip(R) + 1L, 2]
+
+  checked <- 0
+  for (k in seq_len(nrow(R$edge))) {
+    pR <- R$edge[k, 1]; cR <- R$edge[k, 2]
+    if (pR == ape::Ntip(R) + 1L) next               # the two halves of the root branch
+    col <- colOf[[key(cladeOf(R, cR))]]
+    # biological direction: descendant minus ancestor, whatever the anchored one is
+    expect_equal(unname(p[col]), unname(state[cR] - state[pR]), tolerance = 1e-8)
+    checked <- checked + 1
+  }
+  expect_gt(checked, 30)
+
+  # the branch containing the biological root: difference across the whole branch
+  colRoot <- colOf[[key(cladeOf(R, rootKids[1]))]]
+  expect_equal(abs(unname(p[colRoot])),
+               abs(unname(state[rootKids[1]] - state[rootKids[2]])), tolerance = 1e-8)
 })
 
 test_that("concordant_trees accepts TreeTools-preordered trees", {
