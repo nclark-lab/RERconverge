@@ -3538,7 +3538,7 @@ getProjection=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
   torm=setdiff(treesObj$masterTree$tip.label, both)
   allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
   for ( k in 1:length(iiboth)){
-    tmptree=rescaleTree(unroot(drop.tip(treesObj$trees[[iiboth[k]]], torm)))
+    tmptree=rescaleTree(unroot(apeOrder(drop.tip(apeOrder(treesObj$trees[[iiboth[k]]]), torm))))
     allbranch[k, ]=tmptree$edge.length
   }
   allbranch
@@ -3546,14 +3546,16 @@ getProjection=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
 
 getProjectionPaths=function(treesObj, tree1, tree2, maxT=treesObj$numTrees){
   both=intersect(tree1$tip.label, tree2$tip.label)
-  tree1=unroot(pruneTree(tree1, both))
-  tree2=unroot(pruneTree(tree2, both))
+  #the edge mapping is positional: prepare the tree like the master rather than
+  #unrooting it, and take columns by node pair (colnames hold species names)
+  tree1=prepareGeneForTT(pruneTree(tree1, both), treesObj$masterTree)
+  tree2=prepareGeneForTT(pruneTree(tree2, both), treesObj$masterTree)
   allreport=treesObj$report[1:maxT,both]
   ss=rowSums(allreport)
   iiboth=which(ss==length(both))
   allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
   ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
-  ii= match(namePaths(ee,T), colnames(treesObj$paths))
+  ii= treesObj$matIndex[ee[, c(2,1)]]
   allbranch=treesObj$paths[iiboth,ii]
   allbranch=scaleMat(allbranch)
   allbranch
@@ -3592,8 +3594,9 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
         bothIndex=which(colSums(treesObj$report[c(i, j),])==2)
         both=intersect(tree1$tip.label, tree2$tip.label)
         if(!useIndex){
-          tree1=unroot(pruneTree(tree1, both))
-          tree2=unroot(pruneTree(tree2, both))
+          #positional edge mapping: prepare like the master, do not unroot
+          tree1=prepareGeneForTT(pruneTree(tree1, both), treesObj$masterTree)
+          tree2=prepareGeneForTT(pruneTree(tree2, both), treesObj$masterTree)
         }
         allreport=treesObj$report[,bothIndex]
         ss=rowSums(allreport)
@@ -3608,7 +3611,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
           torm=setdiff(treesObj$masterTree$tip.label, both)
           allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
           for ( k in 1:length(iiboth)){
-            tmptree=rescaleTree(unroot(drop.tip(treesObj$trees[[iiboth[k]]], torm)))
+            tmptree=rescaleTree(unroot(apeOrder(drop.tip(apeOrder(treesObj$trees[[iiboth[k]]]), torm))))
             allbranch[k, ]=tmptree$edge.length
           }
         }
@@ -3616,7 +3619,7 @@ correlateTreesAll=function(treesObj,  usePaths=F, useIndex=F,maxn=NULL, maxDo){
           if(!useIndex){
             message("Here")
             ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
-            ii= match(namePaths(ee,T), colnames(treesObj$paths))
+            ii= treesObj$matIndex[ee[, c(2,1)]]   #columns by node pair; colnames hold species names
             allbranch=treesObj$paths[iiboth,ii]
           }
           else{
@@ -3696,7 +3699,8 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
     if (is.na(corout[i,1])){
       tree1=treesObj$trees[[i]]
       if(! is.null(species.list)){
-        tree1=unroot(pruneTree(tree1, species.list))
+        #positional edge mapping: prepare like the master, do not unroot
+        tree1=prepareGeneForTT(pruneTree(tree1, species.list), treesObj$masterTree)
       }
       both=tree1$tip.label
       bothIndex=match(both, colnames(treesObj$report))
@@ -3704,7 +3708,7 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
       ss=rowSums(allreport)
       iiboth=which(ss==length(both))
       #  torm=setdiff(treesObj$masterTree$tip.label, both)
-      binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
+      binTreeUse=prepareTreeForTT(pruneTree(binTree,tree1$tip.label), treesObj$masterTree)
       allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
       if(length(both)<10){
         next
@@ -3714,17 +3718,16 @@ correlateTreesBinary=function(treesObj,  binTree, usePaths=F, maxDo=NULL, specie
         torm=setdiff(treesObj$masterTree$tip.label, both)
         allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
         for ( k in 1:length(iiboth)){
-          tmptree=rescaleTree(unroot(drop.tip(treesObj$trees[[iiboth[k]]], torm)))
+          tmptree=rescaleTree(unroot(apeOrder(drop.tip(apeOrder(treesObj$trees[[iiboth[k]]]), torm))))
           allbranch[k, ]=tmptree$edge.length
         }
       }
       else{
 
-        ii= match(namePaths(edgeIndexRelativeMasterTT(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
-        ii2=match(namePaths(edgeIndexRelativeMasterTT(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
-        #show(ii)
-        #show(ii2)
-        stopifnot(all(ii=ii2))
+        #columns by node pair; colnames hold species names, not path names
+        ii= treesObj$matIndex[edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)[, c(2,1)]]
+        ii2=treesObj$matIndex[edgeIndexRelativeMasterTT(binTreeUse, treesObj$masterTree)[, c(2,1)]]
+        stopifnot(all(ii==ii2))
         allbranch=treesObj$paths[iiboth,ii]
 
         allbranch=scaleMat(allbranch)
@@ -3779,7 +3782,8 @@ plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
 
   tree1=treesObj$trees[[index]]
   if(! is.null(species.list)){
-    tree1=unroot(pruneTree(tree1, species.list))
+    #positional edge mapping: prepare like the master, do not unroot
+    tree1=prepareGeneForTT(pruneTree(tree1, species.list), treesObj$masterTree)
   }
   both=tree1$tip.label
   bothIndex=match(both, colnames(treesObj$report))
@@ -3787,11 +3791,12 @@ plotTreesBinary=function(treesObj,  binTree, index, species.list=NULL){
   ss=rowSums(allreport)
   iiboth=which(ss==length(both))
   #  torm=setdiff(treesObj$masterTree$tip.label, both)
-  binTreeUse=unroot(pruneTree(binTree,tree1$tip.label))
+  binTreeUse=prepareTreeForTT(pruneTree(binTree,tree1$tip.label), treesObj$masterTree)
   allbranch=matrix(nrow=length(iiboth), ncol=length(tree1$edge.length))
 
-        ii= match(namePaths(edgeIndexRelativeMasterTT(tree1, treesObj$masterTree),T), colnames(treesObj$paths))
-        ii2=match(namePaths(edgeIndexRelativeMasterTT(binTreeUse, treesObj$masterTree),T), colnames(treesObj$paths))
+        #columns by node pair; colnames hold species names, not path names
+        ii= treesObj$matIndex[edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)[, c(2,1)]]
+        ii2=treesObj$matIndex[edgeIndexRelativeMasterTT(binTreeUse, treesObj$masterTree)[, c(2,1)]]
   plot(tree1,use.edge.length = F)
   plot(binTreeUse,use.edge.length = F)
   show(cbind(ii,ii2))
@@ -3893,7 +3898,7 @@ correlateTreesProj=function(treeIn1, treeIn2, treesObj, residfun=residLN, plot=F
   else{
     if(! useIndex){
       ee=edgeIndexRelativeMasterTT(tree1, treesObj$masterTree)
-      ii= match(namePaths(ee,T), colnames(treesObj$paths))
+      ii= treesObj$matIndex[ee[, c(2,1)]]   #columns by node pair; colnames hold species names
       allbranch=treesObj$paths[iiboth,ii]
       show(sum(is.na(allbranch)))
       allbranch=scaleMat(allbranch)
@@ -3996,7 +4001,8 @@ plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=
 
 
   torm=setdiff(treesObj$masterTree$tip.label, both)
-  tree=pruneTree(tree, both)
+  #positional edge mapping: prepare like the master
+  tree=prepareGeneForTT(pruneTree(tree, both), treesObj$masterTree)
   tip.vals=tip.vals[both]
   allreport=treesObj$report[,both]
   ss=rowSums(allreport)
@@ -4004,7 +4010,7 @@ plotContinuousCharXY=function(gene, treesObj, tip.vals, tip.vals.ref=NULL,  col=
 
 
   ee=edgeIndexRelativeMasterTT(tree, treesObj$masterTree)
-  ii= match(namePaths(ee,T), colnames(treesObj$paths))
+  ii= treesObj$matIndex[ee[, c(2,1)]]   #columns by node pair; colnames hold species names
 
   allbranch=treesObj$paths[iiboth,ii]
 

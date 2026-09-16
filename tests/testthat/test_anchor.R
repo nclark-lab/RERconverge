@@ -635,6 +635,24 @@ test_that("tree2Paths keeps categorical states through pruning", {
   expect_true(all(v3[!is.na(v3)] %in% c(1, 2, 3)))
 })
 
+test_that("getProjectionPaths returns the genes' branch values, not NA", {
+  set.seed(31)
+  M <- with_lengths(ape::rtree(24))
+  genes <- make_genes(M, 60, 16)
+  tr <- read_quiet(write_genes(vapply(genes, to_newick, "")), masterTree = M)
+
+  # two trees sharing a species set: the projection is over the genes that have
+  # all of those species
+  t1 <- tr$trees[[1]]
+  both <- t1$tip.label
+  res <- getProjectionPaths(tr, t1, t1)
+  expect_true(is.matrix(res))
+  expect_equal(ncol(res), nrow(RERconverge:::prepareGeneForTT(RERconverge:::pruneTree(t1, both), tr$masterTree)$edge))
+  expect_equal(nrow(res), sum(rowSums(tr$report[, both, drop = FALSE]) == length(both)))
+  expect_false(all(is.na(res)))
+  expect_true(all(is.finite(res)))
+})
+
 test_that("concordant_trees accepts TreeTools-preordered trees", {
   m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,((c:1,d:1):1,(e:1,f:1):1):1);"))
   g <- TreeTools::Preorder(ape::read.tree(text = "((f:1,e:1):1,(d:1,c:1):1,(b:1,a:1):1);"))

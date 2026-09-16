@@ -183,14 +183,17 @@ plotContinuousChar=function(gene, treeObj, tip.vals, tip.vals.ref=NULL, rank=F, 
 
 
   torm=setdiff(treeObj$masterTree$tip.label, both)
-  tree=unroot(pruneTree(tree, both))
+  #the edge mapping is positional: the tree must be rooted and numbered like the
+  #master, not unrooted
+  tree=prepareGeneForTT(pruneTree(tree, both), treeObj$masterTree)
   allreport=treeObj$report[,both]
   ss=rowSums(allreport)
   iiboth=which(ss==length(both))
 
 
   ee=edgeIndexRelativeMasterTT(tree, treeObj$masterTree)
-  ii= match(namePaths(ee,T), colnames(treeObj$paths))
+  #columns by node pair; colnames are species names, not path names
+  ii= treeObj$matIndex[ee[, c(2,1)]]
 
   allbranch=treeObj$paths[iiboth,ii]
 
