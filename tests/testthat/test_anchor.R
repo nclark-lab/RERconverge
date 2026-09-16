@@ -653,6 +653,18 @@ test_that("getProjectionPaths returns the genes' branch values, not NA", {
   expect_true(all(is.finite(res)))
 })
 
+test_that("readTrees reports an unreadable tree instead of failing inside unroot", {
+  set.seed(32)
+  M <- with_lengths(ape::rtree(20))
+  genes <- make_genes(M, 12, 12)
+  nw <- vapply(genes, to_newick, "")
+  # a header line, which read.tree returns NULL for
+  f <- write_genes(c("newick", nw), names = c("gene_name", sprintf("g%03d", seq_along(nw))))
+  # ape warns about the missing semicolon before returning NULL; the error is the point
+  expect_error(suppressWarnings(suppressMessages(readTrees(f, masterTree = M, masterBranchLengths = "supplied"))),
+               "could not read a tree")
+})
+
 test_that("concordant_trees accepts TreeTools-preordered trees", {
   m <- TreeTools::Preorder(ape::read.tree(text = "((a:1,b:1):1,((c:1,d:1):1,(e:1,f:1):1):1);"))
   g <- TreeTools::Preorder(ape::read.tree(text = "((f:1,e:1):1,(d:1,c:1):1,(b:1,a:1):1);"))

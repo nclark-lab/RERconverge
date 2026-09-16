@@ -413,7 +413,15 @@ readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
       treenames = c(treenames, tmp[i])
     }
     else {
-      trees[[i/2]] = unroot(read.tree(text = tmp[i]))
+      parsed = read.tree(text = tmp[i])
+      if (!inherits(parsed, "phylo")) {
+        #read.tree returns NULL for text that is not a newick string; unroot()
+        #then failed with an unhelpful "UseMethod" error
+        stop("could not read a tree for \"", treenames[length(treenames)], "\" (item ",
+             i/2, " of the file): the second column must be a newick string. ",
+             "A header line in the file is a common cause.")
+      }
+      trees[[i/2]] = unroot(parsed)
       if (!is.null(useSpecies)) {
         if (length(intersect(trees[[i/2]]$tip.label,
                              useSpecies)) < 3) {
