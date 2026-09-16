@@ -110,6 +110,41 @@ Gene trees with fewer than `minTreeSpecies` species (default 10, after
 `useSpecies`) are dropped at input, with a message. They have no power for RER
 analysis, and dropping them avoids special handling of 3- and 4-species trees.
 
+## Trait analysis
+
+The anchor is a computational root: it is chosen from gene coverage and can move
+when the gene set changes. Ancestral states, the direction of change and
+"ancestral" clades are biological notions, so they must not depend on it.
+
+`readTrees` therefore keeps a second rooting of the same master,
+`treesObj$masterTreeRooted`, with the same (estimated) branch lengths:
+
+* the rooting of the supplied `masterTree`, when there is one;
+* otherwise the midpoint, with a warning.
+
+`char2Paths()` reconstructs ancestral states on that rooting and writes the
+per-branch values into the anchored columns:
+
+* a branch's value is oriented away from the biological root, whichever way its
+  anchored column runs;
+* the one branch that contains that root has no single descendant end, so its
+  value is the oriented difference across the whole branch;
+* nodes are matched between the two rootings by the bipartitions of their
+  incident edges (`nodeIdentity()`, `mapNodesBetweenRootings()`), which does not
+  depend on either rooting.
+
+`tree2Paths()` follows the same rules as `readTrees` for a phenotype tree:
+
+* topology is compared by bipartitions (`treeTopologyStatus()`), so a concordant
+  tree written from another root is not rejected;
+* a path with no master column is an internal error, not a silently dropped
+  value;
+* categorical values are the state of the branch below a node, so they are read
+  before pruning and carried by branch, named by the tips below it. Where pruning
+  merges branches the merged branch takes the most recent state, and the two
+  branches at a tree's own root keep their own states. Continuous and binary
+  values keep adding along merged branches.
+
 ## Other fixes on this branch
 
 * `coreGetResiduals` prepares a pruned gene like the master before the positional
@@ -123,6 +158,17 @@ analysis, and dropping them avoids special handling of 3- and 4-species trees.
   `TreeTools::RootTree()` leaves a four-species tree unrooted.
 * `concordant_trees` converts TreeTools-preordered trees before calling ape,
   which previously segfaulted.
+* The legacy path consumers (`getProjectionPaths`, `correlateTreesAll`,
+  `correlateTreesBinary`, `plotTreesBinary`, `plotContinuousChar`,
+  `plotContinuousCharXY`) prepare their pruned trees instead of unrooting them,
+  and take columns from `matIndex` by node pair instead of matching
+  `namePaths()` against column names, which now hold species names.
+  `getProjectionPaths` returned an all-`NA` matrix before this.
+* The three `unroot(drop.tip(...))` calls are guarded with `apeOrder()`:
+  `drop.tip` keeps TreeTools' preorder attribute when nothing is dropped, and
+  `unroot` then produced an edge matrix with a self-loop and a tip with no edge.
+* `correlateTreesBinary` compared its two column vectors with `all(ii=ii2)`, an
+  assignment that is always `TRUE`.
 
 ## Tests
 
