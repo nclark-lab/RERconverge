@@ -184,6 +184,46 @@ three zero-length cherries and voided all 19,645 trait values.
 * `correlateTreesBinary` compared its two column vectors with `all(ii=ii2)`, an
   assignment that is always `TRUE`.
 
+## Cost
+
+`getAllResiduals` computed a full weights matrix on every call -- a complete
+unweighted regression over every gene, a lowess fit and diagnostic plots -- and
+then discarded it whenever `use.weights = FALSE` or external weights were
+supplied. It also built a full-size matrix of ones and squared it back through
+`sqrt()`, materialised the inverse transform of the whole paths matrix only to
+take column means of it, extracted every non-NA path value to take one quantile,
+and copied the residual matrix twice more to normalise it.
+
+None of that changes a number, so it is no longer paid for:
+
+* weights are computed only when they are used
+  (`transformPaths(computeWeights = )`);
+* unit weights are carried as a flag and the slice each regression needs is built
+  in the loop. Multiplying by `sqrt(1)` is exact, so the studentizing step is
+  skipped rather than applied;
+* `colStatBlocks()` takes column statistics a block of columns at a time, passing
+  each column to the same function as before, so the values match
+  `apply(mat, 2, f)` while no full-size temporary is built;
+* `lowQuantileExact()` keeps only the smallest k values rather than all of them.
+  It reproduces `quantile(type = 7)` exactly, including its
+  `(1 - h) * lo + h * hi` form -- the algebraically equal `lo + h * (hi - lo)`
+  rounds one ULP differently, and `cutoff` feeds a threshold comparison where a
+  last bit can change which branches are masked;
+* `getRMat()` applies the column statistics to the values it keeps instead of
+  normalising a full copy of the matrix first.
+
+On the 742-species set with 1500 genes this is 42.5 min and 6.3 GB before,
+9.6 s and 3.4 GB after, and the results are bitwise identical: the RER matrices
+and every column of the correlation table (`Rho`, `N`, `P`, `p.adj`). Checked
+bitwise at 500 and 1500 genes unweighted, with computed weights, and with
+external weights (which differ from the unweighted result, so the weighted path
+is really exercised).
+
+The weighted path itself is untouched and remains expensive -- it is dominated by
+the lowess fit and the diagnostic plots inside `computeWeightsAllVar`, which cost
+~13 min and ~5.9 GB on a 60 MB paths matrix. `impute = TRUE` and `n.pcs > 0` are
+likewise unchanged, and were not part of this comparison.
+
 ## Tests
 
 `tests/testthat/test_anchor.R`, with ape-only truth in

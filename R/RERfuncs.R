@@ -1698,7 +1698,7 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 #' @param impute Whether to impute missing data
 #' @return A treesObj with transformed paths
 #' @export
-transformPaths=function(treesObj, transform="sqrt", impute=T){
+transformPaths=function(treesObj, transform="sqrt", impute=T, computeWeights=TRUE){
   transform=match.arg(transform, c("sqrt", "log", "asinh", "none"))
   nv=getColMeansNV(treesObj$paths)
   #columns with no observations (e.g. master species absent from every gene) have
@@ -1747,7 +1747,13 @@ transformPaths=function(treesObj, transform="sqrt", impute=T){
     treesObj$pathsImputed=kres$data
 
   }
-  treesObj$weights=computeWeightsAllVar(treesObj$paths, nv = nv, transform = "none")
+  # Computing the weights costs a full unweighted regression over every gene plus
+  # several full-size temporaries. coreGetResiduals discards them outright when
+  # use.weights is FALSE or external weights are supplied, so do not pay for them
+  # then; when they are used the result is unchanged.
+  if(computeWeights){
+    treesObj$weights=computeWeightsAllVar(treesObj$paths, nv = nv, transform = "none")
+  }
   treesObj
 
 }
@@ -1781,7 +1787,7 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
 
   #message("****using getAllResiduals****")
   if (is.null(cutoff)) {
-    cutoff = quantile(treesObj$paths, 0.05, na.rm = T)
+    cutoff = lowQuantileExact(treesObj$paths, 0.05)
     message(paste("cutoff is set to", cutoff))
   }
 
@@ -1810,8 +1816,9 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
     }
     else {
       message("using average normalization vector")
-      tPathsRaw<-treesObj$transformInv(tPaths)
-      nvAve= treesObj$transformFunc(apply(tPathsRaw, 2, mean, na.rm = T, trim = 0.05))
+      nvAve= treesObj$transformFunc(colStatBlocks(tPaths,
+                                                  function(x) mean(x, na.rm = T, trim = 0.05),
+                                                  inv = treesObj$transformInv))
       #columns with no observations have NaN means; see transformPaths()
       nvAve[!is.finite(nvAve)]=0
 
@@ -1852,10 +1859,14 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
 
   }
 
-  if(is.null(weights) | !use.weights){
+  # A full matrix of ones carries no information, and it was built twice more by
+  # sqrt() and the studentizing product. Carry unit weights as a flag instead and
+  # build only the slice each regression needs; multiplying by sqrt(1) is exact,
+  # so skipping the studentizing step leaves the residuals unchanged.
+  unitWeights = is.null(weights) | !use.weights
+  if(unitWeights){
     message("No weights found. Setting weights to 1. Consider adding weights")
-    weights=copyMat(tPaths)
-    weights[]=1
+    weights=NULL
   }
 
   cm=intersect(treesObj$masterTree$tip.label, useSpecies)
@@ -1954,7 +1965,7 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
       #extract the tPaths and corresponding weights
 
       allbranch=tPaths[iido,iiPaths,drop=F]
-      allbranchw=weights[iido,iiPaths, drop=F]
+      allbranchw=if(unitWeights) matrix(1, length(iido), length(iiPaths)) else weights[iido,iiPaths, drop=F]
       iibad=which(tPaths[iido, iiPaths, drop=F]<cutoff)
 
       allbranch[iibad]=NA
@@ -1998,7 +2009,7 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
 
   rownames(allresiduals)=names(treesObj$trees)
 
-  if(!is.null(weights)){
+  if(!unitWeights && !is.null(weights)){
     message("studentizing residuals with weights")
     allresiduals=allresiduals*sqrt(weights)
   }
@@ -2020,40 +2031,57 @@ coreGetResiduals=function(treesObj, nvMod=NULL, n.pcs=0, cutoff=NULL,
 #' @export
 getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
   norm=match.arg(norm, c("scale", "zscore", "quantile", "none"))
-  allres=copyMat(resOut$allresiduals)
-  if(is.null(use.rows)){
-    use.rows=1:nrow(allres)
-  }
   resIn=resOut$allresiduals
+  if(is.null(use.rows)){
+    use.rows=1:nrow(resIn)
+  }
 
+  # The normalisation used to build two more full-size matrices: a copyMat of the
+  # residuals plus the sweep() result. Take the column statistics once and apply
+  # them only to the values that are kept -- x[i,j]/s[j] is the same division
+  # sweep performed, so the output is unchanged.
+  s=NULL; m=NULL
   if(norm=="scale"){
     message("using column-wise scale normalization")
-    resIn=myscale(resIn, center=F)
+    s=colStatBlocks(resIn, function(x) sd(x, na.rm=T))
   }
   else if(norm=="zscore"){
     message("using column-wise zscore normalization")
-    resIn=myscale(resIn, center=T)
+    s=colStatBlocks(resIn, function(x) sd(x, na.rm=T))
+    m=colStatBlocks(resIn, function(x) mean(x, na.rm=T))
   }
   else if(norm=="quantile"){
     message("using column-wise quantile normalization")
     resIn=normalizeQuantiles(resIn)
   }
 
-
   if(!all){
+    allres=copyMat(resIn)
     for(i in use.rows){
-
       ii=resOut$index[[i]]
-      allres[i,ii]=resIn[i,ii]
+      if(length(ii)==0){
+        next
+      }
+      v=resIn[i,ii]
+      if(!is.null(m)){
+        v=v-m[ii]
+      }
+      if(!is.null(s)){
+        v=v/s[ii]
+      }
+      allres[i,ii]=v
     }
     allres
   }
   else{
-    allres=resIn
+    if(!is.null(m)){
+      resIn=sweep(resIn, 2, m)
+    }
+    if(!is.null(s)){
+      resIn=sweep(resIn, 2, s, "/")
+    }
+    resIn
   }
-
-
-  allres
 }
 
 
@@ -2097,7 +2125,8 @@ getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths
 {
 
 
-  tree2 = transformPaths(treesObj, transform = transform, impute = impute)
+  tree2 = transformPaths(treesObj, transform = transform, impute = impute,
+                         computeWeights = use.weights && is.null(weights))
 
   resids = coreGetResiduals(tree2, nvMod=nvMod, n.pcs=n.pcs, cutoff=cutoff,
                     useSpecies=useSpecies, min.sp=min.sp, min.valid=min.valid,
@@ -4430,8 +4459,81 @@ copyMat=function(mat, names=T){
   newmat
 }
 
+colStatBlocks=function(mat, f, inv=NULL, block=512L){
+  # Per-column statistic computed a block of columns at a time. Each column is
+  # still passed to the same f(), so the values are identical to
+  # apply(mat, 2, f); what changes is that no full-size temporary is built --
+  # notably inv(), which used to materialise a whole second copy of the matrix
+  # just to take column means of it.
+  nc = ncol(mat)
+  out = numeric(nc)
+  i = 1L
+  while(i <= nc){
+    j = min(i + block - 1L, nc)
+    b = mat[, i:j, drop=FALSE]
+    if(!is.null(inv)){
+      b = inv(b)
+    }
+    out[i:j] = apply(b, 2, f)
+    i = j + 1L
+  }
+  names(out) = colnames(mat)
+  out
+}
+
+lowQuantileExact=function(mat, probs=0.05, block=512L){
+  # The exact type-7 quantile of all non-NA entries, without materialising them
+  # (169M doubles, 1.35 GB, on the meme set). Only the smallest k values can
+  # matter for a low quantile, so keep those and drop everything above them.
+  nc = ncol(mat)
+  n = 0
+  i = 1L
+  while(i <= nc){
+    j = min(i + block - 1L, nc)
+    n = n + sum(!is.na(mat[, i:j, drop=FALSE]))
+    i = j + 1L
+  }
+  if(n == 0){
+    return(NA_real_)
+  }
+  index = 1 + max(n - 1, 0) * probs
+  lo = floor(index); hi = ceiling(index)
+  k = max(hi, 1)
+  keep = numeric(0)
+  thresh = Inf
+  i = 1L
+  while(i <= nc){
+    j = min(i + block - 1L, nc)
+    v = as.vector(mat[, i:j, drop=FALSE])
+    v = v[!is.na(v)]
+    if(is.finite(thresh)){
+      v = v[v <= thresh]
+    }
+    keep = c(keep, v)
+    if(length(keep) > 2L * k){
+      keep = sort.int(keep, partial=seq_len(k))[seq_len(k)]
+      thresh = keep[k]
+    }
+    i = j + 1L
+  }
+  keep = sort.int(keep)
+  qlo = keep[lo]
+  qhi = keep[hi]
+  # Interpolate exactly as stats:::quantile.default does for type 7:
+  # (1 - h) * qlo + h * qhi, and only when the two order statistics differ.
+  # The algebraically equal qlo + h * (qhi - qlo) rounds differently and left
+  # the cutoff one ULP away, which a threshold comparison can turn into a
+  # different set of masked branches.
+  if(index > lo && qhi != qlo){
+    h = index - lo
+    (1 - h) * qlo + h * qhi
+  } else {
+    qlo
+  }
+}
+
 getColMeansNV=function(mat){
-  nv = apply(mat, 2, mean, na.rm = T, trim = 0.05)
+  nv = colStatBlocks(mat, function(x) mean(x, na.rm = T, trim = 0.05))
 }
 
 myscale=function(x, center=F){
