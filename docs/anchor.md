@@ -247,6 +247,21 @@ Together: 81.6 s and 3.16 GB before, 1.8 s and 0.56 GB after, with the RER
 bitwise identical to the original implementation both when the weights are
 computed and when they are supplied.
 
+The diagnostics are now affordable rather than merely optional. `plotAsBox` took
+a 1e5 subsample to choose its breaks and then cut and box-plotted every point --
+`min(2000, genes) * ncol`, about 39M values at 10481 genes, which measures at
+~9 s and ~3 GB on its own, and `split()` instead of the formula interface would
+have saved time but none of the memory. It now draws the boxes from the same
+subsample it already took, and samples the indices before `as.vector()` so the
+matrix is never copied whole. The breaks are unchanged -- same seed, same
+indices, same quantiles, checked at three matrix shapes -- and only the number of
+points behind each box changes, from 39M to 1e5, roughly a thousand per box.
+
+At 2000 rows by 19173 columns the whole weighted call is 8.2 s and 2.45 GB
+without diagnostics and 11.0 s and 3.35 GB with them; before this change the
+plotted version could not finish in 5 GB. What is left of that gap is the
+2000-row `naresidCPP` refit behind the "After" panel rather than the plotting.
+
 `impute = TRUE` and `n.pcs > 0` are unchanged, and were not part of any of these
 comparisons.
 

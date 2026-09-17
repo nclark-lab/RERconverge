@@ -4655,20 +4655,25 @@ plotWithCor=function(x,y){
 
 plotAsBox=function(x,y,n=20,intercept=0, ...){
 
-  x=as.vector(x)
-  y=as.vector(y)
-  #ii=which(!is.na(x)&!is.na(y))
-  #x=x[ii]
-  #y=y[ii]
-
-  if(length(x)>1e5){
+  # x and y arrive as whole matrices -- 39M values for 10481 genes -- but only n
+  # boxes are drawn. The breaks were already taken from a 1e5 subsample; take the
+  # boxes from that same subsample rather than cutting and box-plotting every
+  # point, which costs ~9 s and ~3 GB at that size and is what made the weight
+  # diagnostics unaffordable. Sampling the indices before as.vector() also avoids
+  # two full copies of the matrix. The breaks are unchanged: same seed, same
+  # indices, same quantiles.
+  N=length(x)
+  if(N>1e5){
     set.seed(123);
-    iis=sample(length(x), 1e5)
-    qq = quantile(x[iis], seq(0, n, 1)/n, na.rm = T)
+    iis=sample(N, 1e5)
+    x=as.vector(x[iis])
+    y=as.vector(y[iis])
   }
   else{
-    qq = quantile(x, seq(0, n, 1)/n, na.rm = T)
+    x=as.vector(x)
+    y=as.vector(y)
   }
+  qq = quantile(x, seq(0, n, 1)/n, na.rm = T)
   qqdiff = diff(qq)
   breaks = qq[1:n] + qqdiff/2
 
