@@ -219,10 +219,36 @@ bitwise at 500 and 1500 genes unweighted, with computed weights, and with
 external weights (which differ from the unweighted result, so the weighted path
 is really exercised).
 
-The weighted path itself is untouched and remains expensive -- it is dominated by
-the lowess fit and the diagnostic plots inside `computeWeightsAllVar`, which cost
-~13 min and ~5.9 GB on a 60 MB paths matrix. `impute = TRUE` and `n.pcs > 0` are
-likewise unchanged, and were not part of this comparison.
+### The weighted path
+
+`use.weights = TRUE` cost 81.6 s and 3.16 GB on a 50-gene set where the
+unweighted path costs seconds. Neither reason was the regression, and neither was
+the lowess fit, which is 0.56 s of it:
+
+* the weight diagnostics re-fit the weighted regression across every column and
+  box-plot the whole matrix. They are ~99% of the time and 82% of the memory of
+  computing weights -- 80.3 s and 3.15 GB with them, 0.7 s and 0.57 GB without,
+  where 0.57 GB is just the loaded data -- and they do not feed the weights,
+  which come out bitwise identical either way. They are now drawn only when
+  `plotWeights = TRUE`;
+* `fastLmResidWeighted` and `fastLmResidWeightedPredict` built the weight matrix
+  as `arma::mat W = diagmat(wa)`: a dense n x n matrix to hold n numbers, 2.8 GB
+  to carry 0.146 MB at n = 19173, making every product O(n^2). The second of the
+  two runs for every gene in the main loop, so it taxed every weighted run and
+  not only the diagnostics. Both now scale by `wa` directly.
+
+Scaling by `wa` while keeping the operand order is bitwise identical: `Y*W` is
+`Y` with column j multiplied by `wa[j]`, `trans(X)*W` likewise, and the dense
+products summed exactly those terms plus exact zeros. Scaling both sides by
+`sqrt(wa)`, the textbook form, is not identical, because `sqrt(w) * sqrt(w)` is
+not `w` in floating point.
+
+Together: 81.6 s and 3.16 GB before, 1.8 s and 0.56 GB after, with the RER
+bitwise identical to the original implementation both when the weights are
+computed and when they are supplied.
+
+`impute = TRUE` and `n.pcs > 0` are unchanged, and were not part of any of these
+comparisons.
 
 ## Tests
 

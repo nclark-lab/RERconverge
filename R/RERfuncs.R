@@ -1698,7 +1698,8 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 #' @param impute Whether to impute missing data
 #' @return A treesObj with transformed paths
 #' @export
-transformPaths=function(treesObj, transform="sqrt", impute=T, computeWeights=TRUE){
+transformPaths=function(treesObj, transform="sqrt", impute=T, computeWeights=TRUE,
+                        plotWeights=FALSE){
   transform=match.arg(transform, c("sqrt", "log", "asinh", "none"))
   nv=getColMeansNV(treesObj$paths)
   #columns with no observations (e.g. master species absent from every gene) have
@@ -1751,8 +1752,13 @@ transformPaths=function(treesObj, transform="sqrt", impute=T, computeWeights=TRU
   # several full-size temporaries. coreGetResiduals discards them outright when
   # use.weights is FALSE or external weights are supplied, so do not pay for them
   # then; when they are used the result is unchanged.
+  # The weight diagnostics are ~99% of the cost of computing weights (80.2 s vs
+  # 0.7 s on a 50-gene set) because they re-fit the weighted regression over
+  # every column and box-plot the full matrix. They do not feed the weights,
+  # which come out bitwise identical either way, so they are off unless asked for.
   if(computeWeights){
-    treesObj$weights=computeWeightsAllVar(treesObj$paths, nv = nv, transform = "none")
+    treesObj$weights=computeWeightsAllVar(treesObj$paths, nv = nv, transform = "none",
+                                          plot = plotWeights)
   }
   treesObj
 
@@ -2113,7 +2119,8 @@ getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
 #' @return An residual matrix equivalent to that produced by the original \code{\link{getAllResiduals}}
 #' assuming all=FALSE
 #' @export
-getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths arguments
+getAllResiduals=function(treesObj, transform="sqrt", impute=T,
+                         plotWeights=FALSE,                    # transformPaths arguments
                          #--------------------------------------------------------#
                          nvMod=NULL, n.pcs=0, cutoff=NULL,      #
                          useSpecies=NULL,  min.sp=10,           #
@@ -2126,7 +2133,8 @@ getAllResiduals=function(treesObj, transform="sqrt", impute=T,  # transformPaths
 
 
   tree2 = transformPaths(treesObj, transform = transform, impute = impute,
-                         computeWeights = use.weights && is.null(weights))
+                         computeWeights = use.weights && is.null(weights),
+                         plotWeights = plotWeights)
 
   resids = coreGetResiduals(tree2, nvMod=nvMod, n.pcs=n.pcs, cutoff=cutoff,
                     useSpecies=useSpecies, min.sp=min.sp, min.valid=min.valid,

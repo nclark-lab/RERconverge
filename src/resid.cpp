@@ -88,10 +88,20 @@ arma::mat fastLmResidWeighted(const arma::mat& Y, const arma::mat& X,  const arm
   for (int j=0; j<ws.n_elem; j++){
     ws[j]=std::sqrt(wa[j]);
   }
-  arma::mat W=diagmat(wa);
+  // diagmat(wa) assigned to an arma::mat allocated a dense n x n matrix to hold
+  // n numbers -- 2.8 GB at n = 19173, to carry 0.146 MB -- and made every product
+  // O(n^2). Scale by wa instead, keeping the same operand order: Y*W is Y with
+  // column j times wa[j], and trans(X)*W is trans(X) with column j times wa[j].
+  // The dense products summed exactly these terms plus exact zeros, so this is
+  // bitwise identical. Scaling both sides by sqrt(wa) would not be, since
+  // sqrt(w)*sqrt(w) != w in floating point.
+  arma::mat YW = Y;
+  YW.each_row() %= wa;
+  arma::mat XtW = trans(X);
+  XtW.each_row() %= wa;
 
   // coeff=dat%*%W%*%modtmp %*% solve(t(modtmp) %*% W %*% modtmp)
-  arma::mat coef = Y*W*X*inv(trans(X)*W*X);    // fit model y ~ X
+  arma::mat coef = YW*X*inv(XtW*X);    // fit model y ~ X
   res  = Y - coef*trans(X);           // residuals
   res.each_row()%=ws;
 
@@ -194,10 +204,14 @@ arma::mat fastLmResidWeightedPredict(const arma::mat& Y, const arma::mat& X,  co
   arma::mat res;
 
 
-  arma::mat W=diagmat(wa);
+  // Same dense-diagonal removal as fastLmResidWeighted: this one runs for every
+  // gene in the main coreGetResiduals loop, where n is the gene's branch count.
+  arma::mat YW = Y;
+  YW.each_row() %= wa;
+  arma::mat XtW = trans(X);
+  XtW.each_row() %= wa;
 
-
-  arma::mat coef = Y*W*X*inv(trans(X)*W*X);    // fit model y ~ X
+  arma::mat coef = YW*X*inv(XtW*X);    // fit model y ~ X
   res  = coef*trans(newX);           // predictions
 
 
