@@ -385,7 +385,10 @@ hasConcordantTopology <- function(tree, master) {
 #'   are dropped (default 10). Small trees have no power for RER analysis.
 #' @return A trees object of class "treeObj". \code{treeStatus} gives each tree's
 #'   topology status against the master ("ok", "discordant", "unresolved", ...);
-#'   only "ok" trees have paths. \code{anchor} describes the anchor node.
+#'   only "ok" trees have paths. \code{dropped} records the trees that were not
+#'   kept and why. \code{anchor} describes the anchor node, and
+#'   \code{masterTreeRooted} is the master under its biological rooting, which
+#'   trait analysis uses for ancestral states and the direction of change.
 #' @export
 readTrees<-function (file, max.read = NA, masterTree = NULL, minTreesAll = 20,
                      reestimateBranches = NULL, minSpecs = NULL, useSpecies = NULL,
@@ -1694,8 +1697,16 @@ getAllCorExtantOnly <- function (RERmat, phenvals, method = "auto",
 
 
 #' Apply a transformation to a trees object
+#' @param treesObj A trees object from \code{\link{readTrees}}.
 #' @param transform What transformation to apply. "sqrt" by default.
 #' @param impute Whether to impute missing data
+#' @param computeWeights Whether to compute the variance weights (default TRUE).
+#'   \code{\link{getAllResiduals}} passes FALSE when they would be discarded, which
+#'   saves a regression over every gene and several full-size copies of the paths
+#'   matrix.
+#' @param plotWeights Whether to draw the weight-fitting diagnostics (default
+#'   FALSE). They do not feed the weights, which are identical either way, and
+#'   they are the dominant cost of computing them.
 #' @return A treesObj with transformed paths
 #' @export
 transformPaths=function(treesObj, transform="sqrt", impute=T, computeWeights=TRUE,
@@ -1772,7 +1783,7 @@ transformPaths=function(treesObj, transform="sqrt", impute=T, computeWeights=TRU
 #' @param treesObj A trees object from readTrees or readTrees2
 #' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
 #' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
-#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
+#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5\% by default).
 #' @param useSpecies Species subset to use (optional).
 #' @param min.sp Minimum species in a tree (default: 10).
 #' @param min.valid Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).
@@ -2098,10 +2109,13 @@ getRMat=function(resOut, all=F, use.rows=NULL, norm="scale"){
 #' @param treesObj tree object to operate on, product of \code{\link{readTrees}}
 #' @param transform What transformation to apply. "sqrt" by default.
 #' @param impute Whether to impute missing data
+#' @param plotWeights Whether to draw the weight-fitting diagnostics (default
+#'   FALSE). They do not feed the weights or the residuals, and they are the
+#'   dominant cost of computing weights.
 #'
 #' @param nvMod A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).
 #' @param n.pcs Number of principal components to normalize by (default: 0, mean normalization).
-#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5% by default).
+#' @param cutoff A cutoff for branches to be ignored (optional, lowest 5\% by default).
 #' @param useSpecies Species subset to use (optional).
 #' @param min.sp Minimum species in a tree.  (default: 10).
 #' @param min.valid Minimum number of non NA values (after filtering) that must be present for regression to be computed (default: 20).

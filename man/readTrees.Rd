@@ -11,9 +11,12 @@ readTrees(
   max.read = NA,
   masterTree = NULL,
   minTreesAll = 20,
-  reestimateBranches = F,
+  reestimateBranches = NULL,
   minSpecs = NULL,
-  useSpecies = NULL
+  useSpecies = NULL,
+  anchor = c("auto", "root"),
+  minTreeSpecies = 10,
+  masterBranchLengths = c("estimate", "supplied")
 )
 }
 \arguments{
@@ -26,14 +29,35 @@ Recommended only when the number of available gene trees with all species is sma
 
 \item{minTreesAll}{The minimum number of trees with all species present in order to estimate master tree edge lengths (default 20).}
 
-\item{reestimateBranches}{Boolean indicating whether to re-estimate branch lengths if master tree topology is included (default FALSE)}
+\item{reestimateBranches}{Deprecated; use \code{masterBranchLengths}. FALSE
+selects \code{masterBranchLengths = "supplied"}, TRUE \code{"estimate"}.}
 
-\item{minSpecs}{the minimum number of species that needs to be present in a gene tree to be included in calculating master tree}
+\item{masterBranchLengths}{Where the master tree's branch lengths come from.
+"estimate" (default) estimates each master edge from the gene trees that
+have it; trait analysis reconstructs ancestral states on these lengths, so
+they should come from the data. "supplied" keeps the branch lengths of
+\code{masterTree}, which must then have them.}
+
+\item{minSpecs}{Optional minimum number of species a gene tree must have to
+contribute to the master tree branch length estimate.}
 
 \item{useSpecies}{Species subset to use (optional).}
+
+\item{anchor}{How the master tree is rooted for the path columns. "auto"
+(default) roots it at the internal node with the most genes present on all
+of its sides, so that those genes are rooted at a real node; see
+\code{anchorMaster}. "root" keeps the root of a rooted \code{masterTree}.}
+
+\item{minTreeSpecies}{Gene trees with fewer species (after \code{useSpecies})
+are dropped (default 10). Small trees have no power for RER analysis.}
 }
 \value{
-A trees object of class "treeObj"
+A trees object of class "treeObj". \code{treeStatus} gives each tree's
+topology status against the master ("ok", "discordant", "unresolved", ...);
+only "ok" trees have paths. \code{dropped} records the trees that were not
+kept and why. \code{anchor} describes the anchor node, and
+\code{masterTreeRooted} is the master under its biological rooting, which
+trait analysis uses for ancestral states and the direction of change.
 }
 \description{
 Reads trees from a 2 column , tab seperated, file

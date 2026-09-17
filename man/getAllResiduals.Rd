@@ -8,6 +8,7 @@ getAllResiduals(
   treesObj,
   transform = "sqrt",
   impute = T,
+  plotWeights = FALSE,
   nvMod = NULL,
   n.pcs = 0,
   cutoff = NULL,
@@ -32,11 +33,15 @@ getAllResiduals(
 
 \item{impute}{Whether to impute missing data}
 
+\item{plotWeights}{Whether to draw the weight-fitting diagnostics (default
+FALSE). They do not feed the weights or the residuals, and they are the
+dominant cost of computing weights.}
+
 \item{nvMod}{A normalization model with nrow(treesObj$paths) rows and any number of columns (optional).}
 
 \item{n.pcs}{Number of principal components to normalize by (default: 0, mean normalization).}
 
-\item{cutoff}{A cutoff for branches to be ignored (optional, lowest 5% by default).}
+\item{cutoff}{A cutoff for branches to be ignored (optional, lowest 5\% by default).}
 
 \item{useSpecies}{Species subset to use (optional).}
 

@@ -4,12 +4,29 @@
 \alias{transformPaths}
 \title{Apply a transformation to a trees object}
 \usage{
-transformPaths(treesObj, transform = "sqrt", impute = T)
+transformPaths(
+  treesObj,
+  transform = "sqrt",
+  impute = T,
+  computeWeights = TRUE,
+  plotWeights = FALSE
+)
 }
 \arguments{
+\item{treesObj}{A trees object from \code{\link{readTrees}}.}
+
 \item{transform}{What transformation to apply. "sqrt" by default.}
 
 \item{impute}{Whether to impute missing data}
+
+\item{computeWeights}{Whether to compute the variance weights (default TRUE).
+\code{\link{getAllResiduals}} passes FALSE when they would be discarded, which
+saves a regression over every gene and several full-size copies of the paths
+matrix.}
+
+\item{plotWeights}{Whether to draw the weight-fitting diagnostics (default
+FALSE). They do not feed the weights, which are identical either way, and
+they are the dominant cost of computing them.}
 }
 \value{
 A treesObj with transformed paths

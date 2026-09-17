@@ -27,7 +27,7 @@ coreGetResiduals(
 
 \item{n.pcs}{Number of principal components to normalize by (default: 0, mean normalization).}
 
-\item{cutoff}{A cutoff for branches to be ignored (optional, lowest 5% by default).}
+\item{cutoff}{A cutoff for branches to be ignored (optional, lowest 5\% by default).}
 
 \item{useSpecies}{Species subset to use (optional).}
 
