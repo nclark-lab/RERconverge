@@ -32,12 +32,6 @@ Recommended only when the number of available gene trees with all species is sma
 \item{reestimateBranches}{Deprecated; use \code{masterBranchLengths}. FALSE
 selects \code{masterBranchLengths = "supplied"}, TRUE \code{"estimate"}.}
 
-\item{masterBranchLengths}{Where the master tree's branch lengths come from.
-"estimate" (default) estimates each master edge from the gene trees that
-have it; trait analysis reconstructs ancestral states on these lengths, so
-they should come from the data. "supplied" keeps the branch lengths of
-\code{masterTree}, which must then have them.}
-
 \item{minSpecs}{Optional minimum number of species a gene tree must have to
 contribute to the master tree branch length estimate.}
 
@@ -50,14 +44,20 @@ of its sides, so that those genes are rooted at a real node; see
 
 \item{minTreeSpecies}{Gene trees with fewer species (after \code{useSpecies})
 are dropped (default 10). Small trees have no power for RER analysis.}
+
+\item{masterBranchLengths}{Where the master tree's branch lengths come from.
+"estimate" (default) estimates each master edge from the gene trees that
+have it; trait analysis reconstructs ancestral states on these lengths, so
+they should come from the data. "supplied" keeps the branch lengths of
+\code{masterTree}, which must then have them.}
 }
 \value{
 A trees object of class "treeObj". \code{treeStatus} gives each tree's
-topology status against the master ("ok", "discordant", "unresolved", ...);
-only "ok" trees have paths. \code{dropped} records the trees that were not
-kept and why. \code{anchor} describes the anchor node, and
-\code{masterTreeRooted} is the master under its biological rooting, which
-trait analysis uses for ancestral states and the direction of change.
+  topology status against the master ("ok", "discordant", "unresolved", ...);
+  only "ok" trees have paths. \code{dropped} records the trees that were not
+  kept and why. \code{anchor} describes the anchor node, and
+  \code{masterTreeRooted} is the master under its biological rooting, which
+  trait analysis uses for ancestral states and the direction of change.
 }
 \description{
 Reads trees from a 2 column , tab seperated, file

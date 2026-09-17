@@ -50,7 +50,7 @@ require(impute)
 #'   The input \code{tree} may contain a subset of the taxa present in
 #'   \code{master}, but must contain at least two taxa in common.
 #'
-#' @importFrom TreeTools KeepTip Children RootNode TipLabels Subtree RootTree
+#' @importFrom TreeTools KeepTip RootNode TipLabels Subtree RootTree
 #' @keywords internal
 rootLikeMaster <- function(tree, master) {
   # Called with two kinds of tree, and the difference matters. readTrees() passes
