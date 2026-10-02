@@ -1597,7 +1597,8 @@ char2Paths=  function (tip.vals, treesObj, altMasterTree = NULL, metric = "diff"
     
   }
   
-  ap = allPaths(treesObj$masterTree)
+  ap = treesObj$ap
+  if (is.null(ap)) ap = allPaths(treesObj$masterTree)
   allPathMasterRelative(charTree, treesObj$masterTree, ap)
 }
 
